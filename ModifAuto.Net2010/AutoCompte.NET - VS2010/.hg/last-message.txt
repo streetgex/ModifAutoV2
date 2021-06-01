@@ -1,0 +1,1 @@
+Suppression des valeurs "----" pour le telephone et le bureau
