@@ -363,7 +363,7 @@ Public Class Form1
                         ancienEQ = objuser.Properties("DepartmentNumber").Value
                     End If
                     'On Error Resume Next
-
+                    'test
                     If Thumbn.controlServeurZoneLabo = True Then
                         Dim testPhotoExist As Boolean = System.IO.File.Exists(Thumbn.pathPhoto & usrID & ".jpg")
                         If testPhotoExist = True Then
