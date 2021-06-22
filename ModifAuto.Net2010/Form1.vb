@@ -48,7 +48,7 @@ Public Class Form1
 
             'ctrlMS.recupUserAD()
             'ctrlMS.adddatedefin()
-            'Thumbn.ComparePhoto("2503", New DirectoryEntry("LDAP://CN=Stephane CERDAN,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"))
+            'Thumbn.ComparePhoto("836", New DirectoryEntry("LDAP://CN=Catherine BIRCK,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"))
             'EcritureNumeroBadge(New DirectoryEntry("LDAP://CN=Stephane CERDAN,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"))
             'Commun.SetADLDAPProperty("steph", "serialNumber", tabNumBadge,)
 
@@ -364,22 +364,26 @@ Public Class Form1
                     End If
                     'On Error Resume Next
                     'test
-                    If Thumbn.controlServeurZoneLabo = True Then
-                        Dim testPhotoExist As Boolean = System.IO.File.Exists(Thumbn.pathPhoto & usrID & ".jpg")
-                        If testPhotoExist = True Then
-                            'Gestion des Thumbnails
-                            'Thumbn.ComparePhoto(TransformeSAMACCOUNTenCN(usrLogin), usrID, objuser)
-                            Thumbn.ComparePhoto(usrID, objuser)
-                        Else
-                            If Not objuser.Properties("jpegPhoto").Value Is Nothing Or Not objuser.Properties("thumbnailPhoto").Value Is Nothing Then
-                                'Si pas de photo dans le dossier, on efface l'attribut AD
-                                objuser.Properties("jpegPhoto").Value = Nothing
-                                objuser.Properties("thumbnailPhoto").Value = Nothing
-                                Commun.AppliquerChangement(objuser)
-                                Commun.Journal("Nettoyage des attributs Photos Réussi : " & usrLogin)
-                            End If
-                        End If
-                    End If
+
+                    'If Thumbn.controlServeurZoneLabo = True Then
+                    '    Dim testPhotoExist As Boolean = System.IO.File.Exists(Thumbn.pathPhoto & usrID & ".jpg")
+                    '    If testPhotoExist = True Then
+                    '        'Gestion des Thumbnails
+                    '        Thumbn.ComparePhoto(usrID, objuser)
+                    '        'Dim testComparePhoto As Boolean = Thumbn.CompareImageBytes_base64Identique(objuser.Properties("jpegPhoto").Value, "")
+                    '    Else
+                    '        If Not objuser.Properties("jpegPhoto").Value Is Nothing Or Not objuser.Properties("thumbnailPhoto").Value Is Nothing Then
+                    '            'Si pas de photo dans le dossier, on efface l'attribut AD
+                    '            objuser.Properties("jpegPhoto").Value = Nothing
+                    '            objuser.Properties("thumbnailPhoto").Value = Nothing
+                    '            Commun.AppliquerChangement(objuser)
+                    '            Commun.Journal("Nettoyage des attributs Photos Réussi : " & usrLogin)
+                    '        End If
+                    '    End If
+                    'End If
+
+                    'Gestion de la photo et du Thumbnail
+                    Thumbn.ComparePhoto(usrID, objuser)
 
                     'Ecriture du Numero de badge extrait de MicroSesame
                     EcritureNumeroBadge(objuser)
