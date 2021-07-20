@@ -39,6 +39,8 @@ Public Class Form1
 
         If Environment.MachineName <> "SERV-AD1" Then
 
+            'ExpirationMDP()
+            'Dim aaa = Json.GetMyIGBMC()
             'controlDoublonUIDNumber()
             'Dim aaa = Commun.UIDNumberMini
             'Pws.DeleteExportRequestCommun("zinka-5960-IGBMC")
@@ -48,7 +50,7 @@ Public Class Form1
 
             'ctrlMS.recupUserAD()
             'ctrlMS.adddatedefin()
-            'Thumbn.ComparePhoto("836", New DirectoryEntry("LDAP://CN=Catherine BIRCK,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"))
+            'Thumbn.ComparePhoto("7105", New DirectoryEntry("LDAP://CN=Catherine BIRCK,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"))
             'EcritureNumeroBadge(New DirectoryEntry("LDAP://CN=Stephane CERDAN,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"))
             'Commun.SetADLDAPProperty("steph", "serialNumber", tabNumBadge,)
 
@@ -300,7 +302,7 @@ Public Class Form1
         'COMPARAISON DU PERSONNEL ENTRE HIER ET AUJOURDH'HUI ET CREATION DU FICHIER DE MODIFICATIONS
 
         Commun.Journal("Debut des Modification des Utilisateurs", False)
-
+        Dim tabPhoto(,) As String = Json.GetMyIGBMC()
 
         Using Ldap As DirectoryEntry = New DirectoryEntry("LDAP://DC=igbmc,DC=u-strasbg,DC=fr", Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
 
@@ -362,28 +364,21 @@ Public Class Form1
                     If objuser.Properties("DepartmentNumber").Value <> "" Then
                         ancienEQ = objuser.Properties("DepartmentNumber").Value
                     End If
-                    'On Error Resume Next
-                    'test
-
-                    'If Thumbn.controlServeurZoneLabo = True Then
-                    '    Dim testPhotoExist As Boolean = System.IO.File.Exists(Thumbn.pathPhoto & usrID & ".jpg")
-                    '    If testPhotoExist = True Then
-                    '        'Gestion des Thumbnails
-                    '        Thumbn.ComparePhoto(usrID, objuser)
-                    '        'Dim testComparePhoto As Boolean = Thumbn.CompareImageBytes_base64Identique(objuser.Properties("jpegPhoto").Value, "")
-                    '    Else
-                    '        If Not objuser.Properties("jpegPhoto").Value Is Nothing Or Not objuser.Properties("thumbnailPhoto").Value Is Nothing Then
-                    '            'Si pas de photo dans le dossier, on efface l'attribut AD
-                    '            objuser.Properties("jpegPhoto").Value = Nothing
-                    '            objuser.Properties("thumbnailPhoto").Value = Nothing
-                    '            Commun.AppliquerChangement(objuser)
-                    '            Commun.Journal("Nettoyage des attributs Photos Réussi : " & usrLogin)
-                    '        End If
-                    '    End If
-                    'End If
 
                     'Gestion de la photo et du Thumbnail
-                    Thumbn.ComparePhoto(usrID, objuser)
+                    Dim rech = Commun.MultiIndexOf(tabPhoto, usrID, 0)
+                    If rech <> -1 Then
+                        Thumbn.ComparePhoto(tabPhoto(1, rech), tabPhoto(2, rech), objuser)
+                        'Else
+
+                        '    If (Not objuser.Properties("jpegPhoto").Value Is Nothing Or Not objuser.Properties("thumbnailPhoto").Value Is Nothing) Then
+                        '        objuser.Properties("jpegPhoto").Value = Nothing
+                        '        objuser.Properties("thumbnailPhoto").Value = Nothing
+                        '        Commun.AppliquerChangement(objuser)
+                        '        Commun.Journal("Nettoyage des attributs Photos Réussi : " & objuser.Properties("SAMAccountName").Value)
+                        '    End If
+
+                    End If
 
                     'Ecriture du Numero de badge extrait de MicroSesame
                     EcritureNumeroBadge(objuser)
@@ -1526,7 +1521,7 @@ fermerUsing:
                             sujet = "Expiration de Votre mot de passe"
                             groupe = "G_SMDPM_Users-Admins"
                         ElseIf Commun.AppartientGroup(samaccountname, "G_SMDPM_UsersAdm") = True Then
-                            StrategieMDP = New DirectoryEntry("LDAP://CN=Strategie_MDPM_Users-Admins,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr", Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+                            StrategieMDP = New DirectoryEntry("LDAP://CN=Strategie_MDPM_UsersAdm,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr", Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
                             type = "usersAdm"
                             sujet = "Expiration de Votre mot de passe d'administration"
                             groupe = "G_SMDPM_UsersAdm"
@@ -1537,6 +1532,7 @@ fermerUsing:
 
                         Dim nbrChar As String = StrategieMDP.Properties("msDS-MinimumPasswordLength").Value.ToString
                         Dim historyLenght As String = StrategieMDP.Properties("msDS-PasswordHistoryLength").Value.ToString
+                        'Dim aaa = StrategieMDP.Properties("msDS-MaximumPasswordAge").Value
                         Dim MaxPWDageJourPolicy As Integer = ConvertAttribute(StrategieMDP.Properties("msDS-MaximumPasswordAge").Value)
 
 
@@ -1548,13 +1544,15 @@ fermerUsing:
                         rappelComplexite = rappelComplexite & vbCrLf & vbTab & "- 1 Majuscule" & vbCrLf & vbTab & "- 1 Minuscule" & vbCrLf & vbTab & "- 1 Chiffre" & vbCrLf & vbTab & "- 1 Caractère spécial (non-alphabétique)"
 
                         Dim lastSetPWD As DateTime = Format(New DateTime(1601, 1, 2).AddTicks(resultUser.Properties("pwdLastSet")(0)), "dd/MM/yyyy")
-                        Dim expirationPWD As DateTime = lastSetPWD.AddDays(MaxPWDageJourPolicy - 1)
+                        Dim expirationPWDDate As DateTime = lastSetPWD.AddDays(MaxPWDageJourPolicy - 1)
 
                         Using userADM As DirectoryEntry = resultUser.GetDirectoryEntry
-                            Dim lastSetDateTxt As String = expirationPWD.ToString("dd/MM/yyy")
-                            If userADM.Properties("physicalDeliveryOfficeName").Value <> "Expire le : " & lastSetDateTxt And resultUser.Properties("pwdLastSet")(0) <> 0 Then
-                                userADM.Properties("physicalDeliveryOfficeName").Value = "Expire le : " & lastSetDateTxt
-                                Commun.AppliquerChangement(userADM)
+                            Dim expirationPWDDateTxt As String = expirationPWDDate.ToString("dd/MM/yyy")
+                            If type = "usersAdm" Or type = "adminInfo" Then
+                                If userADM.Properties("physicalDeliveryOfficeName").Value <> "Expire le : " & expirationPWDDateTxt And resultUser.Properties("pwdLastSet")(0) <> 0 Then
+                                    userADM.Properties("physicalDeliveryOfficeName").Value = "Expire le : " & expirationPWDDateTxt
+                                    Commun.AppliquerChangement(userADM)
+                                End If
                             End If
 
 
@@ -1581,15 +1579,15 @@ fermerUsing:
 
                         Dim ctrl As Boolean = False
                         If type = "adminInfo" Then
-                            ctrl = (aujourdhui = expirationPWD Or demain = expirationPWD Or expiration7 = expirationPWD Or expiration3 = expirationPWD Or expiration2 = expirationPWD)
+                            ctrl = (aujourdhui = expirationPWDDate Or demain = expirationPWDDate Or expiration7 = expirationPWDDate Or expiration3 = expirationPWDDate Or expiration2 = expirationPWDDate)
                         Else
-                            ctrl = (aujourdhui = expirationPWD Or demain = expirationPWD Or expiration30 = expirationPWD Or expiration7 = expirationPWD Or expiration3 = expirationPWD Or expiration2 = expirationPWD)
+                            ctrl = (aujourdhui = expirationPWDDate Or demain = expirationPWDDate Or expiration30 = expirationPWDDate Or expiration7 = expirationPWDDate Or expiration3 = expirationPWDDate Or expiration2 = expirationPWDDate)
                         End If
 
                         If ctrl = True Then
-                            Dim corpMail As String = MailTemplatePasswdExpire(type, samaccountname, expirationPWD, MaxPWDageJourPolicy, historyLenght, nbrChar)
-                            Commun.SendEmail("serviceinfo@igbmc.fr", Email, sujet, corpMail)
-                            Commun.Journal("Mot de passe ADM : mail envoyé a : " & Email, False)
+                            Dim corpMail As String = MailTemplatePasswdExpire(type, samaccountname, expirationPWDDate, MaxPWDageJourPolicy, historyLenght, nbrChar)
+                            'Commun.SendEmail("serviceinfo@igbmc.fr", Email, sujet, corpMail)
+                            'Commun.Journal("Mot de passe ADM : mail envoyé a : " & Email, False)
                         End If
                     Next resultUser
 

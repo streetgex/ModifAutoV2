@@ -22,36 +22,40 @@ Public Class Thumbn
     Public Shared pathThumbs As String = "\\" & Thumbn.srv & "\photos-RH\Thumbnails\"
 
     'Shared Sub ComparePhoto(ByVal cn As String, ByVal matricule As String, ByVal objDirEnt As DirectoryEntry)
-    Shared Sub ComparePhoto(ByVal matricule As String, ByVal objDirEnt As DirectoryEntry)
+    Shared Sub ComparePhoto(ByVal photo64 As String, ByVal autorisationDiffInterne As String, ByVal objDirEnt As DirectoryEntry)
         Try
-            Dim fichierPhoto As String = pathPhoto & matricule & ".jpg"
-            'Dim sFile As New System.IO.FileInfo(fichierPhoto)
-            'Dim testFichier As Boolean = sFile.Exists
-            'sFile = Nothing
-            'If testFichier Then
 
-            'File.Copy(fichierPhoto, "S:\Mes bibliothèques\Photos\" & objDirEnt.Properties("displayNamePrintable").Value & "-" & matricule & ".jpg")
 
-            Dim dataPhoto As String = Json.SendJson("", "/personnes/" & matricule & "/autorisations-diffusion-interne?nb_elements_par_page=1&page=1", "MyIGBMC", "GET")
-            Dim responseDataPhoto As Generic.Dictionary(Of String, Object) = New JavaScriptSerializer().Deserialize(Of Object)(dataPhoto)
 
-            Dim personne As Generic.Dictionary(Of String, Object) = responseDataPhoto("resultat")
-            Dim autorisationDiffInterne As Boolean = personne("autorise_diffusion_photo_en_interne")
-            Dim lastModif As Date = personne("date_derniere_modification_donnees_complementaires")
+            'Dim dataPhoto As String = Json.SendJson("", "/personnes/" & matricule & "/autorisations-diffusion-interne?nb_elements_par_page=1&page=1", "MyIGBMC", "GET")
+            'Dim responseDataPhoto As Generic.Dictionary(Of String, Object) = New JavaScriptSerializer().Deserialize(Of Object)(dataPhoto)
 
-            Dim diffdate As Integer = DateDiff("D", lastModif, Now)
-            If diffdate > 7 Then Exit Sub
+            'If responseDataPhoto Is Nothing Then
+            '    Exit Sub
+            'End If
 
-            If autorisationDiffInterne = False And (Not objDirEnt.Properties("jpegPhoto").Value Is Nothing Or Not objDirEnt.Properties("thumbnailPhoto").Value Is Nothing) Then
-                objDirEnt.Properties("jpegPhoto").Value = Nothing
-                objDirEnt.Properties("thumbnailPhoto").Value = Nothing
-                Commun.AppliquerChangement(objDirEnt)
-                Commun.Journal("Nettoyage des attributs Photos Réussi : " & objDirEnt.Properties("SAMAccountName").Value)
+            'Dim personne As Generic.Dictionary(Of String, Object) = responseDataPhoto("resultat")
+
+            'Dim lastModif As Date = personne("date_derniere_modification_donnees_complementaires")
+            'Dim diffdate As Integer = DateDiff("D", lastModif, Now)
+            'If diffdate > 7 Then Exit Sub
+
+            'Dim autorisationDiffInterne As Boolean = personne("autorise_diffusion_photo_en_interne")
+
+
+
+            If autorisationDiffInterne = False Then
+                If (Not objDirEnt.Properties("jpegPhoto").Value Is Nothing Or Not objDirEnt.Properties("thumbnailPhoto").Value Is Nothing) Then
+                    objDirEnt.Properties("jpegPhoto").Value = Nothing
+                    objDirEnt.Properties("thumbnailPhoto").Value = Nothing
+                    Commun.AppliquerChangement(objDirEnt)
+                    Commun.Journal("Nettoyage des attributs Photos Réussi : " & objDirEnt.Properties("SAMAccountName").Value)
+                End If
                 Exit Sub
             End If
 
 
-            Dim imageOriginale As String = personne("photo")
+            Dim imageOriginale As String = photo64
             imageOriginale = imageOriginale.Replace("data:image/jpeg;base64,", "")
 
             'Dim aaaa = imageOriginale.Length
@@ -73,7 +77,7 @@ Public Class Thumbn
                 Commun.AppliquerChangement(objDirEnt)
 
                 Dim ImageOriginaleByte As Byte() = Convert.FromBase64String(imageOriginale)
-                Dim imageByteTh As Byte() = CreateThumb1(Convert.FromBase64String(imageOriginale), matricule)
+                Dim imageByteTh As Byte() = CreateThumb1(Convert.FromBase64String(imageOriginale), objDirEnt.Properties("EmployeeID").Value)
 
                 objDirEnt.Properties("jpegPhoto").Insert(0, ImageOriginaleByte)
                 objDirEnt.Properties("thumbnailPhoto").Insert(0, imageByteTh)
