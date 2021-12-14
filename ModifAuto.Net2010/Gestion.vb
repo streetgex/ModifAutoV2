@@ -32,8 +32,8 @@ Public Class gestion
                                 Supprime.SupprimCompte(userAD)
                                 Commun.Journal("Suppression du compte interne : " & userAD.Properties("SAMAccountName").Value)
 
-                                'Cas des utilisateurs "Externes" et "Provisoires"
-                            ElseIf userAD.Parent.Path = "LDAP://" & RecupDataini.RecupVar("[OUUtilisateursExternes]") Or userAD.Parent.Path = "LDAP://" & RecupDataini.RecupVar("[OUUtilisateursProvisoires]") Then
+                                'Cas des utilisateurs "Externes", "Provisoires" et "Invité"
+                            ElseIf userAD.Parent.Path = "LDAP://" & RecupDataini.RecupVar("[OUUtilisateursExternes]") Or userAD.Parent.Path = "LDAP://" & RecupDataini.RecupVar("[OUUtilisateursProvisoires]") Or userAD.Parent.Path = "LDAP://" & RecupDataini.RecupVar("[OUUtilisateursInvites]") Then
 
                                 'suppression des comptes en fonction de "accountDeletionDT"
                                 If userAD.Properties.Contains("accountDeletionDT") Then

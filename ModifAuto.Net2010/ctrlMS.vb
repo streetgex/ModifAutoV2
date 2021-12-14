@@ -4,8 +4,11 @@ Imports System.Web.Script.Serialization
 
 Public Class ctrlMS
     Shared Sub recupUserAD()
-        Kill("c:\temp\MSrapport.csv")
-        File.AppendAllText("c:\temp\MSrapport.csv", "matricule,nom,present AD,present MS,actif MS,date de Sortie,badge Edité,photo,photo à refaire,plusieurs badges")
+        Try
+            Kill("c:\temp\MSrapport.csv")
+        Catch
+        End Try
+        File.AppendAllText("c:\temp\MSrapport.csv", "matricule,nom,present AD,present MS,actif MS,date de Sortie IGBMC,badge Edité,photo,photo à refaire,plusieurs badges,date fin de validité MS")
 
         Dim dateRef As String = "20190101000000.0Z"
 
@@ -21,7 +24,7 @@ Public Class ctrlMS
         Dim tabMatriculeMS As String()
         Dim tabMatriculeAD As String()
 
-        For k = 0 To 8
+        For k = 0 To 10
             'Dim totalMS = jsonMS.MakeRequest("GET", "/users?fields=matricule&filter=matricule&limit=100&offset=" & k * 100)
             Dim totalMS = jsonMS.MakeRequest("GET", "/users?fields=matricule&filter=matricule&limit=100&offset=" & k * 100)
             Dim matriculeResponseData = New JavaScriptSerializer().Deserialize(Of Object)(totalMS)
@@ -70,11 +73,12 @@ Public Class ctrlMS
             Dim presentAD As Boolean = False
             Dim matricule As String = ""
             Dim nom As String = ""
-            Dim dateSortieTxt As String = ""
+            Dim dateSortieTxtAD As String = ""
+            Dim endDateMSTxt As String = ""
 
             matricule = employeeid
 
-            Dim fiche = jsonMS.MakeRequest("GET", "/users?prettyPrint&fields=id,lastName,firstName,valid,photo.root&filter=matricule=" & matricule)
+            Dim fiche = jsonMS.MakeRequest("GET", "/users?prettyPrint&fields=id,lastName,firstName,valid,validityStartDate,validityEndDate,isCurrentlyValid,photo.root&filter=matricule=" & matricule)
             Dim ficheResponseData = New JavaScriptSerializer().Deserialize(Of Object)(fiche)
             If ficheResponseData("data").length = 0 Then
                 presentMS = False
@@ -84,10 +88,28 @@ Public Class ctrlMS
 
             If presentMS = True Then
 
-                If ficheResponseData("data")(0)("valid") = "true" Then
-                    activeMS = True
+                'If ficheResponseData("data")(0)("valid") = "true" Then
+
+
+                '    Dim dateDebut As String = ficheResponseData("data")(0)("validityStartDate")
+                '    Dim dateFin As String = ficheResponseData("data")(0)("validityEndDate")
+                '    If dateDebut = "" Then dateDebut = "1900-01-01"
+
+                '    If dateFin <> "" Then
+                '        activeMS = IsValidMS(dateDebut, dateFin)
+                '    Else
+                '        activeMS = True
+                '    End If
+                'End If
+
+                Dim dateFin As String = ficheResponseData("data")(0)("validityEndDate")
+                If dateFin <> "" Then
+                    Dim endDateMS As Date = Convert.ToDateTime(dateFin)
+                    endDateMSTxt = endDateMS.ToString("dd/MM/yyyy")
+
                 End If
 
+                activeMS = Convert.ToBoolean(ficheResponseData("data")(0)("isCurrentlyValid"))
                 Dim donneephoto = ficheResponseData("data")(0)("photo")
                 photo = (Not donneephoto Is Nothing)
 
@@ -96,41 +118,24 @@ Public Class ctrlMS
                     photoARefaire = Not faceDetected
                 End If
 
-
             End If
-
 
             Dim filter1 As SearchResult = Commun.SearchFilterOne(RecupDataini.RecupVar("[OUUtilisateurs]"), "(&(employeeID=" & employeeid & "))", SearchScope.Subtree, "employeeID")
             If filter1 IsNot Nothing Then
                 Using user As DirectoryEntry = New DirectoryEntry(filter1.Path)
 
-
-                    'If matricule = "" Then
-                    '    Continue For
-                    'End If
-
-
                     presentAD = (user.Parent.Path = "LDAP://OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr")
 
-                    dateSortieTxt = user.Properties("extensionAttribute1").Value
+                    dateSortieTxtAD = user.Properties("extensionAttribute1").Value
                     Dim dateSortie As DateTime
-                    If dateSortieTxt <> "" Then
-                        dateSortie = DateTime.ParseExact(dateSortieTxt, "dd/MM/yyyy", Nothing)
+                    If dateSortieTxtAD <> "" Then
+                        dateSortie = DateTime.ParseExact(dateSortieTxtAD, "dd/MM/yyyy", Nothing)
                         If dateSortie < #1/1/2020 12:00:00 AM# Then Continue For
                     End If
 
                     nom = user.Properties("sn").Value & " " & user.Properties("givenName").Value
 
-
-                    'https://serv-ca-formation.igbmc.u-strasbg.fr/api/credentials?fields=csn,holder.id,holder.matricule,holder.photo.root&filter=holder.matricule=6071
-
-
-
-
-
                     If presentMS = True Then
-
-
                         'Dim idMS As String = ficheResponseData("data")(0)("id") 'deviceCreate("id")
                         'Dim credbadge = jsonMS.MakeRequest("GET", "/users/" & id & "?fields=credentials.TECHNO_01.csn")
                         badgeEdit = user.Properties.Contains("serialNumber")
@@ -142,10 +147,6 @@ Public Class ctrlMS
 
 
                     End If
-
-
-
-                    '
 
                 End Using
             Else
@@ -165,30 +166,37 @@ Public Class ctrlMS
                 countPhotoARefaire += 1
                 countPhotoAFaire += 1
             End If
-            File.AppendAllText("c:\temp\MSrapport.csv", vbCrLf & matricule & "," & nom & "," & presentAD & "," & presentMS & "," & activeMS & "," & dateSortieTxt & "," & badgeEdit & "," & photo & "," & photoARefaire & "," & multibadge)
+            File.AppendAllText("c:\temp\MSrapport.csv", vbCrLf & matricule & "," & nom & "," & presentAD & "," & presentMS & "," & activeMS & "," & dateSortieTxtAD & "," & badgeEdit & "," & photo & "," & photoARefaire & "," & multibadge & "," & endDateMSTxt)
 
         Next
 
-
-
         Dim corpMail As String = "Personnes Totales presentes dans MicroSesame : " & countMS & vbCrLf & vbCrLf _
             & "Personnes presentes dans l'AD : " & countAD & vbCrLf & vbCrLf _
-            & "Personnes presentes dans MicroSesame et Actives: " & countActiveMS & vbCrLf & vbCrLf _
+            & "Personnes actives dans MicroSesame: " & countActiveMS & vbCrLf & vbCrLf _
             & "Personnes à supprimer dans MicroSesame : " & countMSASuppr & vbCrLf & vbCrLf _
             & "Personnes à creer dans MicroSesame (ou Désactivées): " & countMSACreer & vbCrLf & vbCrLf _
             & "Photo à faire dans MicroSesame : " & countPhotoAFaire & " (dont " & countPhotoARefaire & " à refaire)" & vbCrLf & vbCrLf _
             & "Badge à éditer dans MicroSesame : " & countBadgeEdit & vbCrLf & vbCrLf _
             & "Personnes avec plusieurs badges déclarés : " & CountMultiBadge & vbCrLf & vbCrLf
 
-
-
         File.Copy("c:\temp\MSrapport.csv", Form1.nomFichierRapportMS)
         Commun.SendEmail("administrateur@igbmc.fr", "officiersorienteurs@igbmc.fr", "Fichier de controle MicroSesame  (" & Now & ")", corpMail, Form1.nomFichierRapportMS) 'kolb@igbmc.fr;
 
     End Sub
+    Shared Function IsValidMS(ByVal startDateTxt As String, ByVal endDateTxt As String) As Boolean
+        Dim result As Boolean = False
+        Dim startDate As Date = Convert.ToDateTime(startDateTxt)
+        Dim endDate As Date = Convert.ToDateTime(endDateTxt)
+        Dim aaa = Now
+        If Now > startDate And Now < DateAdd("d", 1, endDate) Then
+            result = True
+        End If
+        Return result
+    End Function
+
     Shared Sub adddatedefin()
-        Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursSortis]"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
-            Dim filtre As SearchResultCollection = Commun.SearchFilterAll(AD, "(&(objectCategory=person))", SearchScope.OneLevel)
+        Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursDesactives]"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+            Dim filtre As SearchResultCollection = Commun.SearchFilterAll(AD, "(&(objectCategory=person)(!(extensionAttribute1=*)))", SearchScope.Subtree)
             For Each result As SearchResult In filtre
                 Using user As DirectoryEntry = New DirectoryEntry(result.Path)
 

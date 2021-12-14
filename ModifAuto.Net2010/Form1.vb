@@ -10,7 +10,7 @@ Imports System.Web.Script.Serialization
 
 Public Class Form1
 
-    Shared withJson As String = "debug" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
+    Shared withJson As String = "json" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
     Public Shared tabPersoMonoEquipe As String(,)
     Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Integer)
     Public Shared tabExcepUser(,) As String
@@ -38,7 +38,7 @@ Public Class Form1
 
 
         If Environment.MachineName <> "SERV-AD1" Then
-
+            'ctrlMS.recupUserAD()
             'ExpirationMDP()
             'Dim aaa = Json.GetMyIGBMC()
             'controlDoublonUIDNumber()
@@ -140,6 +140,9 @@ Public Class Form1
 
         If Hour(Now) = 1 Or Hour(Now) = 2 Then
             'Gestion de l'expiration des mot de passe des comptes adm
+
+            Commun.Journal("Gestion de l'expiration des comptes/ mots de passe", False)
+
             ExpirationMDP()
 
             Commun.Journal("Debut de la gestion de l'envoi des mails de cloture de compte", False)
@@ -1916,7 +1919,9 @@ sortie:
 
                 'Verification si l'utilsateur a un compte dans l'AD
                 Dim compteAD As Boolean = True
-                If Commun.TransformeSAMACCOUNTenCN(login) = "" Then
+                Dim CN As String = Commun.TransformeSAMACCOUNTenCN(login)
+                'If CN = "" Or CN Like "*OU=Out,OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr" Then
+                If CN = "" Then
                     compteAD = False
                 End If
 
@@ -1967,17 +1972,15 @@ sortie:
 
                     '             0                 1               2                   3                   4               5               6                   7               8                  9              10              11              12          13                  14              15                    16
                     lineJson = lastname & "," & firstname & "," & login & "," & Dest_short_name & "," & dest_name & "," & "100" & "," & BatimentUser & "," & TelUser & "," & equipeUser & "," & Nplus1ID & "," & IDuser & "," & aliasMail & "," & ld & "," & organism & "," & finContrat & "," & genre & "," & diffusionPhotoInterne.ToString
-                    If tabResultJson Is Nothing Then
-                        ReDim Preserve tabResultJson(0)
-                    Else
-                        ReDim Preserve tabResultJson(UBound(tabResultJson) + 1)
-                    End If
-
-                    tabResultJson(UBound(tabResultJson)) = lineJson
+                    tabResultJson.Add(lineJson)
+                    'If tabResultJson Is Nothing Then
+                    '    ReDim Preserve tabResultJson(0)
+                    'Else
+                    '    ReDim Preserve tabResultJson(UBound(tabResultJson) + 1)
+                    'End If
+                    'tabResultJson(UBound(tabResultJson)) = lineJson
                 End If
             Next p
-
-
 
         Next d
         FileClose(2)

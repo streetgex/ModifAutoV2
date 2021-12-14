@@ -9,10 +9,15 @@ Imports System.Collections.ObjectModel
 
 Public Class Creation
     Shared tabDatabase(1, 35) As String
-
+    Shared Function CompteEmployeeIDExisteOUOut(ByVal id As String) As String
+        Dim result As String = ""
+        Dim searchID As SearchResult = Commun.SearchFilterOne(RecupDataini.RecupVar("[OUUtilisateursSortis]"), "employeeID=" & id, SearchScope.OneLevel, "")
+        If Not searchID Is Nothing Then result = searchID.Path
+        Return result
+    End Function
     Sub createCompte(ByVal usrNom As String, ByVal usrPrenom As String, ByVal usrDest As String, usrID As String, ByVal usrLogin As String, ByVal genre As String, ByVal Optional usrListeDiff As String = "")
 
-        NbUserDatabaseExchange()
+
 
         ' TRAITEMENT DU FICHIER DE CREATION DE COMPTES
 
@@ -27,12 +32,16 @@ Public Class Creation
 
 
         'Si l'utilisateur existe par rapport a l'employeeID et est dans l'ou Utilisateurs, on prend la ligne suivante du fichier
-        If EmployeeIDExist(usrID) = True And DirectoryEntry.Exists("LDAP://CN=" & usrPrenom & " " & usrNom & "," & RecupDataini.RecupVar("[OUUtilisateursActifs]")) Then Exit Sub
+        If EmployeeIDExist(usrID) = True And DirectoryEntry.Exists("LDAP://CN=" & usrPrenom & " " & usrNom & "," & RecupDataini.RecupVar("[OUUtilisateursActifs]")) Then
+
+
+
+        End If
 
         'fonction deja appelée dans la creation du fichier json
-        If usrLogin = "" Then
-            usrLogin = DetermineLogin(usrPrenom, usrNom, usrID)
-        End If
+        'If usrLogin = "" Then
+        '    usrLogin = DetermineLogin(usrPrenom, usrNom, usrID)
+        'End If
 
 
         Dim usrPasswd As String = RandomPassword.Generate(8, 10)
@@ -50,14 +59,16 @@ Public Class Creation
 
         Try
             'verification si un compte provisoire exsite
-            Dim tempCtrlPathExist As String = UserExist(usrPrenom & " " & usrNom & " (Provisoire)")
+            Dim provCtrlPathExist As String = UserExist(usrPrenom & " " & usrNom & " (Provisoire)")
 
+            'verification si un compte Sorti existe
+            Dim outCtrlAccountExist As String = CompteEmployeeIDExisteOUOut(usrID)
 
             objOUUtilisateurs = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursActifs]"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
 
 
 
-            If tempCtrlPathExist = "" Then
+            If provCtrlPathExist = "" And outCtrlAccountExist = "" Then
 
                 objUser = objOUUtilisateurs.Children.Add("CN=" & usrPrenom & " " & usrNom, "user")
                 objUser.Properties("SAMAccountName").Value = usrLogin
@@ -66,20 +77,25 @@ Public Class Creation
 
                 objUser.Properties("Comment").Value += "Créé le: " & Strings.Left(CStr(Now), 10) & vbCrLf
                 Commun.AppliquerChangement(objUser)
+                Commun.Journal("Creation de compte : Creation d'un nouveau compte : " & usrLogin, False)
             Else
+                If outCtrlAccountExist <> "" Then
+                    objUser = New DirectoryEntry(outCtrlAccountExist, Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+                    objUser.Properties("Comment").Value += "Réactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf
+                    objUser.Properties("AccountExpires").Value = 0
+                    Commun.AppliquerChangement(objUser)
+                ElseIf provCtrlPathExist <> "" Then
 
-                objUser = New DirectoryEntry(tempCtrlPathExist, Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+                    objUser = New DirectoryEntry(provCtrlPathExist, Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+                    objUser.Rename("CN=" & usrPrenom & " " & usrNom)
+                    Commun.AppliquerChangement(objUser)
+                    objUser.Properties("Comment").Value += "Transformé le: " & Strings.Left(CStr(Now), 10) & vbCrLf
+                    objUser.Properties("AccountExpires").Value = 0
+                    Commun.AppliquerChangement(objUser)
 
+                End If
                 Try
-                    If objUser.Path = "LDAP://CN=" & usrPrenom & " " & usrNom & " (Provisoire)," & RecupDataini.RecupVar("[OUUtilisateursProvisoires]") Then
 
-                        objUser.Rename("CN=" & usrPrenom & " " & usrNom)
-                        Commun.AppliquerChangement(objUser)
-                        objUser.Properties("Comment").Value += "Transformé le: " & Strings.Left(CStr(Now), 10) & vbCrLf
-                        objUser.Properties("AccountExpires").Value = 0
-                        Commun.AppliquerChangement(objUser)
-
-                    End If
 
                     objUser.MoveTo(objOUUtilisateurs)
                     Commun.AppliquerChangement(objUser)
@@ -91,10 +107,10 @@ Public Class Creation
                     objUser.Properties("SAMAccountName").Value = usrLogin
                     objUser.Properties("userPrincipalName").Value = usrLogin & "@igbmc.fr"
                     Commun.AppliquerChangement(objUser)
-                    Commun.Journal("Creation de compte : le compte existait déja, il a été modifié : " & usrLogin, True)
+                    Commun.Journal("Creation de compte : le compte existait déja, il a été modifié : " & usrLogin, False)
 
                 Catch ex As Exception
-                    Commun.Journal("ERREUR : Creation de compte : Modification du compte provisoire, une erreur s'est produite : " & usrLogin & " : " & ex.Message, True)
+                    Commun.Journal("ERREUR : Creation de compte : Modification du compte Existant, une erreur s'est produite : " & usrLogin & " : " & ex.Message, True)
                 End Try
 
 
@@ -154,6 +170,9 @@ Public Class Creation
 
             'Creation du compte LDAP Unix
             Dim uidNumber As String = Commun.UIDNumberMini() ' (usrNom, usrPrenom, usrLogin, usrPasswd, unixHomeDirectory, GIDNumber)
+            If objUser.Properties.Contains("uidNumber") Then
+                Commun.SetADLDAPProperty(objUser, "uidNumber", uidNumber)
+            End If
             '5 valeurs unix a integrer dans l'AD : gidNumber,uidNumber,loginShell,homeDirectory,uid
             Commun.SetADLDAPProperty(objUser, "gidNumber", GIDNumber)
             'objUser.Properties("uidNumber").Value = uidNumber
@@ -193,15 +212,19 @@ Public Class Creation
         End Try
 
         'Determiner le Flag sur "le mot de passe n'expire jamais"
-        Try
-            Dim objUserNT = GetObject("WinNT://igbmc/" & usrLogin)
-            objUserNT.Put("userFlags", &H10000)
-            objUserNT.setinfo()
-            objUserNT = Nothing
-        Catch
-        End Try
+        'Try
+        '    Dim objUserNT = GetObject("WinNT://igbmc/" & usrLogin)
+        '    objUserNT.Put("userFlags", &H10000)
+        '    objUserNT.setinfo()
+        '    objUserNT = Nothing
+        'Catch
+        'End Try
+
+
+
 
         'creation de la boite mail Exchange
+        NbUserDatabaseExchange()
         Try
             Dim petiteDB As String = TrouverPetiteDatabase()
             commandePWSMailbox(usrLogin, petiteDB)
@@ -299,15 +322,26 @@ Public Class Creation
             Commun.Journal("ERREUR : Creation de compte : attribut ""msExchUsageLocation"" : " & e.Message & " : " & usrLogin, True)
         End Try
 
-        'Enregistrement du login et de l'alias mail dans l'historique
-        Commun.ajoutAliasFichierHisto(aliasSMTP(0), usrID)
-        Commun.ajoutAliasFichierHisto(usrLogin, usrID)
-        'Creer l'alias sur IGBMCSERVICES
+        Try
+            'Enregistrement du login et de l'alias mail dans l'historique
+            Commun.ajoutAliasFichierHisto(aliasSMTP(0), usrID)
+            Commun.ajoutAliasFichierHisto(usrLogin, usrID)
+        Catch e As Exception
+            Commun.Journal("ERREUR : Creation de compte : mise a jour fichier alias.txt : " & e.Message & " : " & usrLogin, True)
+        End Try
 
-        'Dim textmail As String = corpMailCreation(usrPrenom, usrNom, usrLogin, usrPasswd, aliasSMTP, usrPathEquipeinfo)
-        Dim textMail = "<!DOCTYPE HTML PUBLIC ""-//W3C//DTD HTML 4.0 Transitional//EN""><HTML><HEAD><META HTTP-EQUIV=""CONTENT-TYPE"" " &
-        "CONTENT=""text/html; charset=windows-1252""><TITLE></TITLE><STYLE TYPE=""text/css""><!--P { margin-bottom: 0.21cm }--></STYLE></HEAD><BODY LANG=""fr-FR"" DIR=""LTR"">Bienvenue a l'IGBMC " _
-                    & usrPrenom & " " & usrNom & " (compte ouvert le " & DateTime.Today.ToString("dd/MM/yyyy") & ")</FONT></FONT></P><P ALIGN=CENTER STYLE=""margin-bottom: 0cm""><BR></P><TABLE WIDTH=642" _
+        Try
+            'Activation du compte
+            Commun.ReactiveDesactiveCompte(objUser, "Active")
+        Catch e As Exception
+            Commun.Journal("ERREUR : Creation de compte : activation du compte : " & e.Message & " : " & usrLogin, True)
+        End Try
+
+        Try
+            'Dim textmail As String = corpMailCreation(usrPrenom, usrNom, usrLogin, usrPasswd, aliasSMTP, usrPathEquipeinfo)
+            Dim textMail = "<!DOCTYPE HTML PUBLIC ""-//W3C//DTD HTML 4.0 Transitional//EN""><HTML><HEAD><META HTTP-EQUIV="" CONTENT-TYPE"" " &
+        " CONTENT="" text/html; charset=windows-1252""><TITLE></TITLE><STYLE TYPE="" text/css""><!--P { margin-bottom: 0.21cm }--></STYLE></HEAD><BODY LANG="" fr-FR"" DIR="" LTR"">Bienvenue a l'IGBMC " _
+                    & usrPrenom & " " & usrNom & " (compte ouvert le " & DateTime.Today.ToString("dd/MM/yyyy") & ")</FONT></FONT></P><P ALIGN=CENTER STYLE="" margin-bottom:0cm""><BR></P><TABLE WIDTH=642" _
                     & " BORDER=1 BORDERCOLOR=""#000000"" CELLPADDING=0 CELLSPACING=0><COL WIDTH=150><COL WIDTH=490><TR><TD COLSPAN=2 WIDTH=640 VALIGN=TOP><center>nom d'utilisateur: <B>" _
                     & usrLogin & "</B><BR>mot de passe (" & Len(usrPasswd) & " caract&egrave;res): <B>" & usrPasswd & "</B><BR>(&Agrave; changer sur https://password.igbmc.fr)<BR><BR>Votre adresse e-mail est :<BR><B>" _
                     & aliasSMTP(0) & "@igbmc.fr</B><BR>ou bien " & usrLogin & "@igbmc.fr</center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>Messagerie et agenda</center></TD><TD WIDTH=490><center>" _
@@ -323,11 +357,28 @@ Public Class Creation
                     & "You have a backed up data storage space that you can access by: " & usrPathEquipeinfo & "</center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>Contact</center></TD><TD WIDTH=490><center>Send an email to: <B>helpdesk@igbmc.fr</B>" _
                     & "</center></TD></TR></TABLE></BODY></HTML>"
         Commun.SendEmail(RecupDataini.RecupVar("[AdminScriptLogin]") & "@igbmc.fr", "serviceinfo@igbmc.fr", "[Creation de compte] " & usrPrenom & " " & usrNom, textMail)
+
+        Catch e As Exception
+            Commun.Journal("ERREUR : Creation de compte : envoie du mail de creation de compte : " & e.Message & " : " & usrLogin, True)
+        End Try
+
+
+        Try
+            'Creer l'alias sur IGBMCSERVICES
+            Json.SendJson("login=" & usrLogin & "&domain=%40igbmc.fr&alias=" & aliasSMTP(0), "persons/" & usrID & "/email", "AD", "POST")
+        Catch e As Exception
+            Commun.Journal("ERREUR : Creation de compte : mail/alias GDPI : " & e.Message & " : " & usrLogin, True)
+        End Try
+
+        Try
+            objUser.Properties("msExchExtensionAttribute16").Value = LCase(aliasSMTP(0)) & "@igbmc.fr"
+            Commun.AppliquerChangement(objUser)
+            'End If
+        Catch e As Exception
+            Commun.Journal("ERREUR : Creation de compte : attribut msExchExtensionAttribute16 : " & e.Message & " : " & usrLogin, True)
+        End Try
+
         Commun.Journal("Fin de Creation de compte : " & usrLogin)
-        Json.SendJson("login=" & usrLogin & "&domain=%40igbmc.fr&alias=" & aliasSMTP(0), "persons/" & usrID & "/email", "AD", "POST")
-        objUser.Properties("msExchExtensionAttribute16").Value = LCase(aliasSMTP(0)) & "@igbmc.fr"
-        Commun.AppliquerChangement(objUser)
-        'End If
 
         objUser.Close()
         objUser.Dispose()
@@ -402,7 +453,7 @@ Public Class Creation
         Dim resultat As Boolean = False
         Dim objAD As DirectoryEntry = New DirectoryEntry("LDAP://DC=igbmc,DC=u-strasbg,DC=fr", Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
         Dim searcher As DirectorySearcher = New DirectorySearcher(objAD)
-        searcher.PageSize = 2000
+        searcher.PageSize = 5000
         searcher.Filter = "(EmployeeID=" & EmployeeID & ")"
 
         Dim result As SearchResult = searcher.FindOne
@@ -499,8 +550,8 @@ sortie:
         Dim DBpetit As String = tabDatabase(0, 0)
         Dim ipetit As Integer = 0
         For i = 1 To UBound(tabDatabase, 2)
-            If tabDatabase(1, i) < NBpetit Then
-                NBpetit = tabDatabase(1, i)
+            If tabDatabase(1, i) <NBpetit Then
+                NBpetit= tabDatabase(1, i)
                 DBpetit = tabDatabase(0, i)
                 ipetit = i
             End If
