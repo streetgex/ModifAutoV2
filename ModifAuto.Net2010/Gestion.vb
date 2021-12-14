@@ -38,7 +38,7 @@ Public Class gestion
                                 'suppression des comptes en fonction de "accountDeletionDT"
                                 If userAD.Properties.Contains("accountDeletionDT") Then
                                     Dim interval As Integer = DateDiff("d", userAD.Properties("accountDeletionDT").Value, Now.Date)
-                                    If interval >= 1 Then
+                                    If interval >= 1 Or userAD.Parent.Path = "LDAP://" & RecupDataini.RecupVar("[OUUtilisateursInvites]") Then
                                         userAD.DeleteTree()
                                         Commun.Journal("Suppression du compte : " & userAD.Properties("SAMAccountName").Value)
                                         'GoTo fermerUsing
