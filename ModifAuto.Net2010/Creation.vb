@@ -163,10 +163,11 @@ Public Class Creation
             Dim GIDNumber As String = Commun.FindAttribut(usrEquipeinfo & "_eq", "gidNumber")
 
             'Recherche
-            Dim unixHomeDirectory As String = Replace(Replace(usrPathEquipeinfo, "\\", "\"), "\", "/") & "/" & usrLogin
-            If InStr(usrPathEquipeinfo, "labo4") > 0 Then
-                unixHomeDirectory = Replace(Replace(usrPathEquipeinfo, "\\", "\"), "\", "/") & "/" & usrEquipeinfo & "/" & usrLogin
-            End If
+            'Dim unixHomeDirectory As String = Replace(Replace(usrPathEquipeinfo, "\\", "\"), "\", "/") & "/" & usrLogin
+            Dim unixHomeDirectory As String = "/shared/home/" & usrLogin
+            'If InStr(usrPathEquipeinfo, "labo4") > 0 Then
+            '    unixHomeDirectory = Replace(Replace(usrPathEquipeinfo, "\\", "\"), "\", "/") & "/" & usrEquipeinfo & "/" & usrLogin
+            'End If
 
             'Creation du compte LDAP Unix
             Dim uidNumber As String = Commun.UIDNumberMini() ' (usrNom, usrPrenom, usrLogin, usrPasswd, unixHomeDirectory, GIDNumber)

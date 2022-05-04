@@ -17,9 +17,9 @@ Public Class Thumbn
     'Public Shared srv As String = "Space2"
     'Public Shared pathPhoto As String = "\\" & Thumbn.srv & "\photos-AD\AD\"
     'Public Shared pathThumbs As String = "\\" & Thumbn.srv & "\photos-AD\AD\Thumb\"
-    Public Shared srv As String = "Labo4"
-    Public Shared pathPhoto As String = "\\" & Thumbn.srv & "\photos-RH\"
-    Public Shared pathThumbs As String = "\\" & Thumbn.srv & "\photos-RH\Thumbnails\"
+    'Public Shared srv As String = "Labo4"
+    'Public Shared pathPhoto As String = "\\" & Thumbn.srv & "\photos-RH\"
+    'Public Shared pathThumbs As String = "\\" & Thumbn.srv & "\photos-RH\Thumbnails\"
 
     'Shared Sub ComparePhoto(ByVal cn As String, ByVal matricule As String, ByVal objDirEnt As DirectoryEntry)
     Shared Sub ComparePhoto(ByVal photo64 As String, ByVal autorisationDiffInterne As String, ByVal objDirEnt As DirectoryEntry)
@@ -141,7 +141,7 @@ Public Class Thumbn
                 image.Save(fichierThumbTemp, myImageCodecInfo, myEncoderParameters)
             End Using
 
-            Dim fichierPhoto As String = pathThumbs & matricule & ".jpg"
+            'Dim fichierPhoto As String = pathThumbs & matricule & ".jpg"
             Dim tailleFichierThumb As Long = Nothing
 
             'If tailleFichierThumb = -1 Then
@@ -213,95 +213,95 @@ Public Class Thumbn
         Return imageThBytes
 
     End Function
-    Shared Sub CreateThumb(ByVal matricule As String)
+    'Shared Sub CreateThumb(ByVal matricule As String)
 
-        Dim sFile As New System.IO.FileInfo(fichierThumbTemp)
-        Dim testFichier As Boolean = sFile.Exists
-        sFile = Nothing
-        If testFichier Then
-            Kill(fichierThumbTemp)
-        End If
+    '    Dim sFile As New System.IO.FileInfo(fichierThumbTemp)
+    '    Dim testFichier As Boolean = sFile.Exists
+    '    sFile = Nothing
+    '    If testFichier Then
+    '        Kill(fichierThumbTemp)
+    '    End If
 
-        Try
+    '    Try
 
-            Dim image As Image = Nothing
-            Dim imgThumb As Image = Nothing
+    '        Dim image As Image = Nothing
+    '        Dim imgThumb As Image = Nothing
 
-            Dim myImageCodecInfo As ImageCodecInfo
-            Dim myEncoder As Encoder
-            Dim myEncoderParameter As EncoderParameter
-            Dim myEncoderParameters As EncoderParameters
-            myImageCodecInfo = GetEncoderInfo("image/jpeg")
-            myEncoder = Encoder.ColorDepth
-            myEncoderParameters = New EncoderParameters(1)
-            myEncoderParameter = New EncoderParameter(myEncoder, CType(24L, Int32))
-            myEncoderParameters.Param(0) = myEncoderParameter
-
-
-            Dim fichierPhoto As String = pathThumbs & matricule & ".jpg"
-            Dim tailleFichierThumb As Long = GetFileLength(fichierThumbTemp)
+    '        Dim myImageCodecInfo As ImageCodecInfo
+    '        Dim myEncoder As Encoder
+    '        Dim myEncoderParameter As EncoderParameter
+    '        Dim myEncoderParameters As EncoderParameters
+    '        myImageCodecInfo = GetEncoderInfo("image/jpeg")
+    '        myEncoder = Encoder.ColorDepth
+    '        myEncoderParameters = New EncoderParameters(1)
+    '        myEncoderParameter = New EncoderParameter(myEncoder, CType(24L, Int32))
+    '        myEncoderParameters.Param(0) = myEncoderParameter
 
 
-            If tailleFichierThumb = -1 Then
-                'File.Copy(fichierPhoto, fichierThumbTemp)
-
-                image = Image.FromFile(fichierPhoto)
-                Dim original As Bitmap = image
-                image = original.Clone
-                original.Dispose()
-                original = Nothing
-                image.Save(fichierThumbTemp, myImageCodecInfo, myEncoderParameters)
-            End If
-
-            'DECOUPAGE PAYSAGE
-
-            If image.Width > image.Height Then
-                image = Image.FromFile(fichierThumbTemp)
-                Dim focusRectangle As New Rectangle()
-                Dim original As Bitmap = image
-                focusRectangle.X = (original.Width - original.Height * 0.9) / 2
-                focusRectangle.Y = 0
-                focusRectangle.Height = original.Height - 1
-                focusRectangle.Width = (original.Height * 0.9)
-                image = original.Clone(focusRectangle, PixelFormat.DontCare)
-                original.Dispose()
-                original = Nothing
-                image.Save(fichierThumbTemp, myImageCodecInfo, myEncoderParameters)
-            End If
-            image.Dispose()
-            image = Nothing
+    '        Dim fichierPhoto As String = pathThumbs & matricule & ".jpg"
+    '        Dim tailleFichierThumb As Long = GetFileLength(fichierThumbTemp)
 
 
-            tailleFichierThumb = GetFileLength(fichierThumbTemp)
+    '        If tailleFichierThumb = -1 Then
+    '            'File.Copy(fichierPhoto, fichierThumbTemp)
 
-            While tailleFichierThumb > 10240 'Or tailleFichierThumb = -1
+    '            image = Image.FromFile(fichierPhoto)
+    '            Dim original As Bitmap = image
+    '            image = original.Clone
+    '            original.Dispose()
+    '            original = Nothing
+    '            image.Save(fichierThumbTemp, myImageCodecInfo, myEncoderParameters)
+    '        End If
 
-                image = Image.FromFile(fichierThumbTemp)
-                imgThumb = image.GetThumbnailImage(image.Width / 2, image.Height / 2, Nothing, New IntPtr())
-                image.Dispose()
-                image = Nothing
-                imgThumb.Save(fichierThumbTemp, myImageCodecInfo, myEncoderParameters)
-                'ecriture du fichier thumbnails
-                'imgThumb.Save(pathThumbs & "\" & matricule & ".jpg", myImageCodecInfo, myEncoderParameters)
-                imgThumb.Dispose()
-                imgThumb = Nothing
-                tailleFichierThumb = GetFileLength(fichierThumbTemp)
-            End While
-            myEncoderParameter.Dispose()
-            myEncoderParameter = Nothing
-            myEncoderParameters.Dispose()
-            myEncoderParameters = Nothing
-            myImageCodecInfo = Nothing
-            myEncoder = Nothing
-            GC.Collect()
-        Catch e As Exception
-            Commun.Journal("ERREUR : Création Thumbnail : " & matricule, True)
-            Return
-        End Try
-        'If sFile.Exists Then
-        '    Kill(fichierThumbTemp)
-        'End If
-    End Sub
+    '        'DECOUPAGE PAYSAGE
+
+    '        If image.Width > image.Height Then
+    '            image = Image.FromFile(fichierThumbTemp)
+    '            Dim focusRectangle As New Rectangle()
+    '            Dim original As Bitmap = image
+    '            focusRectangle.X = (original.Width - original.Height * 0.9) / 2
+    '            focusRectangle.Y = 0
+    '            focusRectangle.Height = original.Height - 1
+    '            focusRectangle.Width = (original.Height * 0.9)
+    '            image = original.Clone(focusRectangle, PixelFormat.DontCare)
+    '            original.Dispose()
+    '            original = Nothing
+    '            image.Save(fichierThumbTemp, myImageCodecInfo, myEncoderParameters)
+    '        End If
+    '        image.Dispose()
+    '        image = Nothing
+
+
+    '        tailleFichierThumb = GetFileLength(fichierThumbTemp)
+
+    '        While tailleFichierThumb > 10240 'Or tailleFichierThumb = -1
+
+    '            image = Image.FromFile(fichierThumbTemp)
+    '            imgThumb = image.GetThumbnailImage(image.Width / 2, image.Height / 2, Nothing, New IntPtr())
+    '            image.Dispose()
+    '            image = Nothing
+    '            imgThumb.Save(fichierThumbTemp, myImageCodecInfo, myEncoderParameters)
+    '            'ecriture du fichier thumbnails
+    '            'imgThumb.Save(pathThumbs & "\" & matricule & ".jpg", myImageCodecInfo, myEncoderParameters)
+    '            imgThumb.Dispose()
+    '            imgThumb = Nothing
+    '            tailleFichierThumb = GetFileLength(fichierThumbTemp)
+    '        End While
+    '        myEncoderParameter.Dispose()
+    '        myEncoderParameter = Nothing
+    '        myEncoderParameters.Dispose()
+    '        myEncoderParameters = Nothing
+    '        myImageCodecInfo = Nothing
+    '        myEncoder = Nothing
+    '        GC.Collect()
+    '    Catch e As Exception
+    '        Commun.Journal("ERREUR : Création Thumbnail : " & matricule, True)
+    '        Return
+    '    End Try
+    '    'If sFile.Exists Then
+    '    '    Kill(fichierThumbTemp)
+    '    'End If
+    'End Sub
     Shared Function GetEncoderInfo(ByVal mimeType As String) As ImageCodecInfo
         Dim j As Integer
         Dim encoders() As ImageCodecInfo
@@ -375,20 +375,5 @@ Public Class Thumbn
         End Try
         imageFile = Nothing
     End Function
-    Shared Function controlServeurZoneLabo()
-        'controle si les zones labo sont disponibles
-        Dim ctrlZonesLabo As Boolean = Directory.Exists("\\Labo4\CtrlZones")
-        Dim ctrlZonesNxprod As Boolean = Directory.Exists("\\Nxprod\CtrlZones")
-        If ctrlZonesLabo = True Then
-            Thumbn.srv = "Labo4"
-            ctrlZonesLabo = True
-        ElseIf ctrlZonesNxprod = True Then
-            Thumbn.srv = "Nxprod"
-            ctrlZonesLabo = True
-        Else
-            ctrlZonesLabo = False
-        End If
 
-        Return ctrlZonesLabo
-    End Function
 End Class
