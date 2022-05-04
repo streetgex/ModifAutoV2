@@ -10,7 +10,7 @@ Imports System.Web.Script.Serialization
 
 Public Class Form1
 
-    Shared withJson As String = "json" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
+    Shared withJson As String = "debug" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
     Public Shared tabPersoMonoEquipe As String(,)
     Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Integer)
     Public Shared tabExcepUser(,) As String
@@ -37,6 +37,7 @@ Public Class Form1
         Commun.Journal("Debut de traitement")
 
 
+        Dim listExtensionsXivo As String = ""
         If Environment.MachineName <> "SERV-AD1" Then
             'ctrlMS.recupUserAD()
             'ExpirationMDP()
@@ -305,19 +306,25 @@ Public Class Form1
         'COMPARAISON DU PERSONNEL ENTRE HIER ET AUJOURDH'HUI ET CREATION DU FICHIER DE MODIFICATIONS
 
         Commun.Journal("Debut des Modification des Utilisateurs", False)
-        Dim tabPhoto(,) As String = Json.GetMyIGBMC()
 
+        Dim tabPhoto(,) As String = Json.GetMyIGBMC()
+        Commun.Journal(vbTab & "Photos Modifiées Récupérées", False)
         Using Ldap As DirectoryEntry = New DirectoryEntry("LDAP://DC=igbmc,DC=u-strasbg,DC=fr", Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
 
             Dim ancienEQ As String = ""
 
             Dim test As String = ""
 
-            Json.LoginXivo("https", "serv-xivo:9497")
             Dim listExtensionsXivo As String = ""
+
             Try
+                Json.LoginXivo("https", "serv-xivo:9497")
+
+                Commun.Journal(vbTab & "Token Xivo Récupéré", False)
                 'listExtensionsXivo = Json.MakeRequestXivo("GET", "https://serv-xivo:9486/1.1/extensions")
                 listExtensionsXivo = LCase(Json.MakeRequestXivo("GET", "https://serv-xivo:9486/1.1/lines_sip"))
+
+                Commun.Journal(vbTab & "Liste des numeros de téléphone récupérée", False)
             Catch ex As Exception
                 Commun.Journal("ERREUR : modifDonneesAD : Recuperation des données Xivo", True)
             End Try
@@ -346,6 +353,7 @@ Public Class Form1
                 Dim genre As String = tabPersoMonoEquipe(15, n)
                 Dim diffusionPhoto As String = tabPersoMonoEquipe(16, n) 'true/false
 
+                'Commun.Journal("Traitement de : " & usrPrenom & " " & usrNom, False)
 
                 'Si l'utilistateur n'existe pas, on continue avec le suivant
                 Dim result As SearchResult
@@ -603,32 +611,33 @@ Public Class Form1
                         Dim uidAD As String = objuser.Properties("SAMAccountName").Value
                         'Dim uidNumberAD As String = objuser.Properties("uidnumber").Value
                         Dim gidNumberAD As String = Commun.FindAttribut(usrEquipeInfo & "_eq", "gidNumber")
-                        Dim cheminZoneLabo As String = LCase(Commun.FindAttribut(usrEquipeInfo & "_eq", "url"))
-                        Dim unixHomeDirectoryAD As String = LCase(Replace(Replace(cheminZoneLabo, "\\", "\"), "\", "/") & "/" & usrLogin)
-                        If InStr(cheminZoneLabo, "labo4") > 0 Then
-                            unixHomeDirectoryAD = Replace(cheminZoneLabo, "\\", "\")
-                            unixHomeDirectoryAD = Replace(unixHomeDirectoryAD, "\", "/")
-                            unixHomeDirectoryAD = Replace(unixHomeDirectoryAD, "-", "_")
-                            unixHomeDirectoryAD = unixHomeDirectoryAD & "/" & usrEquipeInfo & "/" & usrLogin
-                        End If
+                        'Dim cheminZoneLabo As String = LCase(Commun.FindAttribut(usrEquipeInfo & "_eq", "url"))
+                        'Dim unixHomeDirectoryAD As String = LCase(Replace(Replace(cheminZoneLabo, "\\", "\"), "\", "/") & "/" & usrLogin)
+                        Dim unixHomeDirectoryAD As String = LCase("/shared/home/") & usrLogin
+                        'If InStr(cheminZoneLabo, "labo4") > 0 Then
+                        '    unixHomeDirectoryAD = Replace(cheminZoneLabo, "\\", "\")
+                        '    unixHomeDirectoryAD = Replace(unixHomeDirectoryAD, "\", "/")
+                        '    unixHomeDirectoryAD = Replace(unixHomeDirectoryAD, "-", "_")
+                        '    unixHomeDirectoryAD = unixHomeDirectoryAD & "/" & usrEquipeInfo & "/" & usrLogin
+                        'End If
                         Dim loginShellAD As String = objuser.Properties("loginShell").Value
 
-                        If objuser.Properties("uid").Value <> uidAD Then
+                        If objuser.Properties("uid").Value.ToString <> uidAD Then
                             err = "uid"
                             Commun.SetADLDAPProperty(objuser, "uid", uidAD)
                             Commun.AppliquerChangement(objuser)
                             Commun.Journal("Modification de l'attribut AD ""uid"" réussi : " & usrLogin)
                         End If
 
-                        If objuser.Properties("gidNumber").Value <> gidNumberAD Then
+                        If objuser.Properties("gidNumber").Value.ToString <> gidNumberAD Then
                             err = "gidNumber"
                             Commun.SetADLDAPProperty(objuser, "gidNumber", gidNumberAD)
                             Commun.AppliquerChangement(objuser)
                             Commun.Journal("Modification de l'attribut AD ""gidNumber"" réussi : " & usrLogin)
                         End If
 
-
-                        If objuser.Properties("unixHomeDirectory").Value <> unixHomeDirectoryAD Then
+                        Dim test1 As Integer = InStr(objuser.Properties("unixHomeDirectory").Value.ToString, "seafile")
+                        If objuser.Properties("unixHomeDirectory").Value.ToString = "" Or test1 > 0 Then
                             err = "unixHomeDirectory"
                             Commun.SetADLDAPProperty(objuser, "unixHomeDirectory", unixHomeDirectoryAD)
                             Commun.AppliquerChangement(objuser)
@@ -638,7 +647,7 @@ Public Class Form1
                         If Not objuser.Properties.Contains("loginShell") Then
                             Commun.SetADLDAPProperty(objuser, "loginShell", "/bin/bash")
                         Else
-                            If objuser.Properties("loginShell").Value = "" Then
+                            If objuser.Properties("loginShell").Value.ToString = "" Then
                                 Commun.SetADLDAPProperty(objuser, "loginShell", "/bin/bash")
                             End If
                         End If
@@ -1589,8 +1598,8 @@ fermerUsing:
 
                         If ctrl = True Then
                             Dim corpMail As String = MailTemplatePasswdExpire(type, samaccountname, expirationPWDDate, MaxPWDageJourPolicy, historyLenght, nbrChar)
-                            'Commun.SendEmail("serviceinfo@igbmc.fr", Email, sujet, corpMail)
-                            'Commun.Journal("Mot de passe ADM : mail envoyé a : " & Email, False)
+                            Commun.SendEmail("serviceinfo@igbmc.fr", Email, sujet, corpMail)
+                            Commun.Journal("Mot de passe ADM : mail envoyé a : " & Email, False)
                         End If
                     Next resultUser
 

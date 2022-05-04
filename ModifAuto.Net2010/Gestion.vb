@@ -170,43 +170,43 @@ Public Class gestion
         Next uVHD
 
 
-        For b = 0 To 1
-            chemin = "\\Labo4\home1\"
+        'For b = 0 To 1
+        '    chemin = "\\Labo4\home1\"
 
-            If b = 1 Then
-                chemin = "\\Clust-roamingP\Profils\BRDAdministratif\"
-            End If
+        '    If b = 1 Then
+        '        chemin = "\\Clust-roamingP\Profils\BRDAdministratif\"
+        '    End If
 
-            serveur = Replace(chemin, "\\", "")
-            serveur = Strings.Left(serveur, InStr(serveur, "\") - 1)
-            Dim subDirs As String() = Directory.GetDirectories(chemin)
-            Array.Sort(subDirs)
-            For Each dir As String In subDirs
-                If Strings.Right(dir, 6) = " - old" Then Continue For
-                Dim login As String = Replace(dir, chemin, "")
-                Dim checkUserLogin As Boolean = VerifyUserProfil(login, "SAMAccountName")
-                If checkUserLogin = False And login <> ".etc" And login <> "All Users" Then
-                    'MsgBox(login)
-                    If Directory.Exists(dir) Then
+        '    serveur = Replace(chemin, "\\", "")
+        '    serveur = Strings.Left(serveur, InStr(serveur, "\") - 1)
+        '    Dim subDirs As String() = Directory.GetDirectories(chemin)
+        '    Array.Sort(subDirs)
+        '    For Each dir As String In subDirs
+        '        If Strings.Right(dir, 6) = " - old" Then Continue For
+        '        Dim login As String = Replace(dir, chemin, "")
+        '        Dim checkUserLogin As Boolean = VerifyUserProfil(login, "SAMAccountName")
+        '        If checkUserLogin = False And login <> ".etc" And login <> "All Users" Then
+        '            'MsgBox(login)
+        '            If Directory.Exists(dir) Then
 
-                        'fermer les fichiers ouverts par l'utilisateur
-                        Dim ProcessProperties As New ProcessStartInfo
-                        ProcessProperties.FileName = "openfiles"
-                        ProcessProperties.Arguments = "/disconnect /s " & serveur & " /a " & login
-                        ProcessProperties.WindowStyle = ProcessWindowStyle.Hidden
-                        Dim myProcess As Process = Process.Start(ProcessProperties)
-                        Try
-                            ClearAttributes(chemin & login)
-                            Directory.Delete(dir, True)
-                            Commun.Journal("GestionPIetDR : Suppression du profil : " & dir, False)
-                        Catch ex As Exception
-                            Commun.Journal("ERREUR : GestionPIetDR : Suppression du profil : " & dir & " : " & ex.Message, True)
-                        End Try
-                    End If
-                End If
-            Next dir
+        '                'fermer les fichiers ouverts par l'utilisateur
+        '                Dim ProcessProperties As New ProcessStartInfo
+        '                ProcessProperties.FileName = "openfiles"
+        '                ProcessProperties.Arguments = "/disconnect /s " & serveur & " /a " & login
+        '                ProcessProperties.WindowStyle = ProcessWindowStyle.Hidden
+        '                Dim myProcess As Process = Process.Start(ProcessProperties)
+        '                Try
+        '                    ClearAttributes(chemin & login)
+        '                    Directory.Delete(dir, True)
+        '                    Commun.Journal("GestionPIetDR : Suppression du profil : " & dir, False)
+        '                Catch ex As Exception
+        '                    Commun.Journal("ERREUR : GestionPIetDR : Suppression du profil : " & dir & " : " & ex.Message, True)
+        '                End Try
+        '            End If
+        '        End If
+        '    Next dir
 
-        Next b
+        'Next b
 
 
         'Dim checkUser As Boolean = VerifyUser(login, "objectSid")
