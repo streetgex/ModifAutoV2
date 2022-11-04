@@ -10,32 +10,27 @@ Imports Newtonsoft.Json.Linq
 Public Class jsonMS
     'Shared serveurMS As String = "serv-ca-formation.igbmc.u-strasbg.fr"
     'Shared token As String = "{bddb6c80-98c3-4a38-9ee7-fffddfd04343}"
-    Shared serveurMS As String = "serv-ca.igbmc.u-strasbg.fr:437"
+    Shared serveurMS As String = "serv-ca.igbmc.u-strasbg.fr:443"
     Shared token As String = "{6ec09464-6b1f-4f5e-a39e-a7db30e15338}"
     Shared Function MakeRequest(method As String, requestAPI As String) As String
         Dim fullUrl As String = "https://" & serveurMS & "/api" & requestAPI
+        'Dim fullUrl As String = "https://serv-ca.igbmc.u-strasbg.fr:81/api" & requestAPI
         Dim responseFromServer As String = ""
         Try
+
             ' ignore ssl certificate
             ServicePointManager.ServerCertificateValidationCallback = AddressOf clsSSL.AcceptAllCertifications
             'ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls
-
-            Dim request As HttpWebRequest = DirectCast(WebRequest.Create(New Uri(fullUrl)), HttpWebRequest)
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12
+            'Dim request As HttpWebRequest = DirectCast(WebRequest.Create(New Uri(fullUrl)), HttpWebRequest)
+            Dim request As HttpWebRequest = HttpWebRequest.Create(fullUrl)
 
             request.Accept = "application/json"
-            request.ContentType = "application/json"
             request.Method = method
-            'request.UserAgent = userAgent
 
-            ServicePointManager.UseNagleAlgorithm = False
-            ServicePointManager.Expect100Continue = False
-
-
-            'request.CookieContainer = savedCookies
-            request.KeepAlive = False
+            request.KeepAlive = True
             request.Headers.Add("X-API-KEY", token)
             request.Headers.Add("X-PROFILE", "1")
-
 
 
             Dim startTime As Date = Now
@@ -80,6 +75,49 @@ Public Class jsonMS
         End Try
 
         Return responseFromServer
+
+
+    End Function
+    Shared Function MakeRequest1(method As String, requestAPI As String) As String
+        Dim fullUrl As String = "https://" & serveurMS & "/api" & requestAPI
+        Dim responseFromServer As String = ""
+        'Try
+        ServicePointManager.ServerCertificateValidationCallback = AddressOf clsSSL.AcceptAllCertifications
+        'We this to make an HTTP web request
+        Dim request As Net.HttpWebRequest = Net.WebRequest.Create(fullUrl)
+        request.KeepAlive = False
+        request.Headers.Add("X-API-KEY", token)
+        request.Headers.Add("X-PROFILE", "1")
+        request.ServerCertificateValidationCallback = AddressOf clsSSL.AcceptAllCertifications
+        'Make the web request and get the response
+        Dim response As Net.WebResponse = request.GetResponse
+
+        response.Close()
+            Dim stream As System.IO.Stream = response.GetResponseStream
+
+            'Prepare buffer for reading from stream
+            Dim buffer As Byte() = New Byte(1000) {}
+
+            'Data read from stream is gathered here
+            Dim data As New List(Of Byte)
+
+            'Start reading stream
+            Dim bytesRead = stream.Read(buffer, 0, buffer.Length)
+
+            Do Until bytesRead = 0
+                For i = 0 To bytesRead - 1
+                    data.Add(buffer(i))
+                Next
+
+                bytesRead = stream.Read(buffer, 0, buffer.Length)
+            Loop
+
+
+            'Gets the JSON data
+            Debug.WriteLine(System.Text.Encoding.UTF8.GetString(data.ToArray))
+
+            response.Close()
+            stream.Close()
 
 
     End Function

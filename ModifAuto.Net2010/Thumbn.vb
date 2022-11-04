@@ -26,24 +26,6 @@ Public Class Thumbn
         Try
 
 
-
-            'Dim dataPhoto As String = Json.SendJson("", "/personnes/" & matricule & "/autorisations-diffusion-interne?nb_elements_par_page=1&page=1", "MyIGBMC", "GET")
-            'Dim responseDataPhoto As Generic.Dictionary(Of String, Object) = New JavaScriptSerializer().Deserialize(Of Object)(dataPhoto)
-
-            'If responseDataPhoto Is Nothing Then
-            '    Exit Sub
-            'End If
-
-            'Dim personne As Generic.Dictionary(Of String, Object) = responseDataPhoto("resultat")
-
-            'Dim lastModif As Date = personne("date_derniere_modification_donnees_complementaires")
-            'Dim diffdate As Integer = DateDiff("D", lastModif, Now)
-            'If diffdate > 7 Then Exit Sub
-
-            'Dim autorisationDiffInterne As Boolean = personne("autorise_diffusion_photo_en_interne")
-
-
-
             If autorisationDiffInterne = False Then
                 If (Not objDirEnt.Properties("jpegPhoto").Value Is Nothing Or Not objDirEnt.Properties("thumbnailPhoto").Value Is Nothing) Then
                     objDirEnt.Properties("jpegPhoto").Value = Nothing
@@ -86,16 +68,6 @@ Public Class Thumbn
 
             End If
             testCompare = Nothing
-
-            'Else
-            '    If Not objDirEnt.Properties("jpegPhoto").Value Is Nothing Or Not objDirEnt.Properties("thumbnailPhoto").Value Is Nothing Then
-            '        'Si pas de photo dans le dossier, on efface l'attribut AD
-            '        objDirEnt.Properties("jpegPhoto").Value = Nothing
-            '        objDirEnt.Properties("thumbnailPhoto").Value = Nothing
-            '        Commun.AppliquerChangement(objDirEnt)
-            '        Commun.Journal("Nettoyage des attributs Photos Réussi : " & objDirEnt.Properties("SAMAccountName").Value)
-            '    End If
-            'End If
 
         Catch ex As Exception
             Commun.Journal("ERREUR : Comparaison Thumbnail : " & Replace(objDirEnt.Path, "LDAP://", "") & " : " & ex.Message, True)
