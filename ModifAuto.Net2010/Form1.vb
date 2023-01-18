@@ -38,6 +38,9 @@ Public Class Form1
 
         Dim listExtensionsXivo As String = ""
         If Environment.MachineName <> "SERV-AD1" Then
+            'UserMembreDeDestination("steph")
+            CompararaisonAjoutRetraitDestinationsDepartement(New DirectoryEntry("LDAP://CN=Abdelkader AYADI,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"))
+            'ListeDiffusion("6181")
             'ctrlMS.recupUserAD()
             'ExpirationMDP()
             'Dim aaa = Json.GetMyIGBMC()
@@ -306,14 +309,23 @@ Public Class Form1
 
         Commun.Journal("Debut des Modification des Utilisateurs", False)
 
+        Dim ctrlMailOOrienteurs As Boolean = False
+        Dim corpmailOOrienteurs As String = "<!DOCTYPE html PUBLIC ""-//W3C//DTD XHTML 1.0 Transitional//EN"" ""http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"">" &
+                                                    "<html>" &
+                                                    "<head>" &
+                                                    "<meta http-equiv=""Content-Type"" content=""text/html; charset=utf-8"">" &
+                                                    "<title>ARRET DU COMPTE</title>" &
+                                                    "</head>" &
+                                                    "<body>" &
+                                                    "Attention, la date de fin de contrat de cette/ces personne(s) a changée : <BR><BR>"
+
+
         Dim tabPhoto(,) As String = Json.GetMyIGBMC()
         Commun.Journal(vbTab & "Photos Modifiées Récupérées", False)
         Using Ldap As DirectoryEntry = New DirectoryEntry("LDAP://DC=igbmc,DC=u-strasbg,DC=fr", Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
 
             Dim ancienEQ As String = ""
-
             Dim test As String = ""
-
             Dim listExtensionsXivo As String = ""
 
             Try
@@ -352,7 +364,6 @@ Public Class Form1
                 Dim genre As String = tabPersoMonoEquipe(15, n)
                 Dim diffusionPhoto As String = tabPersoMonoEquipe(16, n) 'true/false
 
-                'Commun.Journal("Traitement de : " & usrPrenom & " " & usrNom, False)
 
                 'Si l'utilistateur n'existe pas, on continue avec le suivant
                 Dim result As SearchResult
@@ -582,32 +593,29 @@ Public Class Form1
                         If objuser.Properties("extensionAttribute1").Value <> finDeContrat And objuser.Parent.Path = "LDAP://" & RecupDataini.RecupVar("[OUUtilisateursActifs]") Then
 
                             Dim oldDate As String = CStr(objuser.Properties("extensionAttribute1").Value)
-                            If oldDate = "" Or oldDate Is Nothing Then oldDate = "Aucune"
-                            Dim newDate As String = finDeContrat
-                            If newDate = "" Or newDate Is Nothing Then newDate = "Aucune"
-                            Dim corpmail As String = "<!DOCTYPE html PUBLIC ""-//W3C//DTD XHTML 1.0 Transitional//EN"" ""http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"">" &
-                                                    "<html>" &
-                                                    "<head>" &
-                                                    "<meta http-equiv=""Content-Type"" content=""text/html; charset=utf-8"">" &
-                                                    "<title>ARRET DU COMPTE</title>" &
-                                                    "</head>" &
-                                                    "<body>" &
-                                                    "Attention, la date de fin de contrat de cette personne a changé : <BR>" &
-                                                 vbCrLf & "Nom : " & usrPrenom & " " & usrNom & "<BR>" &
-                                                 vbCrLf & "Matricule : " & usrID & "<BR>" &
-                                                 vbCrLf & "Service : " & usrDestNomLong & "<BR>" &
-                                                 vbCrLf & "Mail : " & usrLogin & "@igbmc.fr" & "<BR>" &
-                                                 vbCrLf & "Ancienne date de fin de contrat : " & oldDate & "<BR>" &
-                                                 vbCrLf & "Nouvelle date de fin de contrat : " & newDate & "<BR>" &
-                                                 vbCrLf & "</body>" &
-                                                "</html>"
+                            Dim dateCreation As Date = objuser.Properties("whenCreated").Value
+                            If DateAdd("h", -1, dateCreation) > Now Then
+
+                                If oldDate = "" Or oldDate Is Nothing Then oldDate = "Aucune"
+                                Dim newDate As String = finDeContrat
+                                If newDate = "" Or newDate Is Nothing Then newDate = "Aucune"
+                                ctrlMailOOrienteurs = True
+                                corpmailOOrienteurs +=
+                                                     vbCrLf & "Nom : " & usrPrenom & " " & usrNom & "<BR>" &
+                                                     vbCrLf & "Matricule : " & usrID & "<BR>" &
+                                                     vbCrLf & "Service : " & usrDestNomLong & "<BR>" &
+                                                     vbCrLf & "Mail : " & usrLogin & "@igbmc.fr" & "<BR>" &
+                                                     vbCrLf & "Ancienne date de fin de contrat : " & oldDate & "<BR>" &
+                                                     vbCrLf & "Nouvelle date de fin de contrat : " & newDate & "<BR>" &
+                                                     vbCrLf & "____________________________________________________________________________________________<BR>" & vbCrLf
+                            End If
 
                             Commun.SetADLDAPProperty(objuser, "extensionAttribute1", finDeContrat)
-                            Commun.AppliquerChangement(objuser)
+                                Commun.AppliquerChangement(objuser)
 
-                            Commun.Journal("Envoi d'un mail aux Officiers orienteurs pour un changement de fin de contrat")
-                            Commun.SendEmail("administrateur@igbmc.fr", "officiersorienteurs@igbmc.fr", "Changement de Date de fin de contrat", corpmail)
-                        End If
+                                Commun.Journal("Envoi d'un mail aux Officiers orienteurs pour un changement de fin de contrat")
+
+                            End If
                     Catch
                         Commun.Journal("ERREUR : Modification : Date de fin de contrat : " & usrLogin, True)
                     End Try
@@ -687,7 +695,7 @@ Public Class Form1
                     End Try
 
                     'gestion des appartenance aux groupes de destinations (grp)
-                    CompararaisonAjoutRetraitDestinations(objuser)
+                    CompararaisonAjoutRetraitDestinationsDepartement(objuser)
 
                     'gestion des listes de diffusion phd et postdoc
                     Try
@@ -781,6 +789,13 @@ Public Class Form1
             Next n
 
         End Using
+
+        If ctrlMailOOrienteurs = True Then
+            corpmailOOrienteurs += vbCrLf & "</body></html>"
+            Commun.SendEmail("administrateur@igbmc.fr", "officiersorienteurs@igbmc.fr", "Changement de Date de fin de contrat", corpmailOOrienteurs)
+        End If
+
+
         Commun.Journal("Gestion des modifications utilisateurs réussie", False)
     End Sub
 
@@ -1175,21 +1190,16 @@ fermerUsing:
 
     Shared Function UserMembreDeDestination(ByVal username As String) As String()
         Dim appartientA As String()
-        Dim j As Integer = 0
         Dim Entry As DirectoryEntry = New DirectoryEntry("LDAP://DC=igbmc,DC=u-strasbg,DC=fr", Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
         Dim Searcher As New DirectorySearcher(Entry)
         Searcher.SearchScope = DirectoryServices.SearchScope.Subtree
-        Searcher.Filter = "(&(objectcategory=user)(SAMAccountName=" & username & "))"
-        Dim res As SearchResult = Searcher.FindOne
-        For i = 0 To res.Properties("memberOf").Count() - 1
-            Dim temp As String = Replace(res.Properties("memberOf")(i).ToString, ",OU=Equipes,DC=igbmc,DC=u-strasbg,DC=fr", "")
-            temp = Replace(temp, "CN=", "")
-            If Strings.Right(temp, 4) = " grp" Then
-                ReDim Preserve appartientA(j)
-                appartientA(j) = temp
-                j += 1
-            End If
-        Next i
+        'Searcher.Filter = "(&(objectcategory=user)(SAMAccountName=" & username & "))"
+        Searcher.Filter = "(&(objectcategory=group)(member=" & Commun.TransformeSAMACCOUNTenCN(username) & ")(name=* grp))"
+        Dim res As SearchResultCollection = Searcher.FindAll
+        For Each grp As SearchResult In res
+            Dim grpName As String = grp.Properties("cn")(0).ToString
+            appartientA.Add(grpName)
+        Next grp
         Searcher.Dispose()
         Searcher = Nothing
         Return appartientA
@@ -1266,10 +1276,15 @@ fermerUsing:
             Commun.Journal("ERREUR : Recuperation du departement : " & destination & " : " & ex.Message, True)
         End Try
     End Function
-    Public Shared Sub CompararaisonAjoutRetraitDestinations(ByVal usrDir As DirectoryEntry)
+    Public Shared Sub CompararaisonAjoutRetraitDestinationsDepartement(ByVal usrDir As DirectoryEntry)
         Dim login As String = usrDir.Properties("SAMAccountName").Value
         Dim EquipeUserAD As String() = UserMembreDeDestination(login)
         Dim EquipeUserFichier As String() = EquipeComptableFichierUser(login)
+        Dim DepartementUserAdSR As SearchResultCollection = Commun.SearchFilterAll(New DirectoryEntry("LDAP://DC=igbmc,DC=u-strasbg,DC=fr"), "(&(objectcategory=group)(member=" & Commun.TransformeSAMACCOUNTenCN(login) & ")(name=Dpt_*)(!(name=Dpt_PI*)))", SearchScope.Subtree, "name")
+        Dim DepartementUserAd As String() = {}
+        For Each res As SearchResult In DepartementUserAdSR
+            DepartementUserAd.Add(res.Properties("name")(0).ToString)
+        Next
         Try
 
             'comparaison des 2 tableaux entre eux
@@ -1278,8 +1293,13 @@ fermerUsing:
                 EquipeUserAD = {} 'EquipeUserFichier
             End If
 
+            Dim DepartementUserFile As String() = {}
             If EquipeUserFichier Is Nothing Then
                 EquipeUserFichier = {} 'EquipeUserAD
+            Else
+                For Each grp In EquipeUserFichier
+                    DepartementUserFile.Add(chercheDepartementparRapporDestination(grp))
+                Next
             End If
 
             Dim addToAD As String() = EquipeUserFichier.Except(EquipeUserAD).ToArray
@@ -1293,40 +1313,47 @@ fermerUsing:
             For Each grp As String In addToAD
                 If Commun.AppartientGroup(login, "G_Domain_DisableOpenSession") = False Then 'And Commun.AppartientGroup(login, grp) = False Then
                     Commun.AddRemoveADGroup(login, grp, "Add")
-                    Commun.Journal("Succes : CompararaisonAjoutRetraitEquipesComptables : " & login & " ajouté dans " & grp)
+                    Commun.Journal("Succes : CompararaisonAjoutRetraitDestinationsDepartement : " & login & " ajouté dans " & grp)
                 End If
             Next
 
-            'Retrait de l'utilisateur des groupes-destinations et departement de l'AD auquels il n'appartient plus d'apres le fichier Json
+            'Retrait de l'utilisateur des groupes-destinations de l'AD auquels il n'appartient plus d'apres le fichier Json
+
             For Each grp As String In remFromAD
-                Dim dptGrp As String = chercheDepartementparRapporDestination(grp)
                 'If Commun.AppartientGroup(login, grp) = True Then
                 Commun.AddRemoveADGroup(login, grp, "Remove")
-                If dptGrp <> "" Then
-                    Commun.AddRemoveADGroup(login, dptGrp, "Remove")
-                End If
-                Commun.Journal("Succes : CompararaisonAjoutRetraitEquipesComptables : " & login & " retiré de " & grp)
+                Commun.Journal("Succes : CompararaisonAjoutRetraitDestinationsDepartement : " & login & " retiré de " & grp)
                 'End If
+            Next
+
+            'Retrait de l'utilisateur des departements de l'AD auquels il n'appartient plus d'apres le fichier Json
+            For Each dptGrp In DepartementUserAd
+                    Dim aaa = Array.IndexOf(DepartementUserFile, dptGrp)
+                If aaa = -1 Then
+                    Commun.AddRemoveADGroup(login, dptGrp, "Remove")
+                    Commun.Journal("Succes : CompararaisonAjoutRetraitDestinationsDepartement : " & login & " retiré de " & dptGrp)
+                End If
             Next
 
             'Ajout de l'utilisateur au groupe du departement dont ses destinations dependent
             'Specifiquement dans le cas d'un nouvel utilisateur qui est ajouté a sa destination au moment de la création de son compte (autocompte)
             'Modifauto ne l'ajoutera pas a la destination donc pas au département
-            If Not EquipeUserAD Is Nothing Then
-                If Commun.AppartientGroup(login, "G_Domain_DisableOpenSession") = False Then
-                    For Each dpt As String In EquipeUserAD
-                        Dim dptGrp As String = chercheDepartementparRapporDestination(dpt)
-                        If dptGrp <> "" Then
+            If Commun.AppartientGroup(login, "G_Domain_DisableOpenSession") = False Then
+                For Each dest As String In EquipeUserFichier
+                    Dim dptGrp As String = chercheDepartementparRapporDestination(dest)
+                    If dptGrp <> "" Then
+                        If Array.IndexOf(DepartementUserAd, dptGrp) = -1 Then
                             Commun.AddRemoveADGroup(login, dptGrp, "Add")
+                            Commun.Journal("Succes : CompararaisonAjoutRetraitDestinationsDepartement : " & login & " ajouté dans " & dptGrp)
                         End If
-                    Next
-                End If
+                    End If
+                Next
             End If
 
             EquipeUserAD = Nothing
             EquipeUserFichier = Nothing
         Catch ex As Exception
-            Commun.Journal("ERREUR : CompararaisonAjoutRetraitDestinations : " & login & " : " & ex.Message, True)
+            Commun.Journal("ERREUR : CompararaisonAjoutRetraitDestinationsDepartement : " & login & " : " & ex.Message, True)
         End Try
     End Sub
 
@@ -2420,16 +2447,14 @@ sortie:
     End Function
     Shared Function ListeDiffusion(ByVal IDuser As String) As String
         Dim dataLD As String = Json.SendJson("", "persons/" & IDuser & "/mailing_lists", "AD", "GET")
+        Dim responseDataLDs = New JavaScriptSerializer().Deserialize(Of Object)(dataLD)
+        'Dim liste As String = responseDataLD("mailing_lists")
         Dim ld As String = "other"
+        For Each responseDataLD In responseDataLDs("mailing_lists")
+            ld = responseDataLD("name")
+        Next
 
-        Dim aaa = InStr(dataLD, """name"":""postdoc""")
-        If InStr(dataLD, """name"": ""postdoc""") > 0 Then
-            ld = "postdoc"
-        End If
 
-        If InStr(dataLD, """name"": ""phd""") > 0 Then
-            ld = "phd"
-        End If
         Return ld
     End Function
 

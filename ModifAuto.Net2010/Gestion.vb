@@ -10,7 +10,7 @@ Public Class gestion
         Commun.Journal("Ecriture des Attribut accountDeletionDT et accountDeactivationDT", False)
 
         Const ADS_UF_ACCOUNT_DISABLE = 2
-        Dim dateNowU As String = Now.Date.ToString("yyyyMMddHHmmss.sZ")
+        Dim dateNowU As String = Now.ToUniversalTime.ToString("yyyyMMddHHmmss.sZ")
 
 
         Using OuUsers As DirectoryEntry = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateurs]"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
@@ -37,7 +37,7 @@ Public Class gestion
 
                                 'suppression des comptes en fonction de "accountDeletionDT"
                                 If userAD.Properties.Contains("accountDeletionDT") Then
-                                    Dim interval As Integer = DateDiff("d", userAD.Properties("accountDeletionDT").Value, Now.Date)
+                                    Dim interval As Integer = DateDiff("d", userAD.Properties("accountDeletionDT").Value, Now.ToUniversalTime)
                                     If interval >= 1 Or userAD.Parent.Path = "LDAP://" & RecupDataini.RecupVar("[OUUtilisateursInvites]") Then
                                         userAD.DeleteTree()
                                         Commun.Journal("Suppression du compte : " & userAD.Properties("SAMAccountName").Value)
@@ -767,7 +767,7 @@ Public Class gestion
                                     'Active l'utilisateur ADM s'il existe
                                     Commun.ReactiveDesactiveCompte(login & "adm", "Active")
                                     Try
-                                        Form1.CompararaisonAjoutRetraitDestinations(DirEntry)
+                                        Form1.CompararaisonAjoutRetraitDestinationsDepartement(DirEntry)
                                         DirEntry.MoveTo(ouDestUser)
                                     Catch ex As Exception
                                         Commun.Journal("ERREUR : réactivation du compte (deplacement Vers OU Utilisateurs) : " & DirEntry.Name, True)
@@ -815,8 +815,8 @@ Public Class gestion
                                         Commun.SetADLDAPProperty(DirEntry, "description", "EXCEPTION Désactivé le: " & Strings.Left(CStr(Now), 10))
                                         Commun.SetADLDAPProperty(DirEntry, "Comment", "EXCEPTION Désactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf, True)
                                         Commun.SetADLDAPProperty(DirEntry, "accountDeletionDate", Strings.Left(DateTime.UtcNow.AddMonths(3).ToString, 10))
-                                        DirEntry.Properties("accountDeactivationDT").Value = Now.Date
-                                        DirEntry.Properties("accountDeletionDT").Value = Now.Date.AddMonths(3)
+                                        DirEntry.Properties("accountDeactivationDT").Value = Now.ToUniversalTime
+                                        DirEntry.Properties("accountDeletionDT").Value = Now.ToUniversalTime.AddMonths(3)
                                         Commun.AppliquerChangement(DirEntry)
                                     End If
 
@@ -825,8 +825,8 @@ Public Class gestion
                                         Commun.SetADLDAPProperty(DirEntry, "description", "Désactivé le: " & Strings.Left(CStr(Now), 10))
                                         Commun.SetADLDAPProperty(DirEntry, "Comment", "Désactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf, True)
                                         Commun.SetADLDAPProperty(DirEntry, "accountDeletionDate", Strings.Left(DateTime.UtcNow.AddMonths(3).ToString, 10))
-                                        DirEntry.Properties("accountDeactivationDT").Value = Now.Date
-                                        DirEntry.Properties("accountDeletionDT").Value = Now.Date.AddMonths(3)
+                                        DirEntry.Properties("accountDeactivationDT").Value = Now.ToUniversalTime
+                                        DirEntry.Properties("accountDeletionDT").Value = Now.ToUniversalTime.AddMonths(3)
                                         Commun.AppliquerChangement(DirEntry)
                                     End If
 
@@ -854,7 +854,7 @@ Public Class gestion
 
                                 'Le deplacer dans l'ou Comptes Désactivés
                                 GestionGroupeUserDesactive(DirEntry)
-                                Form1.CompararaisonAjoutRetraitDestinations(DirEntry)
+                                Form1.CompararaisonAjoutRetraitDestinationsDepartement(DirEntry)
 
                                 Dim adresseMail As String = DirEntry.Properties("Mail").Value
                                 Dim prenom As String = DirEntry.Properties("givenName").Value
@@ -1011,6 +1011,9 @@ Public Class gestion
             Commun.AddRemoveADGroup(CNUser, "G_Acces VPN-SSTP", "Remove")
             Commun.AddRemoveADGroup(CNUser, "LicenceO365ProPlus", "Remove")
             Commun.AddRemoveADGroup(CNUser, "Internes", "Remove")
+            Commun.AddRemoveADGroup(CNUser, "phd", "Remove")
+            Commun.AddRemoveADGroup(CNUser, "postdoc", "Remove")
+
 
             removeAdopte(Commun.TransformeSAMACCOUNTenCN(CNUser))
 
