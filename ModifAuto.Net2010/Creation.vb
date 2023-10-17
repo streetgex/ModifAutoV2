@@ -15,7 +15,7 @@ Public Class Creation
         If Not searchID Is Nothing Then result = searchID.Path
         Return result
     End Function
-    Sub createCompte(ByVal usrNom As String, ByVal usrPrenom As String, ByVal usrDest As String, usrID As String, ByVal usrLogin As String, ByVal genre As String, ByVal Optional usrListeDiff As String = "")
+    Sub createCompte(ByVal usrNom As String, ByVal usrPrenom As String, ByVal usrDest As String, usrID As String, ByVal usrLogin As String, ByVal genre As String, ByVal finContrat As String, ByVal Optional usrListeDiff As String = "")
 
 
 
@@ -53,7 +53,9 @@ Public Class Creation
         Dim usrPathEquipeinfo As String = Commun.FindAttribut(usrEquipeinfo & "_eq", "url")
         Dim aliasSMTP As String() = Commun.DetermineAliasLibre(usrPrenom, usrNom, usrID)
 
-        Commun.Journal("Debut de Creation de compte : " & usrNom & "," & usrPrenom & "," & usrDest & "," & usrID & "," & usrLogin & "," & usrListeDiff)
+        'Commun.Journal("Debut de Creation de compte : " & usrNom & "," & usrPrenom & "," & usrDest & "," & usrID & "," & usrLogin & "," & usrListeDiff)
+
+        Commun.Journal("Debut de Creation de compte : " & usrNom & "," & usrPrenom & "," & usrDest & "," & usrID & "," & usrLogin & "," & genre & "," & finContrat & "," & usrListeDiff)
 
         EqDescr = Commun.FindAttribut(usrDest & " grp", "Description")
 
@@ -106,6 +108,11 @@ Public Class Creation
                     objUser.Properties("description").Value = Nothing
                     objUser.Properties("SAMAccountName").Value = usrLogin
                     objUser.Properties("userPrincipalName").Value = usrLogin & "@igbmc.fr"
+
+                    'dfsdf
+                    'Dim finContrat As String = "01/12/2023"
+
+
                     Commun.AppliquerChangement(objUser)
                     Commun.Journal("Creation de compte : le compte existait déja, il a été modifié : " & usrLogin, False)
 
@@ -144,7 +151,42 @@ Public Class Creation
             objUser.Properties("EmployeeID").Value = usrID
             objUser.Properties("company").Value = "IGBMC"
             objUser.Properties("DepartmentNumber").Value = usrDest
+            If finContrat <> "" Then
+                objUser.Properties("extensionAttribute1").Value = finContrat
+            End If
             Commun.AppliquerChangement(objUser)
+
+            Try
+                Dim ctrlEnvoiMailAP As Boolean = False
+                If finContrat <> "" Then
+                    Dim dateFinContrat As Date
+                    Try
+                        dateFinContrat = DateTime.ParseExact(finContrat, "dd/MM/yyyy", Nothing)
+                    Catch ex As Exception
+                        Commun.Journal("ERREUR : Envoi de mail Assistants de prévention : Erreur parse date fin de contrat : " & usrLogin & " : " & ex.Message, True)
+                        Throw New Exception("Erreur parse date fin de contrat")
+                    End Try
+                    If DateAdd("d", 91, Now()) < dateFinContrat Then
+                        ctrlEnvoiMailAP = True
+                    End If
+                Else
+                    ctrlEnvoiMailAP = True
+                End If
+
+                If ctrlEnvoiMailAP = True Then
+                    Dim corpmailAssistentsPrévention =
+                                                     vbCrLf & "Nom : " & usrPrenom & " " & usrNom &
+                                                     vbCrLf & "Identifiant GDPI : " & usrID &
+                                                     vbCrLf & "Service : " & EqDescr &
+                                                     vbCrLf & "Mail : " & usrLogin & "@igbmc.fr" &
+                                                     vbCrLf & "Date de fin de contrat : " & finContrat
+
+                    Commun.SendEmail("administrateur@igbmc.fr", "assistants-de-prevention@igbmc.fr;Bcc:steph@igbmc.fr", "(Mail automatique) Nouvel entrant", corpmailAssistentsPrévention)
+                End If
+            Catch ex As Exception
+                Commun.Journal("ERREUR : Envoi de mail Assistants de prévention : " & usrLogin & " : " & ex.Message, True)
+            End Try
+
         Catch
             Commun.Journal("ERREUR : Creation de compte : Attributs : " & usrLogin, True)
         End Try
@@ -346,18 +388,16 @@ Public Class Creation
                     & " BORDER=1 BORDERCOLOR=""#000000"" CELLPADDING=0 CELLSPACING=0><COL WIDTH=150><COL WIDTH=490><TR><TD COLSPAN=2 WIDTH=640 VALIGN=TOP><center>nom d'utilisateur: <B>" _
                     & usrLogin & "</B><BR>mot de passe (" & Len(usrPasswd) & " caract&egrave;res): <B>" & usrPasswd & "</B><BR>(&Agrave; changer sur https://password.igbmc.fr)<BR><BR>Votre adresse e-mail est :<BR><B>" _
                     & aliasSMTP(0) & "@igbmc.fr</B><BR>ou bien " & usrLogin & "@igbmc.fr</center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>Messagerie et agenda</center></TD><TD WIDTH=490><center>" _
-                    & "Vous pouvez acc&eacute;der &agrave; vos mails et &agrave; votre agenda personnel via l'adresse https://igbmcmail.igbmc.fr/owa <BR></center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>" _
-                    & "Commandes de cellules/s&eacute;quen&ccedil;age</center></TD><TD WIDTH=490><center>Il faut demander un compte &agrave; Michel Offner (tel: 3277) ou Tony Moutaux (tel: 3395)</center></TD></TR><TR VALIGN=TOP>" _
+                    & "Vous pouvez acc&eacute;der &agrave; vos mails et &agrave; votre agenda personnel via l'adresse https://igbmcmail.igbmc.fr/owa <BR></center></TD></TR><TR VALIGN=TOP>" _
                     & "<TD WIDTH=150><center>Espace disque</center></TD><TD WIDTH=490><center>Vous disposez d'un espace de stockage sauvegard&eacute; auquel vous pouvez acc&eacute;der via l'adresse " _
                     & usrPathEquipeinfo & " .</center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>Qui contacter en cas de probl&egrave;me?</center></TD><TD WIDTH=490>" _
                     & "<center>Envoyez un mail &agrave; <B>helpdesk@igbmc.fr</B></center></TD></TR></TABLE><BR><TABLE WIDTH=642 BORDER=1 BORDERCOLOR=""#000000"" CELLPADDING=0 CELLSPACING=0><COL WIDTH=150>" _
                     & "<COL WIDTH=490><TR><TD COLSPAN=2 WIDTH=640 VALIGN=TOP><center>Your login: <B>" & usrLogin & "</B><BR>Your password: <B>" & usrPasswd & "</B><BR>(Please change it on https://password.igbmc.fr)" _
                     & "<BR><BR>Your email address Is:<BR><B>" & aliasSMTP(0) & "@igbmc.fr</B><BR>Or " & usrLogin & "@igbmc.fr</center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>Email and Calendar</center></TD><TD WIDTH=490><center>" _
-                    & "You can access to your mail And to the shared calendar at https://igbmcmail.igbmc.fr/owa <BR></center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>Orders of cells, sequencing</center></TD><TD WIDTH=490><center>" _
-                    & "If you need to order cells, you must ask for an account to Michel Offner (3277) Or Tony Moutaux (3395).</center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>Disk space</center></TD><TD WIDTH=490><center>" _
+                    & "You can access to your mail And to the shared calendar at https://igbmcmail.igbmc.fr/owa <BR></center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>Disk space</center></TD><TD WIDTH=490><center>" _
                     & "You have a backed up data storage space that you can access by: " & usrPathEquipeinfo & "</center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>Contact</center></TD><TD WIDTH=490><center>Send an email to: <B>helpdesk@igbmc.fr</B>" _
                     & "</center></TD></TR></TABLE></BODY></HTML>"
-        Commun.SendEmail(RecupDataini.RecupVar("[AdminScriptLogin]") & "@igbmc.fr", "serviceinfo@igbmc.fr", "[Creation de compte] " & usrPrenom & " " & usrNom, textMail)
+            Commun.SendEmail(RecupDataini.RecupVar("[AdminScriptLogin]") & "@igbmc.fr", "serviceinfo@igbmc.fr", "[Creation de compte] " & usrPrenom & " " & usrNom, textMail)
 
         Catch e As Exception
             Commun.Journal("ERREUR : Creation de compte : envoie du mail de creation de compte : " & e.Message & " : " & usrLogin, True)

@@ -153,6 +153,8 @@ Public Class ctrlMS
                 nom = ficheResponseData("data")(0)("lastName") & " " & ficheResponseData("data")(0)("firstName")
 
             End If
+
+
             'comptage
             If presentAD = True Then countAD += 1
             If presentMS = True Then countMS += 1
@@ -170,6 +172,10 @@ Public Class ctrlMS
 
         Next
 
+        Dim compteurPresent = jsonMS.MakeRequest("GET", "/areas/2?fields=usersCounter")
+        Dim compteurPresentResponseData = New JavaScriptSerializer().Deserialize(Of Object)(compteurPresent)
+        Dim counter As Integer = compteurPresentResponseData("usersCounter")
+
         Dim corpMail As String = "Personnes Totales presentes dans MicroSesame : " & countMS & vbCrLf & vbCrLf _
             & "Personnes presentes dans l'AD : " & countAD & vbCrLf & vbCrLf _
             & "Personnes actives dans MicroSesame: " & countActiveMS & vbCrLf & vbCrLf _
@@ -177,7 +183,8 @@ Public Class ctrlMS
             & "Personnes à creer dans MicroSesame (ou Désactivées): " & countMSACreer & vbCrLf & vbCrLf _
             & "Photo à faire dans MicroSesame : " & countPhotoAFaire & " (dont " & countPhotoARefaire & " à refaire)" & vbCrLf & vbCrLf _
             & "Badge à éditer dans MicroSesame : " & countBadgeEdit & vbCrLf & vbCrLf _
-            & "Personnes avec plusieurs badges déclarés : " & CountMultiBadge & vbCrLf & vbCrLf
+            & "Personnes avec plusieurs badges déclarés : " & CountMultiBadge & vbCrLf & vbCrLf & vbCrLf _
+            & "Personnes présentes à " & Format(Now, "hh:mm") & " : " & counter
 
         File.Copy("c:\temp\MSrapport.csv", Form1.nomFichierRapportMS)
         Commun.SendEmail("administrateur@igbmc.fr", "officiersorienteurs@igbmc.fr", "Fichier de controle MicroSesame  (" & Now & ")", corpMail, Form1.nomFichierRapportMS) 'kolb@igbmc.fr;

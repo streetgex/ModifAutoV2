@@ -38,8 +38,12 @@ Public Class Form1
 
         Dim listExtensionsXivo As String = ""
         If Environment.MachineName <> "SERV-AD1" Then
+
+            'Dim aaa As New Creation
+            'aaa.createCompte("TEST", "Essai", "HERAULT", "9999", "teste", "Femme", "")
             'UserMembreDeDestination("steph")
-            CompararaisonAjoutRetraitDestinationsDepartement(New DirectoryEntry("LDAP://CN=Abdelkader AYADI,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"))
+            'Dim test = gestion.exceptionUser("damm")
+            'gestion.GestionReactiveDesactiveComptesInterne()
             'ListeDiffusion("6181")
             'ctrlMS.recupUserAD()
             'ExpirationMDP()
@@ -53,7 +57,7 @@ Public Class Form1
 
             'ctrlMS.recupUserAD()
             'ctrlMS.adddatedefin()
-            'Thumbn.ComparePhoto("7105", New DirectoryEntry("LDAP://CN=Catherine BIRCK,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"))
+            'Thumbn.ComparePhoto("7105", New DirectoryEntry("LDAP: //CN=Catherine BIRCK,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"))
             'EcritureNumeroBadge(New DirectoryEntry("LDAP://CN=Stephane CERDAN,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"))
             'Commun.SetADLDAPProperty("steph", "serialNumber", tabNumBadge,)
 
@@ -373,7 +377,7 @@ Public Class Form1
                 End Using
 
                 If result Is Nothing Then
-                    Commun.Journal("ERREUR : Modification des données : " & usrLogin & " : L'Utilisateur n'existe pas", True)
+                    Commun.Journal("ERREUR : Modification des données : " & usrLogin & " : LID de l'Utilisateur n'existe pas", True)
                     Continue For
                 End If
 
@@ -397,6 +401,14 @@ Public Class Form1
                     EcritureNumeroBadge(objuser)
 
                     'Gestion des données basiques
+                    'If objuser.Properties("sAMAccountName").Value <> usrLogin And objuser.Properties("userPrincipalName").Value <> usrLogin & "@igbmc.fr" Then
+                    '    Dim aliasMailLong As String = Replace(tabPersoMonoEquipe(11, n), "igbmc.fr", "")
+                    '    'Json.SendJson("login=" & objuser.Properties("SAMAccountName").Value & "&domain=%40igbmc.fr&alias=" & aliasMailpourIGBMCSERVICES, "persons/" & usrID & "/email", "AD", "PUT")
+                    '    Json.SendJson("login=" & objuser.Properties("sAMAccountName").Value & "&domain=%40igbmc.fr&alias=" & aliasMailLong, "persons/" & usrID & "/email", "AD", "PUT")
+                    '    'Json.SendJson("login=" & objuser.Properties("SAMAccountName").Value & "&domain=%40igbmc.fr&alias=" & aliasMailpourIGBMCSERVICES, "persons/" & usrID & "/email", "AD", "PUT")
+
+                    'End If
+
                     Try
                         If ((objuser.Properties("SN").Value <> usrNom) Or (objuser.Properties("givenName").Value <> usrPrenom) Or (objuser.Properties("physicalDeliveryOfficeName").Value <> usrBureaux)) Then
                             objuser.Properties("SN").Value = usrNom
@@ -422,12 +434,17 @@ Public Class Form1
                         objuser.Properties("extensionAttribute2").Add(genre)
                         Commun.AppliquerChangement(objuser)
                     Else
-                        'MsgBox("Attribut ""extensionAttribute2"" existe")
+                        'Changement de sexe
+                        If objuser.Properties("extensionAttribute2").Value <> genre Then
+                            objuser.Properties("extensionAttribute2").Value = genre
+                            Commun.AppliquerChangement(objuser)
+                        End If
                     End If
-                    'Commun.AppliquerChangement(objuser)
 
-                    'gestion de l'organisme
-                    Try
+                        'Commun.AppliquerChangement(objuser)
+
+                        'gestion de l'organisme
+                        Try
                         If objuser.Properties("Division").Value <> organism Then
                             Commun.SetADLDAPProperty(objuser, "Division", organism)
                             Commun.AppliquerChangement(objuser)
@@ -445,6 +462,13 @@ Public Class Form1
                             objuser.Properties("mail").Value = mailPrincipalcourt
                             Commun.AppliquerChangement(objuser)
                         End If
+
+                        If objuser.Properties("mailNickname").Value <> usrLogin Then
+                            objuser.Properties("mailNickname").Value = usrLogin
+                            Commun.AppliquerChangement(objuser)
+
+                        End If
+
                     Catch ex As Exception
                         Commun.Journal("ERREUR : Modification du mail principal : " & usrLogin & " : " & ex.Message, True)
                     End Try
@@ -594,7 +618,8 @@ Public Class Form1
 
                             Dim oldDate As String = CStr(objuser.Properties("extensionAttribute1").Value)
                             Dim dateCreation As Date = objuser.Properties("whenCreated").Value
-                            If DateAdd("h", -1, dateCreation) > Now Then
+                            Dim tmp = DateAdd("h", 3, dateCreation)
+                            If tmp < Now Then
 
                                 If oldDate = "" Or oldDate Is Nothing Then oldDate = "Aucune"
                                 Dim newDate As String = finDeContrat
@@ -608,14 +633,15 @@ Public Class Form1
                                                      vbCrLf & "Ancienne date de fin de contrat : " & oldDate & "<BR>" &
                                                      vbCrLf & "Nouvelle date de fin de contrat : " & newDate & "<BR>" &
                                                      vbCrLf & "____________________________________________________________________________________________<BR>" & vbCrLf
+
+                                Commun.Journal("ajout de modification pour les Officiers orienteurs pour un changement de fin de contrat : " & usrLogin)
                             End If
 
                             Commun.SetADLDAPProperty(objuser, "extensionAttribute1", finDeContrat)
                                 Commun.AppliquerChangement(objuser)
 
-                                Commun.Journal("Envoi d'un mail aux Officiers orienteurs pour un changement de fin de contrat")
 
-                            End If
+                        End If
                     Catch
                         Commun.Journal("ERREUR : Modification : Date de fin de contrat : " & usrLogin, True)
                     End Try
@@ -649,14 +675,11 @@ Public Class Form1
                             Commun.Journal("Modification de l'attribut AD ""gidNumber"" réussi : " & usrLogin)
                         End If
 
-                        Dim test1 As Integer = InStr(objuser.Properties("unixHomeDirectory").Value.ToString, "seafile")
-                        If objuser.Properties("unixHomeDirectory").Value.ToString = "" Or test1 > 0 Then
-                            err = "unixHomeDirectory"
+                        'Dim test1 As Integer = InStr(objuser.Properties("unixHomeDirectory").Value.ToString, "seafile")
+                        If objuser.Properties("unixHomeDirectory").Value.ToString <> unixHomeDirectoryAD Then
                             Commun.SetADLDAPProperty(objuser, "unixHomeDirectory", unixHomeDirectoryAD)
                             Commun.AppliquerChangement(objuser)
                             Commun.Journal("Modification de l'attribut AD ""unixHomeDirectory"" réussi : " & usrLogin)
-                        Else
-                            Dim aaa = 1
                         End If
 
                         If Not objuser.Properties.Contains("loginShell") Then
@@ -793,6 +816,7 @@ Public Class Form1
         If ctrlMailOOrienteurs = True Then
             corpmailOOrienteurs += vbCrLf & "</body></html>"
             Commun.SendEmail("administrateur@igbmc.fr", "officiersorienteurs@igbmc.fr", "Changement de Date de fin de contrat", corpmailOOrienteurs)
+            Commun.Journal("Envoi d'un mail aux Officiers orienteurs pour un changement de fin de contrat")
         End If
 
 
@@ -1826,7 +1850,7 @@ sortie:
                         login = crea.DetermineLogin(firstname, lastname, IDuser)
                     End If
 
-                    crea.createCompte(lastname, firstname, Dest_short_name, IDuser, login, genre, ld)
+                    crea.createCompte(lastname, firstname, Dest_short_name, IDuser, login, genre, finContrat, ld)
 
                     'quand le compte AD est créé, on defini la variable "compteAD" sur True
                     compteAD = True
@@ -1939,11 +1963,12 @@ sortie:
             Else
                 genre = "Femme"
             End If
+            Dim finContrat As String
 
             If login = "" Then
                 login = crea.DetermineLogin(firstname, lastname, IDuser)
             End If
-            crea.createCompte(lastname, firstname, dest_short_name, IDuser, login, genre)
+            crea.createCompte(lastname, firstname, dest_short_name, IDuser, login, genre, finContrat, "")
 
         Next
         'nettoyage du fichier ForceCreationDeCompte.txt
