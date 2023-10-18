@@ -23,7 +23,7 @@ Public Class Pws
             'pCredential = New PSCredential("IGBMC\userprog", CreateSecurePasswordString("FV,k,~?qa3 8ESYjYF9%"))
 
             '-- set connection info
-            Dim server As String = "serv-mbx14.igbmc.u-strasbg.fr" 'RecupDataini.RecupVar("[CasExchangeServer]")
+            Dim server As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
             pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & server & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
 
             '-- create remote runspace
@@ -113,7 +113,7 @@ Public Class Pws
             'pCredential = New PSCredential("IGBMC\userprog", CreateSecurePasswordString("FV,k,~?qa3 8ESYjYF9%"))
 
             '-- set connection info
-            Dim server As String = "serv-mbx14.igbmc.u-strasbg.fr" 'RecupDataini.RecupVar("[CasExchangeServer]")
+            Dim server As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
             pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & server & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
 
             '-- create remote runspace
@@ -168,7 +168,7 @@ Public Class Pws
             pCredential = DirectCast(Nothing, PSCredential) 'New PSCredential("igbmc\steph", CreateSecurePasswordString("aaaaaa"))
 
             '-- set connection info
-            pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & RecupDataini.RecupVar("[CasExchangeServer]") & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
+            pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & ini.ReadValue("MODIFAUTO", "CasExchangeServer") & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
 
             '-- create remote runspace
             pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
@@ -261,7 +261,7 @@ Public Class Pws
             'pCredential = New PSCredential("IGBMC\userprog", CreateSecurePasswordString("FV,k,~?qa3 8ESYjYF9%"))
 
             '-- set connection info
-            Dim server As String = "serv-mbx14.igbmc.u-strasbg.fr" 'RecupDataini.RecupVar("[CasExchangeServer]")
+            Dim server As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
             pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & server & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
 
             '-- create remote runspace
@@ -283,7 +283,7 @@ Public Class Pws
             With pCommand
                 .AddCommand("New-MailboxExportRequest")
                 .AddParameter("Mailbox", login)
-                .AddParameter("FilePath", Form1.dossierArchivePST & pstName & ".pst")
+                .AddParameter("FilePath", dossierArchivePST & pstName & ".pst")
                 .AddParameter("name", pstName)
                 If archive = True Then
                     .AddParameter("isArchive")
@@ -318,7 +318,7 @@ Public Class Pws
             pCredential = DirectCast(Nothing, PSCredential) 'New PSCredential("igbmc\steph", CreateSecurePasswordString("aaaaaa"))
 
             '-- set connection info
-            pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & RecupDataini.RecupVar("[CasExchangeServer]") & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
+            pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & ini.ReadValue("MODIFAUTO", "CasExchangeServer") & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
 
             '-- create remote runspace
             pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
@@ -370,7 +370,7 @@ Public Class PwShell
         'pCredential = New PSCredential("IGBMC\userprog", CreateSecurePasswordString("FV,k,~?qa3 8ESYjYF9%"))
 
         '-- set connection info
-        Dim server As String = "serv-mbx14.igbmc.u-strasbg.fr" 'RecupDataini.RecupVar("[CasExchangeServer]")
+        Dim server As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
         pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & server & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
 
         '-- create remote runspace

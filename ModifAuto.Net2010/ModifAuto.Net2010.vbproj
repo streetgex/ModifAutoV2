@@ -161,14 +161,14 @@
     <Compile Include="..\..\CLASS COMMUNES\FTPP.vb">
       <Link>FTPP.vb</Link>
     </Compile>
+    <Compile Include="..\..\CLASS COMMUNES\iniFile.vb">
+      <Link>iniFile.vb</Link>
+    </Compile>
     <Compile Include="..\..\CLASS COMMUNES\Json.vb">
       <Link>Json.vb</Link>
     </Compile>
     <Compile Include="..\..\CLASS COMMUNES\passwd.vb">
       <Link>passwd.vb</Link>
-    </Compile>
-    <Compile Include="..\..\CLASS COMMUNES\RecupDataini.vb">
-      <Link>RecupDataini.vb</Link>
     </Compile>
     <Compile Include="Creation.vb" />
     <Compile Include="ctrlMS.vb" />
@@ -177,9 +177,7 @@
     <Compile Include="PwShell.vb" />
     <Compile Include="Supprime.vb" />
     <Compile Include="Thumbn.vb" />
-    <Compile Include="Form1.vb">
-      <SubType>Form</SubType>
-    </Compile>
+    <Compile Include="Form1.vb" />
     <Compile Include="Form1.Designer.vb">
       <DependentUpon>Form1.vb</DependentUpon>
       <SubType>Form</SubType>

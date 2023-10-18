@@ -11,7 +11,7 @@ Public Class Creation
     Shared tabDatabase(1, 35) As String
     Shared Function CompteEmployeeIDExisteOUOut(ByVal id As String) As String
         Dim result As String = ""
-        Dim searchID As SearchResult = Commun.SearchFilterOne(RecupDataini.RecupVar("[OUUtilisateursSortis]"), "employeeID=" & id, SearchScope.OneLevel, "")
+        Dim searchID As SearchResult = Commun.SearchFilterOne(ini.ReadValue("MODIFAUTO", "OUUtilisateursSortis"), "employeeID=" & id, SearchScope.OneLevel, "")
         If Not searchID Is Nothing Then result = searchID.Path
         Return result
     End Function
@@ -32,7 +32,7 @@ Public Class Creation
 
 
         'Si l'utilisateur existe par rapport a l'employeeID et est dans l'ou Utilisateurs, on prend la ligne suivante du fichier
-        If EmployeeIDExist(usrID) = True And DirectoryEntry.Exists("LDAP://CN=" & usrPrenom & " " & usrNom & "," & RecupDataini.RecupVar("[OUUtilisateursActifs]")) Then
+        If EmployeeIDExist(usrID) = True And DirectoryEntry.Exists("LDAP://CN=" & usrPrenom & " " & usrNom & "," & ini.ReadValue("MODIFAUTO", "OUUtilisateursActifs")) Then
 
 
 
@@ -66,7 +66,7 @@ Public Class Creation
             'verification si un compte Sorti existe
             Dim outCtrlAccountExist As String = CompteEmployeeIDExisteOUOut(usrID)
 
-            objOUUtilisateurs = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursActifs]"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+            objOUUtilisateurs = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursActifs"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
 
 
 
@@ -397,7 +397,7 @@ Public Class Creation
                     & "You can access to your mail And to the shared calendar at https://igbmcmail.igbmc.fr/owa <BR></center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>Disk space</center></TD><TD WIDTH=490><center>" _
                     & "You have a backed up data storage space that you can access by: " & usrPathEquipeinfo & "</center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>Contact</center></TD><TD WIDTH=490><center>Send an email to: <B>helpdesk@igbmc.fr</B>" _
                     & "</center></TD></TR></TABLE></BODY></HTML>"
-            Commun.SendEmail(RecupDataini.RecupVar("[AdminScriptLogin]") & "@igbmc.fr", "serviceinfo@igbmc.fr", "[Creation de compte] " & usrPrenom & " " & usrNom, textMail)
+            Commun.SendEmail(ini.ReadValue("GLOBAL", "AdminScriptLogin") & "@igbmc.fr", "serviceinfo@igbmc.fr", "[Creation de compte] " & usrPrenom & " " & usrNom, textMail)
 
         Catch e As Exception
             Commun.Journal("ERREUR : Creation de compte : envoie du mail de creation de compte : " & e.Message & " : " & usrLogin, True)
@@ -428,7 +428,7 @@ Public Class Creation
 
     Shared Sub NbUserDatabaseExchange()
 
-        Dim Ldap As DirectoryEntry = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursActifs]"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+        Dim Ldap As DirectoryEntry = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursActifs"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
         Dim dirSearcher As DirectorySearcher = New DirectorySearcher(Ldap)
         dirSearcher.PageSize = 2000
         dirSearcher.SearchScope = SearchScope.Subtree
@@ -558,7 +558,7 @@ sortie:
 
     Function UserExist(ByVal CNAVerifier As String) As String
 
-        Dim monEntry As New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursActifs]"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+        Dim monEntry As New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursActifs"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
         Dim maRecherche As DirectorySearcher = New DirectorySearcher
         maRecherche.PageSize = 2000
         Dim resultat As String = ""
@@ -621,7 +621,7 @@ sortie:
             pCredential = DirectCast(Nothing, PSCredential) 'New PSCredential("igbmc\steph", CreateSecurePasswordString("aaaaaa"))
 
             '-- set connection info
-            pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & RecupDataini.RecupVar("[CasExchangeServer]") & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
+            pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & ini.ReadValue("MODIFAUTO", "CasExchangeServer") & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
 
             '-- create remote runspace
             pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)

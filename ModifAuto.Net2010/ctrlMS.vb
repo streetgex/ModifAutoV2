@@ -42,7 +42,7 @@ Public Class ctrlMS
             End If
         Next
 
-        Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateurs]"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+        Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateurs"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
             'Dim filtre As SearchResultCollection = Commun.SearchFilterAll(AD, "(&(EmployeeID=*)(objectCategory=person)(|((&(accountDeactivationDT>=20200101000000.0Z)(msDS-parentdistname=OU=Out,OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(&(accountDeactivationDT>=20200101000000.0Z)(msDS-parentdistname=OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(msDS-parentdistname=OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))))", SearchScope.Subtree, "employeeID")
             Dim filtre As SearchResultCollection = Commun.SearchFilterAll(AD, "(&(objectCategory=person)(employeeID=*)(|((&(accountDeactivationDT>=" & dateRef & ")(msDS-parentdistname=OU=Out,OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(&(accountDeactivationDT>=" & dateRef & ")(msDS-parentdistname=OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(msDS-parentdistname=OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))))", SearchScope.Subtree)
             Dim i As Integer = filtre.Count
@@ -120,7 +120,7 @@ Public Class ctrlMS
 
             End If
 
-            Dim filter1 As SearchResult = Commun.SearchFilterOne(RecupDataini.RecupVar("[OUUtilisateurs]"), "(&(employeeID=" & employeeid & "))", SearchScope.Subtree, "employeeID")
+            Dim filter1 As SearchResult = Commun.SearchFilterOne(ini.ReadValue("MODIFAUTO", "OUUtilisateurs"), "(&(employeeID=" & employeeid & "))", SearchScope.Subtree, "employeeID")
             If filter1 IsNot Nothing Then
                 Using user As DirectoryEntry = New DirectoryEntry(filter1.Path)
 
@@ -186,8 +186,8 @@ Public Class ctrlMS
             & "Personnes avec plusieurs badges déclarés : " & CountMultiBadge & vbCrLf & vbCrLf & vbCrLf _
             & "Personnes présentes à " & Format(Now, "hh:mm") & " : " & counter
 
-        File.Copy("c:\temp\MSrapport.csv", Form1.nomFichierRapportMS)
-        Commun.SendEmail("administrateur@igbmc.fr", "officiersorienteurs@igbmc.fr", "Fichier de controle MicroSesame  (" & Now & ")", corpMail, Form1.nomFichierRapportMS) 'kolb@igbmc.fr;
+        File.Copy("c:\temp\MSrapport.csv", nomFichierRapportMS)
+        Commun.SendEmail("administrateur@igbmc.fr", "officiersorienteurs@igbmc.fr", "Fichier de controle MicroSesame  (" & Now & ")", corpMail, nomFichierRapportMS) 'kolb@igbmc.fr;
 
     End Sub
     Shared Function IsValidMS(ByVal startDateTxt As String, ByVal endDateTxt As String) As Boolean
@@ -202,7 +202,7 @@ Public Class ctrlMS
     End Function
 
     Shared Sub adddatedefin()
-        Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursDesactives]"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+        Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursDesactives"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
             Dim filtre As SearchResultCollection = Commun.SearchFilterAll(AD, "(&(objectCategory=person)(!(extensionAttribute1=*)))", SearchScope.Subtree)
             For Each result As SearchResult In filtre
                 Using user As DirectoryEntry = New DirectoryEntry(result.Path)
@@ -213,7 +213,7 @@ Public Class ctrlMS
                     'Dim dataContract As String = Json.SendJson("", "persons/" & IDuser & "/contracts?current_contract=true", "AD", "GET")
 
                     Dim contracts = Json.DeserializeJson(dataContract, "contracts")
-                    Dim finContrat As String = Form1.DateDeFinDeContract(dataContract, employeeID)
+                    Dim finContrat As String = DateDeFinDeContract(dataContract, employeeID)
                     Dim dateactu As String = user.Properties("extensionAttribute1").Value
                     If finContrat = "" Then
 

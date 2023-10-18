@@ -79,7 +79,7 @@ Public Class Supprime
         Commun.Journal("Creation des archives PST", False)
 
         'Dim dateSuppressionMB As String = Now.AddDays(-2).ToString("dd/MM/yyyy")
-        Using OUDisable As DirectoryEntry = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursSortis]"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+        Using OUDisable As DirectoryEntry = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursSortis"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
             Using dirSearcher As DirectorySearcher = New DirectorySearcher(OUDisable)
                 dirSearcher.Filter = "(&(objectClass=user)(homeMDB=*))"
                 dirSearcher.SearchScope = SearchScope.OneLevel
@@ -146,6 +146,45 @@ Public Class Supprime
 
 
     End Sub
+    Shared Sub DeleteOldPST()
+        Commun.Journal("Suppression des anciennes archives PST", False)
+
+        ' Spécifiez l'extension des fichiers PST
+        Dim extensionPST As String = ".pst"
+
+        ' Obtenez tous les fichiers PST dans le dossier réseau
+        Dim fichiersPST() As String = Directory.GetFiles(dossierArchivePST, "*" & extensionPST)
+
+        ' Définissez la période à partir de laquelle les fichiers doivent être supprimés (3 semaines)
+        Dim jourSuppressionPST As Integer = ini.ReadValue("MODIFAUTO", "jourSuppressionPST", 21)
+        Dim periodeSuppression As TimeSpan = TimeSpan.FromDays(jourSuppressionPST)
+
+        ' Obtenez la date actuelle
+        Dim dateActuelle As DateTime = DateTime.Now
+
+        ' Parcourez tous les fichiers PST
+        For Each fichier As String In fichiersPST
+            ' Obtenez la date de création du fichier
+            Dim dateCreation As DateTime = File.GetCreationTime(fichier)
+
+            ' Calculez la différence de temps entre la date actuelle et la date de création
+            Dim differenceTemps As TimeSpan = dateActuelle - dateCreation
+
+            ' Vérifiez si la différence de temps est supérieure à la période de suppression
+            If differenceTemps > periodeSuppression Then
+                ' Supprimez le fichier PST
+                Try
+                    File.Delete(fichier)
+                    Commun.Journal("DeleteOldPST : Suppression du fichier PST : " & fichier)
+                Catch ex As Exception
+                    Commun.Journal("ERREUR : DeleteOldPST : Suppression du fichier PST : " & fichier & " : " & ex.Message, True)
+                End Try
+            End If
+        Next
+
+
+    End Sub
+
     Shared Sub DeleteIncompletePSTFile(ByVal login As String, ByVal userID As String, Optional ByVal archive As Boolean = False)
         Dim PSTFileName As String
         If archive = False Then
@@ -155,8 +194,8 @@ Public Class Supprime
         End If
 
         Try
-            If File.Exists(Form1.dossierArchivePST & PSTFileName) Then
-                My.Computer.FileSystem.DeleteFile(Form1.dossierArchivePST & PSTFileName)
+            If File.Exists(dossierArchivePST & PSTFileName) Then
+                My.Computer.FileSystem.DeleteFile(dossierArchivePST & PSTFileName)
             End If
         Catch ex As Exception
             Commun.Journal("ERREUR : DeleteIncompletePSTFile : Suppression du fichier PST incomplet : " & PSTFileName & " : " & ex.Message, True)
@@ -185,7 +224,7 @@ Public Class Supprime
 
             Commun.ReactiveDesactiveCompte(login, "desactive")
 
-            Using ouOut As DirectoryEntry = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursSortis]"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+            Using ouOut As DirectoryEntry = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursSortis"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
                 DirEntry.MoveTo(ouOut)
             End Using
         Catch ex As Exception

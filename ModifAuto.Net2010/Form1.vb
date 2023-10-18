@@ -8,19 +8,27 @@ Imports System.Management.Automation.Runspaces
 Imports System.Collections.ObjectModel
 Imports System.Web.Script.Serialization
 
-Public Class Form1
-
-    Shared withJson As String = "debug" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
-    Public Shared tabPersoMonoEquipe As String(,)
+Module Module1
+    Public iniFilePath = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2.ini"
+    Public ini As New IniFile(iniFilePath)
+    Public withJson As String = "debug" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
+    Public tabPersoMonoEquipe As String(,)
     Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Integer)
-    Public Shared tabExcepUser(,) As String
-    Shared destinationsJsonIsTrue
+    Public tabExcepUser(,) As String
+    Public destinationsJsonIsTrue
     'Shared organismContractName As String
-    Public Shared dossierArchivePST As String = "\\Space2\archives-pst\"
-    Public Shared dossierPhotos As String = "\\Space2\photos-RH\"
-    Public Shared nomFichierRapportMS As String = "c:\temp\MSrapport(" & Replace(Now.ToString("dd-MM-yyyy HH.mm"), "/", "-") & ").csv"
+    Public dossierArchivePST As String = ini.ReadValue("MODIFAUTO", "dossierArchivePST", "\\Space2\archives-pst\") '"\\Space2\archives-pst\"
+    Public dossierPhotos As String = ini.ReadValue("MODIFAUTO", "dossierPhotos", "\\Space2\photos-RH\") '"\\Space2\photos-RH\"
+    Public nomFichierRapportMS As String = "c:\temp\MSrapport(" & Replace(Now.ToString("dd-MM-yyyy HH.mm"), "/", "-") & ").csv"
 
-    Shared Sub exec(ByVal cmd As String, Optional ByVal argu As String = "")
+
+    'Public Shared ini As New RecupDataini1(iniFilePath)
+
+
+
+
+
+    Public Sub exec(ByVal cmd As String, Optional ByVal argu As String = "")
         Dim p As New Process
         p.StartInfo.UseShellExecute = False
         p.StartInfo.CreateNoWindow = True
@@ -31,14 +39,16 @@ Public Class Form1
         p.WaitForExit(5000)
     End Sub
 
-    Shared Sub Main()
-
+    Public Sub Main()
+        'Dim aaa = ini.ReadValue("MS", "token_encrypted")
         Commun.fichierLog = "c:\temp\Log" & application.productname & ".log"
         Commun.Journal("Debut de traitement")
 
         Dim listExtensionsXivo As String = ""
         If Environment.MachineName <> "SERV-AD1" Then
-
+            GetContracts("2503")
+            'Supprime.SupprimeMailbox()
+            'Supprime.DeleteOldPST()
             'Dim aaa As New Creation
             'aaa.createCompte("TEST", "Essai", "HERAULT", "9999", "teste", "Femme", "")
             'UserMembreDeDestination("steph")
@@ -112,10 +122,10 @@ Public Class Form1
         If ctrlCreationFichier = True Then
             Dim duration As TimeSpan = finCreationFichier - DebutCreationFichier
             Dim duree As String = String.Format("{0:00}h {1:00}m {2:00}s", duration.Hours, duration.Minutes, duration.Seconds)
-            Dim dureeTolerable As Integer = Convert.ToInt32(RecupDataini.RecupVar("[DureeMaxJson]"))
+            Dim dureeTolerable As Integer = Convert.ToInt32(ini.ReadValue("MODIFAUTO", "DureeMaxJson"))
 
             If DateDiff(DateInterval.Minute, DebutCreationFichier, finCreationFichier) > dureeTolerable Then
-                Commun.SendEmail("administrateur@igbmc.fr", RecupDataini.RecupVar("[mailDureeMaxJson]"), "Duree de creation de fichier JSON superieure à " & dureeTolerable.ToString & " minutes", "La durée de creation du fichier JSON a travers IGBMC services a été anormalement longue: " & duree)
+                Commun.SendEmail("administrateur@igbmc.fr", ini.ReadValue("MODIFAUTO", "mailDureeMaxJson"), "Duree de creation de fichier JSON superieure à " & dureeTolerable.ToString & " minutes", "La durée de creation du fichier JSON a travers IGBMC services a été anormalement longue: " & duree)
             End If
 
             Commun.Journal("Création du fichier listepersoJson.txt réussie en : " & duree, False)
@@ -169,16 +179,16 @@ Public Class Form1
 
             UpdateFichierHistoAlias()
             Supprime.SupprimeMailbox()
-
+            Supprime.DeleteOldPST()
         End If
 
 
         If Commun.controlSendMail = True Then
-            Commun.SendEmail(RecupDataini.RecupVar("[AdminScriptLogin]") & "@igbmc.fr", "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
+            sendJournalError()
         End If
 
         Try
-            Shell(RecupDataini.RecupVar("[cheminMAJZoneInfo]"))
+            Shell(ini.ReadValue("MODIFAUTO", "cheminMAJZoneInfo"))
         Catch
             Commun.Journal("ERREUR:Lancement de MAJZoneInfo", True)
         End Try
@@ -189,15 +199,19 @@ Public Class Form1
         Commun.Journal("Fin de traitement")
         'CreationAuto.start()
     End Sub
-    Shared Sub GestionDesFichiers()
+    Public Sub sendJournalError()
+        Commun.SendEmail(ini.ReadValue("GLOBAL", "AdminScriptLogin") & "@igbmc.fr", "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
+    End Sub
+
+    Public Sub GestionDesFichiers()
         ' COPIE DES FICHIERS 
         Try
 
-            File.Copy("c:\temp\eq.txt", RecupDataini.RecupVar("[CheminPartage]") & "\todo\eq.txt", True)
-            File.Copy("c:\temp\listep.txt", RecupDataini.RecupVar("[CheminPartage]") & "\todo\listep.txt", True)
+            File.Copy("c:\temp\eq.txt", ini.ReadValue("MODIFAUTO", "CheminPartage") & "\todo\eq.txt", True)
+            File.Copy("c:\temp\listep.txt", ini.ReadValue("MODIFAUTO", "CheminPartage") & "\todo\listep.txt", True)
             If withJson = "json" Then
-                File.Copy("c:\temp\listepersoJson.txt", RecupDataini.RecupVar("[CheminPartage]") & "\todo\listepersoJson.txt", True)
-                File.Copy("c:\temp\listepersoJson.txt", RecupDataini.RecupVar("[CheminPartage]") & "\cmpttmp\listepersoJson" & Now.ToString("dd") & "-" & Now.ToString("MM") & "-" & Now.ToString("yy") & "-" & Now.ToString("HH") & "h.txt", True)
+                File.Copy("c:\temp\listepersoJson.txt", ini.ReadValue("MODIFAUTO", "CheminPartage") & "\todo\listepersoJson.txt", True)
+                File.Copy("c:\temp\listepersoJson.txt", ini.ReadValue("MODIFAUTO", "CheminPartage") & "\cmpttmp\listepersoJson" & Now.ToString("dd") & "-" & Now.ToString("MM") & "-" & Now.ToString("yy") & "-" & Now.ToString("HH") & "h.txt", True)
             End If
         Catch ex As Exception
             Commun.Journal("ERREUR : COPIE : Copie du fichier : " & ex.Message, True)
@@ -224,7 +238,7 @@ Public Class Form1
             Commun.Journal("ERREUR : suppression du fichier temporaire eq.txt", True)
         End Try
     End Sub
-    Shared Function TrouverCNUserAvecID(ByVal ID As String) As String
+    Public Function TrouverCNUserAvecID(ByVal ID As String) As String
 
         Dim result As String = ""
         If ID <> "" Then
@@ -239,7 +253,7 @@ Public Class Form1
         Return result
     End Function
 
-    Shared Sub EcritureNumeroBadge(ByVal adUser As DirectoryEntry)
+    Public Sub EcritureNumeroBadge(ByVal adUser As DirectoryEntry)
 
         Dim matricule As String = adUser.Properties("EmployeeID").Value.ToString
         Dim tabNumBadge As String() = jsonMS.AllBadgeNumber(matricule)
@@ -308,7 +322,7 @@ Public Class Form1
 
     End Sub
 
-    Shared Sub modifDonneesAD()
+    Public Sub modifDonneesAD()
         'COMPARAISON DU PERSONNEL ENTRE HIER ET AUJOURDH'HUI ET CREATION DU FICHIER DE MODIFICATIONS
 
         Commun.Journal("Debut des Modification des Utilisateurs", False)
@@ -441,10 +455,10 @@ Public Class Form1
                         End If
                     End If
 
-                        'Commun.AppliquerChangement(objuser)
+                    'Commun.AppliquerChangement(objuser)
 
-                        'gestion de l'organisme
-                        Try
+                    'gestion de l'organisme
+                    Try
                         If objuser.Properties("Division").Value <> organism Then
                             Commun.SetADLDAPProperty(objuser, "Division", organism)
                             Commun.AppliquerChangement(objuser)
@@ -614,36 +628,64 @@ Public Class Form1
 
                     'Gestion de la date de fin de contrat
                     Try
-                        If objuser.Properties("extensionAttribute1").Value <> finDeContrat And objuser.Parent.Path = "LDAP://" & RecupDataini.RecupVar("[OUUtilisateursActifs]") Then
+                        ' Vérifie si la valeur de la propriété extensionAttribute1 n'est pas égale à finDeContrat
+                        ' et que le chemin parent de l'utilisateur est celui des utilisateurs actifs défini dans le fichier ini
+                        If objuser.Properties("extensionAttribute1").Value <> finDeContrat And objuser.Parent.Path = "LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursActifs") Then
 
+                            ' Récupère l'ancienne date de fin de contrat de l'utilisateur
                             Dim oldDate As String = CStr(objuser.Properties("extensionAttribute1").Value)
+                            ' Récupère la date de création de l'utilisateur depuis AD
                             Dim dateCreation As Date = objuser.Properties("whenCreated").Value
+
+                            ' Ajoute 3 heures à la date de création
                             Dim tmp = DateAdd("h", 3, dateCreation)
+
+                            ' Vérifie si la date avec 3 heures ajoutées est antérieure à l'heure actuelle
                             If tmp < Now Then
 
+                                ' Vérifie et assigne "Aucune" à oldDate si cette valeur est vide ou null
                                 If oldDate = "" Or oldDate Is Nothing Then oldDate = "Aucune"
+
+                                'Dim olDateDate As DateTime = Date.ParseExact(oldDate, "dd/MM/yyyy", System.Globalization.DateTimeFormatInfo.InvariantInfo)
+
+                                ' Assignation de finDeContrat à newDate si cette valeur est vide ou null
                                 Dim newDate As String = finDeContrat
                                 If newDate = "" Or newDate Is Nothing Then newDate = "Aucune"
-                                ctrlMailOOrienteurs = True
-                                corpmailOOrienteurs +=
-                                                     vbCrLf & "Nom : " & usrPrenom & " " & usrNom & "<BR>" &
-                                                     vbCrLf & "Matricule : " & usrID & "<BR>" &
-                                                     vbCrLf & "Service : " & usrDestNomLong & "<BR>" &
-                                                     vbCrLf & "Mail : " & usrLogin & "@igbmc.fr" & "<BR>" &
-                                                     vbCrLf & "Ancienne date de fin de contrat : " & oldDate & "<BR>" &
-                                                     vbCrLf & "Nouvelle date de fin de contrat : " & newDate & "<BR>" &
-                                                     vbCrLf & "____________________________________________________________________________________________<BR>" & vbCrLf
 
-                                Commun.Journal("ajout de modification pour les Officiers orienteurs pour un changement de fin de contrat : " & usrLogin)
+                                'Mise a jour de la date de fin de contrat dans MS
+                                SetMSEndValidity(usrID, newDate)
+
+                                'controle des habilitations expirées avant la fin de la nouvelle date de fin de contrat
+                                Dim habilitationsExpirées As String = GetMSClearance(usrID, newDate)
+
+                                If habilitationsExpirées <> "" Then
+                                    ' Indique que le contrôle mail pour les orienteurs doit être activé
+                                    ctrlMailOOrienteurs = True
+
+                                    ' Prépare le contenu du mail pour informer les orienteurs du changement
+                                    corpmailOOrienteurs +=
+                                        vbCrLf & "Nom : " & usrPrenom & " " & usrNom & "<BR>" &
+                                        vbCrLf & "Matricule : " & usrID & "<BR>" &
+                                        vbCrLf & "Service : " & usrDestNomLong & "<BR>" &
+                                        vbCrLf & "Mail : " & usrLogin & "@igbmc.fr" & "<BR>" &
+                                        vbCrLf & "Ancienne date de fin de contrat : " & oldDate & "<BR>" &
+                                        vbCrLf & "Nouvelle date de fin de contrat : " & newDate & "<BR>" &
+                                        vbCrLf & "Les habilitations de cette personne n'iront pas jusqu'a la fin de son contrat." & "<BR>" &
+                                        vbCrLf & "____________________________________________________________________________________________<BR>" & vbCrLf
+
+                                    ' Enregistre l'action dans le journal pour les officiers orienteurs
+                                    Commun.Journal("ajout de modification pour les Officiers orienteurs pour un changement de fin de contrat : " & usrLogin)
+                                End If
                             End If
 
+                            ' Met à jour la propriété extensionAttribute1 de l'utilisateur avec la nouvelle date de fin de contrat
                             Commun.SetADLDAPProperty(objuser, "extensionAttribute1", finDeContrat)
-                                Commun.AppliquerChangement(objuser)
 
-
+                            ' Applique les changements à l'objet utilisateur dans Active Directory
+                            Commun.AppliquerChangement(objuser)
                         End If
-                    Catch
-                        Commun.Journal("ERREUR : Modification : Date de fin de contrat : " & usrLogin, True)
+                    Catch ex As Exception
+                        Commun.Journal("ERREUR : Modification : Date de fin de contrat : " & usrLogin & " : " & ex.Message, True)
                     End Try
                     'Données UNIX AD
 
@@ -699,7 +741,7 @@ Public Class Form1
                     Try
 
                         'Cas de Seraphin, pour eviter les boucles dans l'organigramme
-                        If usrLogin = RecupDataini.RecupVar("[LoginDirecteur]") Then
+                        If usrLogin = ini.ReadValue("MODIFAUTO", "LoginDirecteur") Then
                             If objuser.Properties.Contains("Manager") Then
                                 Commun.SetADLDAPProperty(objuser, "Manager", "")
                                 Commun.AppliquerChangement(objuser)
@@ -822,9 +864,57 @@ Public Class Form1
 
         Commun.Journal("Gestion des modifications utilisateurs réussie", False)
     End Sub
+    Sub SetMSEndValidity(ByVal usrID As String, ByVal finDeContrat As String)
+        If finDeContrat = "Aucune" Then finDeContrat = "31/12/2049"
+
+        'recuperation de l'id MS
+        Dim reqUser As String = "/users?fields=id&filter=matricule=" & usrID
+        Dim dataUser As String = jsonMS.MakeRequest("GET", reqUser)
+        Dim responseUser = New JavaScriptSerializer().Deserialize(Of Object)(dataUser)
+        Dim idMS As String = responseUser("data")(0)("id")
+
+        Dim dateObj As DateTime
+
+        DateTime.TryParseExact(finDeContrat, "dd/MM/yyyy", Globalization.CultureInfo.InvariantCulture, Globalization.DateTimeStyles.None, dateObj)
+
+        Dim dateFormatee As String = dateObj.ToString("yyyy-MM-dd")
+
+        Dim data As String = "{""validityEndDate"":  """ & dateFormatee & """}"
+        Dim dataresponse As String = jsonMS.MakeRequest("PUT", "/users/" & idMS, data)
+    End Sub
+    Function GetMSClearance(ByVal usrID As String, ByVal finDeContrat As String) As String
+        GetMSClearance = ""
+        'https://serv-ca.igbmc.u-strasbg.fr/api/userClearances?fields=all&filter=user.id=7724
+        If finDeContrat = "Aucune" Then finDeContrat = "31/12/2049"
+        ' Construction de la requête pour récupérer les utilisateurs présents dans la zone
+
+        Dim dateObj As DateTime
+
+        DateTime.TryParseExact(finDeContrat, "dd/MM/yyyy", Globalization.CultureInfo.InvariantCulture, Globalization.DateTimeStyles.None, dateObj)
+
+        Dim dateFormatee As String = dateObj.ToString("yyyy-MM-dd")
+
+        Dim reqClearance As String = "/userClearances?fields=clearance[name,id],endDate&filter=user.matricule=" & usrID & ",endDate<=" & dateFormatee
+        Dim dataClearance As String = jsonMS.MakeRequest("GET", reqClearance)
+
+        ' Vérification si la réponse est nulle (échec de la requête)
+        If dataClearance Is Nothing Then Exit Function
 
 
-    Shared Function CreationFichiers()
+        ' Désérialisation de la réponse JSON en un objet
+        Dim responseClearance = New JavaScriptSerializer().Deserialize(Of Object)(dataClearance)
+
+        ' Boucle sur les utilisateurs présents dans la zone
+        For Each clearance In responseClearance("data")
+            Dim clearanceName As String = clearance("clearance")("name")
+            GetMSClearance += clearanceName & ", "
+        Next
+        If GetMSClearance <> "" Then
+            GetMSClearance = Left(GetMSClearance, GetMSClearance.Length - 2)
+        End If
+    End Function
+
+    Public Function CreationFichiers()
         Dim result As Boolean = False
         If withJson = "json" Then
             Dim dataJsonDestinationTrue As String = Json.SendJson("", "destinations?is_team=true", "AD", "GET")
@@ -832,8 +922,8 @@ Public Class Form1
             destinationsJsonIsTrue = Json.DeserializeJson(dataJsonDestinationTrue, "destinations")
             creationFichierParJson()
         ElseIf withJson = "debug" Then
-            File.Copy(RecupDataini.RecupVar("[CheminPartage]") & "\todo\eq.txt", "c:\temp\eq.txt", True)
-            File.Copy(RecupDataini.RecupVar("[CheminPartage]") & "\todo\listepersoJson.txt", "c:\temp\listepersoJson.txt", True)
+            File.Copy(ini.ReadValue("MODIFAUTO", "CheminPartage") & "\todo\eq.txt", "c:\temp\eq.txt", True)
+            File.Copy(ini.ReadValue("MODIFAUTO", "CheminPartage") & "\todo\listepersoJson.txt", "c:\temp\listepersoJson.txt", True)
         ElseIf withJson = "temp" Then
 
         Else
@@ -960,18 +1050,18 @@ Public Class Form1
             result = True
         Catch ex As Exception
             Commun.Journal("ERREUR : Creation des fichiers et des tableaux : " & ex.Message, True)
-            Commun.SendEmail(RecupDataini.RecupVar("[AdminScriptLogin]") & "@igbmc.fr", "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
+            Commun.SendEmail(ini.ReadValue("GLOBAL", "AdminScriptLogin") & "@igbmc.fr", "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
             Return result
             Exit Function
         End Try
         Return result
     End Function
-    Shared Sub GestionComptesExternes()
+    Public Sub GestionComptesExternes()
         Commun.Journal("Debut de la gestion des comptes Externes", False)
 
         Const ADS_UF_ACCOUNT_DISABLE = 2
         Dim i = 0
-        Using objADExt As DirectoryEntry = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursExternes]"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+        Using objADExt As DirectoryEntry = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursExternes"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
             Dim results As SearchResultCollection
             Using searcher As DirectorySearcher = New DirectorySearcher(objADExt)
                 searcher.SearchScope = SearchScope.OneLevel
@@ -1029,7 +1119,7 @@ Public Class Form1
                                     End If
 
                                 Else
-                                    Using ADuser As DirectoryEntry = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursActifs]"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+                                    Using ADuser As DirectoryEntry = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursActifs"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
                                         Using searcherMail As DirectorySearcher = New DirectorySearcher(ADuser)
                                             searcherMail.SearchScope = SearchScope.OneLevel
                                             searcherMail.Filter = "((proxyAddresses=*" & mail & "))"
@@ -1102,7 +1192,7 @@ fermerUsing:
 
         Commun.Journal("Fin de la gestion des comptes externes")
     End Sub
-    Shared Function commandePWSMailUser(ByVal aliasMail As String, ByVal externalEmail As String) As Boolean
+    Public Function commandePWSMailUser(ByVal aliasMail As String, ByVal externalEmail As String) As Boolean
         Dim result As Boolean = False
         Dim ctrlDomain As String = "serv-ad1"
         Try
@@ -1156,7 +1246,7 @@ fermerUsing:
 
 
 
-    Shared Function MailCloture(ByVal prenom As String, ByVal dateDeSuppressionPrevue As String) As String
+    Public Function MailCloture(ByVal prenom As String, ByVal dateDeSuppressionPrevue As String) As String
         Return "Bonjour " & prenom & ", " & vbCrLf & vbCrLf & "Votre compte (mail, acces informatique, zone labo, profil,...) à l'IGBMC va etre definitivement supprimé le " _
             & dateDeSuppressionPrevue & "." & vbCrLf & "Les données de votre zone Labo ont été mises à la disposition de votre chef d'equipe. Pour les récupérer, veuillez le contacter." _
             & vbCrLf & "Veuillez récuperer les éléments de votre boite mail que vous souhaitez conserver, avant cette date." _
@@ -1165,7 +1255,7 @@ fermerUsing:
             & vbCrLf & vbCrLf & "Le service Informatique."
     End Function
 
-    Shared Function MailCloture1(ByVal prenom As String, ByVal dateDeSuppressionPrevue As String, dateFindeContrat As String) As String
+    Public Function MailCloture1(ByVal prenom As String, ByVal dateDeSuppressionPrevue As String, dateFindeContrat As String) As String
 
         Dim nbrJourRestant As Integer = DateDiff("d", Now, Convert.ToDateTime(dateDeSuppressionPrevue))
 
@@ -1181,10 +1271,11 @@ fermerUsing:
              vbCrLf & vbCrLf & "Votre contrat de travail vous liant à l’IGBMC s’est terminé le " & dateFindeContrat & " à minuit.<BR><BR>" &
              vbCrLf & vbCrLf & "En conformité avec la Politique de Sécurité des Systèmes d’Information de l’IGBMC, <B>votre compte informatique à l’IGBMC a été automatiquement désactivé.</B><BR>" &
              vbCrLf & "Si un nouveau contrat est enregistré dans un délai de " & nbrJourRestant & " jours, votre compte sera automatiquement réactivé.<BR><BR>" &
-             vbCrLf & vbCrLf & "Votre boite mail restera accessible pendant une période de " & nbrJourRestant & " jours à compter d’aujourd’hui.<BR>" &
-             vbCrLf & "Vous pouvez notamment vous y connecter au travers du webmail de l’IGBMC : <a href=""https://igbmcmail.igbmc.fr"">https://igbmcmail.igbmc.fr</a><BR><BR>" &
+             vbCrLf & vbCrLf & "Votre boite mail restera accessible pendant une période de " & nbrJourRestant & " jours à compter d’aujourd’hui avant d'être définitivement supprimée.<BR>" &
+             vbCrLf & "Vous pouvez notamment vous y connecter au travers du webmail de l’IGBMC : <a href=""https://igbmcmail.igbmc.fr"">https://igbmcmail.igbmc.fr</a><BR>" &
+             vbCrLf & "Vous pouvez demander une archive complète de votre boite mail avant sa suppression définitive en envoyant un email à hepldesk@igbmc.fr.<BR><BR>" &
              vbCrLf & vbCrLf & "Vous n'avez à présent plus accès aux ressources informatiques de l’IGBMC (espaces de stockage, ressources de calcul, postes de travail, etc.).<BR>" &
-             vbCrLf & "Les données de votre zone Labo ont été mises à la disposition de votre chef d'équipe. Si vous n’avez pas pris le temps de les récupérer, merci de le contacter.<BR><BR>" &
+             vbCrLf & "Les données de vos espaces de stokage (Seafile, Mendel, Space2) ont été mises à la disposition de votre chef d'équipe. Si vous n’avez pas pris le temps de les récupérer, merci de le contacter.<BR><BR>" &
              vbCrLf & vbCrLf & "<B>Attention :<BR>" &
              vbCrLf & "<FONT color=""red"">Votre compte informatique sera définitivement supprimé le " & dateDeSuppressionPrevue & ".</FONT><BR>" &
              vbCrLf & "Après cette date, plus aucune récupération de données ou réactivation ne sera possible. Votre compte ainsi que votre boite mail seront définitivement détruits.</B><BR><BR>" &
@@ -1195,11 +1286,12 @@ fermerUsing:
              vbCrLf & vbCrLf & vbCrLf & "Dear " & prenom & ", <BR><BR>" &
              vbCrLf & vbCrLf & "Your contract with the IGBMC ended at midnight on " & dateFindeContrat & ".<BR><BR>" &
              vbCrLf & vbCrLf & "In accordance with the IGBMC Information Systems Security Policy, <B>your IT account at the IGBMC has been automatically disabled.</B><BR>" &
-             vbCrLf & "If a new contract is registered within X days, your account will be automatically reactivated.<BR><BR>" &
-             vbCrLf & vbCrLf & "Your mailbox will remain accessible for a period of " & nbrJourRestant & " days starting today.<BR>" &
+             vbCrLf & "If a new contract is registered within " & nbrJourRestant & " days, your account will be automatically reactivated.<BR><BR>" &
+             vbCrLf & vbCrLf & "Your mailbox will remain accessible for a period of " & nbrJourRestant & " days starting today before being permanently deleted.<BR>" &
              vbCrLf & "You can connect to it via the IGBMC webmail: <a href=""https://igbmcmail.igbmc.fr"">https://igbmcmail.igbmc.fr</a><BR><BR>" &
+             vbCrLf & "You can request a complete archive of your mailbox before it is permanently deleted by sending an e-mail to hepldesk@igbmc.fr.<BR><BR>" &
              vbCrLf & vbCrLf & "You no longer have access to the IT resources of the IGBMC (storage spaces, computing resources, workstations, etc.).<BR>" &
-             vbCrLf & "The data in your Lab area has been made available to your team leader. If you have not taken the time to retrieve them, please contact her/him.<BR><BR>" &
+             vbCrLf & "The data in your storage areas (Seafile, Mendel, Space2) have been made available to your team leader. If you have not taken the time to retrieve them, please contact her/him.<BR><BR>" &
              vbCrLf & vbCrLf & "<B>Warning :<BR>" &
              vbCrLf & "<FONT color=""red"">Your computer account will be permanently deleted on " & dateDeSuppressionPrevue & ".</FONT><BR>" &
              vbCrLf & "After this date, no more data recovery or account reactivation will be possible. Your IT account and your mailbox will be permanently destroyed.</B><BR><BR>" &
@@ -1212,7 +1304,7 @@ fermerUsing:
 
     End Function
 
-    Shared Function UserMembreDeDestination(ByVal username As String) As String()
+    Public Function UserMembreDeDestination(ByVal username As String) As String()
         Dim appartientA As String()
         Dim Entry As DirectoryEntry = New DirectoryEntry("LDAP://DC=igbmc,DC=u-strasbg,DC=fr", Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
         Dim Searcher As New DirectorySearcher(Entry)
@@ -1233,7 +1325,7 @@ fermerUsing:
         appartientA = Nothing
     End Function
 
-    Shared Function EquipeComptableFichierUser(ByVal login As String) As String()
+    Public Function EquipeComptableFichierUser(ByVal login As String) As String()
         Try
             Dim srJ As StreamReader
 
@@ -1267,7 +1359,7 @@ fermerUsing:
         End Try
 
     End Function
-    Public Shared Function chercheDepartementparRapporDestination(ByVal destination As String) As String
+    Public Function chercheDepartementparRapporDestination(ByVal destination As String) As String
         Try
 
             Using srJ As StreamReader = New StreamReader("c:\temp\eq.txt", System.Text.Encoding.Default)
@@ -1300,7 +1392,7 @@ fermerUsing:
             Commun.Journal("ERREUR : Recuperation du departement : " & destination & " : " & ex.Message, True)
         End Try
     End Function
-    Public Shared Sub CompararaisonAjoutRetraitDestinationsDepartement(ByVal usrDir As DirectoryEntry)
+    Public Sub CompararaisonAjoutRetraitDestinationsDepartement(ByVal usrDir As DirectoryEntry)
         Dim login As String = usrDir.Properties("SAMAccountName").Value
         Dim EquipeUserAD As String() = UserMembreDeDestination(login)
         Dim EquipeUserFichier As String() = EquipeComptableFichierUser(login)
@@ -1352,7 +1444,7 @@ fermerUsing:
 
             'Retrait de l'utilisateur des departements de l'AD auquels il n'appartient plus d'apres le fichier Json
             For Each dptGrp In DepartementUserAd
-                    Dim aaa = Array.IndexOf(DepartementUserFile, dptGrp)
+                Dim aaa = Array.IndexOf(DepartementUserFile, dptGrp)
                 If aaa = -1 Then
                     Commun.AddRemoveADGroup(login, dptGrp, "Remove")
                     Commun.Journal("Succes : CompararaisonAjoutRetraitDestinationsDepartement : " & login & " retiré de " & dptGrp)
@@ -1381,7 +1473,7 @@ fermerUsing:
         End Try
     End Sub
 
-    Shared Sub modifAliasMail(ByVal objuser As DirectoryEntry, ByVal prenom As String, ByVal nom As String)
+    Public Sub modifAliasMail(ByVal objuser As DirectoryEntry, ByVal prenom As String, ByVal nom As String)
 
         Dim ctrlChangement As Boolean = False
         'On met le userID de la fonction Commun.DetermineAliasLibre afin d'optenir directement un alias dispo sans rechercher le userID dans l'historique alias 
@@ -1430,7 +1522,7 @@ fermerUsing:
 
     End Sub
 
-    Shared Sub AttributionStrategieMDP()
+    Public Sub AttributionStrategieMDP()
 
         'Cas adminInfo
         Dim tabresults As String()
@@ -1501,7 +1593,7 @@ fermerUsing:
 
 
     End Sub
-    Shared Sub DisablePasswordNeverExpiresETPasswordLastSet(ByVal usrPath As String)
+    Public Sub DisablePasswordNeverExpiresETPasswordLastSet(ByVal usrPath As String)
         Using user As DirectoryEntry = New DirectoryEntry("LDAP://" & usrPath, Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
             Const NON_EXPIRE_FLAG = &H10000
             Dim Val As Integer = user.Properties("userAccountControl").Value
@@ -1516,7 +1608,7 @@ fermerUsing:
         End Using
     End Sub
 
-    Shared Sub updateGroupeWithArray(ByVal nomGroupe As String, ByVal arr As String())
+    Public Sub updateGroupeWithArray(ByVal nomGroupe As String, ByVal arr As String())
         Dim tabGroup As String() = Commun.MembresDuGroupe(nomGroupe)
         Dim absentDeArr As String() = tabGroup
         Dim absentDeTabGroup1 As String() = arr
@@ -1536,7 +1628,7 @@ fermerUsing:
             Next
         End If
     End Sub
-    Shared Sub ExpirationMDP()
+    Public Sub ExpirationMDP()
         Dim samaccountname As String
         Try
 
@@ -1645,7 +1737,7 @@ sortie:
         End Try
 
     End Sub
-    Shared Function MailTemplatePasswdExpire(ByVal type As String, ByVal samaccountname As String, ByVal expirationPWD As String, ByVal MaxPWDageJourPolicy As String, ByVal historyLenght As String, ByVal nbrChar As String) As String
+    Public Function MailTemplatePasswdExpire(ByVal type As String, ByVal samaccountname As String, ByVal expirationPWD As String, ByVal MaxPWDageJourPolicy As String, ByVal historyLenght As String, ByVal nbrChar As String) As String
         Dim corpMail As String
         If type = "adminInfo" Or type = "usersAdm" Then
             Dim rappelComplexite As String = "Votre mot de passe doit etre changé tous les " & MaxPWDageJourPolicy & " jours." & vbCrLf & "Il ne peut pas etre le meme que les " & historyLenght & " précédents." & vbCrLf & "Votre mot de passe doit contenir au moins :" & vbCrLf & vbTab & "- " & nbrChar & " caractères"
@@ -1681,7 +1773,7 @@ sortie:
         Return corpMail
     End Function
     '    
-    Shared Function ConvertAttribute(ByVal li As Object) As Integer
+    Public Function ConvertAttribute(ByVal li As Object) As Integer
         Try
             Dim lngHigh = li.HighPart
             Dim lngLow = li.LowPart
@@ -1703,7 +1795,7 @@ sortie:
     ''' <param name="login">Login de l'utilisateur a controler.</param>
     ''' <remarks>Retourne "False" s'il n'est pas en exception, et la date (au format texte) s'il est en exception</remarks>
 
-    Shared Function IndexOfMulti(ByVal tab As String(,), ByVal recherche As String, ByVal colonne As Integer) As Integer
+    Public Function IndexOfMulti(ByVal tab As String(,), ByVal recherche As String, ByVal colonne As Integer) As Integer
         Dim j As Integer = -1
         If Not tab Is Nothing Then
 
@@ -1719,7 +1811,7 @@ sortie:
     End Function
 
 
-    Shared Function ShellSort(ByVal tab1 As String(),
+    Public Function ShellSort(ByVal tab1 As String(),
                         Optional ByVal loBound As Long = -1,
                         Optional ByVal upBound As Long = -1) As String()
 
@@ -1753,7 +1845,7 @@ sortie:
         Return tab1
     End Function
 
-    Shared Sub creationFichierParJson()
+    Public Sub creationFichierParJson()
         FileOpen(2, "c:\temp\eq.txt", OpenMode.Output)
         'Dim data As String = Json.SendJson("", "destinations?is_team=true", "AD", "GET")
         Dim tabResultJson As String()
@@ -1857,7 +1949,7 @@ sortie:
 
                     'ecriture du fichier de creation de compte
                     Dim newUser As String = lastname & "," & firstname & "," & login & ",," & Dest_short_name & ",,,," & ld & "," & IDuser & "," & aliasMail & "," & genre
-                    Dim sw As New StreamWriter(RecupDataini.RecupVar("[CheminPartage]") & "\todo\c" & Now.ToString("dd") & "-" & Now.ToString("MM") & "-" & Now.ToString("yy") & "-" & Now.ToString("HH") & "h.txt", True)
+                    Dim sw As New StreamWriter(ini.ReadValue("MODIFAUTO", "CheminPartage") & "\todo\c" & Now.ToString("dd") & "-" & Now.ToString("MM") & "-" & Now.ToString("yy") & "-" & Now.ToString("HH") & "h.txt", True)
                     sw.WriteLine(newUser)
                     sw.Close()
                     sw.Dispose()
@@ -1942,7 +2034,7 @@ sortie:
 
 
     End Sub
-    Shared Sub exceptionCreationCompte()
+    Public Sub exceptionCreationCompte()
         Dim lines() As String = IO.File.ReadAllLines("\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ForceCreationDeCompte.txt")
         For Each line As String In lines
 
@@ -1978,7 +2070,7 @@ sortie:
             Commun.Journal("ERREUR : nettoyage du fichier ForceCreationDeCompte.txt", True)
         End Try
     End Sub
-    Shared Function ConvertOrganism(ByVal orgID As String) As String
+    Public Function ConvertOrganism(ByVal orgID As String) As String
         Dim result As String = ""
 
         Dim orgInteger As Integer = Convert.ToInt32(orgID)
@@ -2014,7 +2106,7 @@ sortie:
         Return result
 
     End Function
-    Shared Function RecupJsonExterne(ByVal tabResultjson As String()) As String()
+    Public Function RecupJsonExterne(ByVal tabResultjson As String()) As String()
 
         Dim data As String = Json.SendJson("", "persons?extern=true&present=true", "AD", "GET")
 
@@ -2071,7 +2163,7 @@ sortie:
 
     End Function
 
-    Shared Sub ChangePasswordAccountPrestaImagerie()
+    Public Sub ChangePasswordAccountPrestaImagerie()
         Try
             Dim passwordPrestaImagerieAdm = RandomPassword.Generate(8)
             Dim passwordPrestaImagerieUsr = RandomPassword.Generate(8)
@@ -2092,7 +2184,7 @@ sortie:
             Commun.Journal("ERREUR : ChangePasswordAccountPrestaImagerie : " & ex.Message, True)
         End Try
     End Sub
-    Shared Function TrouverMailPrincipal(ByVal login As String, ByVal courtOuLong As String)
+    Public Function TrouverMailPrincipal(ByVal login As String, ByVal courtOuLong As String)
         Try
             Dim mail As String = ""
             Dim objusr As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.TransformeSAMACCOUNTenCN(login), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
@@ -2123,7 +2215,7 @@ sortie:
             Commun.Journal("ERREUR : TrouverMailPrincipal : " & login & ":" & ex.Message, True)
         End Try
     End Function
-    Shared Sub EnvoiMailCompteExpireXjour(ByVal j As Integer)
+    Public Sub EnvoiMailCompteExpireXjour(ByVal j As Integer)
 
         j += 1
         Dim adresseMail As String = ""
@@ -2133,7 +2225,7 @@ sortie:
         Try
             Dim dateDeSuppressionPrevueUniversal As String = Now.Date.AddDays(j).ToString("yyyyMMddHHmmss.sZ")
             Dim dateDeSuppressionPrevueTxt As String = Now.Date.AddDays(j).ToString("dd/MM/yyyy")
-            Using objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursDesactives]"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+            Using objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursDesactives"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
                 Using searcher As DirectorySearcher = New DirectorySearcher(objAD)
                     searcher.Filter = "(&(objectClass=person)(objectClass=user)(accountDeletionDT=" & dateDeSuppressionPrevueUniversal & "))"
 
@@ -2147,7 +2239,7 @@ sortie:
                             Dim dateDefinDeContrat As String = userAD.Properties("extensionAttribute1").Value
                             Dim mail = MailCloture1(prenom, dateDeSuppressionPrevueTxt, dateDefinDeContrat)
 
-                            Commun.SendEmail("noreply@igbmc.fr", adresseMail & ";Cc:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail)
+                            Commun.SendEmail("noreply@igbmc.fr", adresseMail & ";Cci:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail)
                             Commun.Journal("Mail de fermeture de compte envoyé (-" & j - 1 & ") : " & adresseMail)
                             ctrlMailEnvoye = True
                         End Using
@@ -2162,7 +2254,7 @@ sortie:
             Commun.Journal("ERREUR : EnvoiMailCompteExpireXjour : Mail de fermeture de compte (-" & j & ") : " & adresseMail & " : " & ex.Message, True)
         End Try
     End Sub
-    Shared Function ChercherNPlus1deDestination(ByVal idUser As String, ByVal idDest As String) As String
+    Public Function ChercherNPlus1deDestination(ByVal idUser As String, ByVal idDest As String) As String
         Dim dateactu As Date = Convert.ToDateTime(Now.ToString("yyyy-MM-dd"))
 
 
@@ -2181,7 +2273,7 @@ sortie:
         Return IDNPlus1
 
     End Function
-    Shared Function ContratEnCours(contracts) As Boolean
+    Public Function ContratEnCours(contracts) As Boolean
 
         ContratEnCours = False
         If contracts.length > 0 Then ContratEnCours = True
@@ -2189,7 +2281,7 @@ sortie:
         Return ContratEnCours
 
     End Function
-    Shared Function Organisme(contracts) As String
+    Public Function Organisme(contracts) As String
         Dim result As String = ""
 
         For c = 0 To UBound(contracts)
@@ -2206,7 +2298,7 @@ sortie:
         Return result
     End Function
 
-    Shared Function DateDeFinDeContract(contracts, id) As String
+    Public Function DateDeFinDeContract(contracts, id) As String
 
         Dim result As String = ""
         Try
@@ -2259,7 +2351,7 @@ sortie:
         Return result
 
     End Function
-    Shared Sub controlDoublonUIDNumber()
+    Public Sub controlDoublonUIDNumber()
         Using Ldap As DirectoryEntry = New DirectoryEntry("LDAP://DC=igbmc,DC=u-strasbg,DC=fr", Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
             Using searcher As DirectorySearcher = New DirectorySearcher(Ldap)
                 searcher.Filter = "(&(objectClass=posixAccount)(uidNumber=*))"
@@ -2284,7 +2376,7 @@ sortie:
 
 
                                     Next
-                                    MsgBox(Join(tmp2, " , ") & " : " & uid & vbCrLf & Commun.UIDNumberMini)
+                                    'MsgBox(Join(tmp2, " , ") & " : " & uid & vbCrLf & Commun.UIDNumberMini)
                                     Erase tmp2
                                 End Using
                             End If
@@ -2297,7 +2389,7 @@ sortie:
             End Using
         End Using
     End Sub
-    Shared Sub UpdateFichierHistoAlias()
+    Public Sub UpdateFichierHistoAlias()
 
         Commun.Journal("Mise a jour du fichier d'historique des alias", False)
 
@@ -2431,12 +2523,12 @@ sortie:
 
         Commun.Journal("Mise a jour du fichier d'historique des Alias terminée avec succes", False)
     End Sub
-    Shared Function EstPair(n As Long) As Boolean
+    Public Function EstPair(n As Long) As Boolean
         EstPair = (n Mod 2) = 0
     End Function
 
 
-    Shared Function LeaderDest(ByVal idEntity As String, ByVal idGroup As String, ByVal idDep As String, ByVal idTeam As String, ByVal idDest As String) As String
+    Public Function LeaderDest(ByVal idEntity As String, ByVal idGroup As String, ByVal idDep As String, ByVal idTeam As String, ByVal idDest As String) As String
         Dim destinationsJsonLeaders As String = Json.SendJson("", "destinations/" & idDest & "/leaders", "AD", "GET")
         Dim result As String = ""
         Dim leaders = Json.DeserializeJson(destinationsJsonLeaders, "leaders")
@@ -2470,7 +2562,7 @@ sortie:
 
         Return result
     End Function
-    Shared Function ListeDiffusion(ByVal IDuser As String) As String
+    Public Function ListeDiffusion(ByVal IDuser As String) As String
         Dim dataLD As String = Json.SendJson("", "persons/" & IDuser & "/mailing_lists", "AD", "GET")
         Dim responseDataLDs = New JavaScriptSerializer().Deserialize(Of Object)(dataLD)
         'Dim liste As String = responseDataLD("mailing_lists")
@@ -2483,7 +2575,7 @@ sortie:
         Return ld
     End Function
 
-    Shared Function PWSDisableMailbox(ByVal aliasMail As String) As Boolean
+    Public Function PWSDisableMailbox(ByVal aliasMail As String) As Boolean
         Dim result As Boolean = False
         Dim ctrlDomain As String = "serv-ad1"
         Try
@@ -2533,5 +2625,44 @@ sortie:
         End Try
         Return result
     End Function
+    Function GetContracts(ByVal id As String, Optional ByVal createUser As Boolean = False) As Boolean
+        Try
+            Dim result As Boolean = False
+            Dim dataContracts As String = Json.SendJson("", "persons/" & id & "/contracts", "AD", "GET")
+            Dim responseContract = New JavaScriptSerializer().Deserialize(Of Object)(dataContracts)
+            Dim dureeOld As Integer = 0
+            Dim dureeCurrent As Integer = 0
+            For Each contract In responseContract("contracts")
+                Dim status As String = contract("status")
 
-End Class
+                Dim startDate As DateTime = contract("start_date")
+                Dim endDateTxt = contract("end_date")
+                If endDateTxt Is Nothing Then endDateTxt = "2100-01-01T00:00:00"
+                Dim endDate As DateTime = endDateTxt
+
+                If status <> "running" Then
+                    dureeOld += DateDiff(DateInterval.Day, startDate, endDate)
+                    Dim aaa = 1
+                Else
+                    dureeCurrent += DateDiff(DateInterval.Day, startDate, endDate)
+                    Dim aaa = 2
+                End If
+            Next
+            If createUser = True Then
+                If dureeCurrent >= 90 Then
+                    'Send Mail
+                    result = True
+                End If
+            Else
+                If dureeOld < 90 And dureeCurrent + dureeOld >= 90 Then
+                    'Send Mail
+                    result = True
+                End If
+            End If
+            Return result
+        Catch ex As Exception
+            Commun.Journal("ERREUR : Calcul de la durée des contrats : " & id & " : " & ex.Message, True)
+        End Try
+
+    End Function
+End Module

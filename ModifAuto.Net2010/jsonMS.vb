@@ -10,9 +10,9 @@ Imports Newtonsoft.Json.Linq
 Public Class jsonMS
     'Shared serveurMS As String = "serv-ca-formation.igbmc.u-strasbg.fr"
     'Shared token As String = "{bddb6c80-98c3-4a38-9ee7-fffddfd04343}"
-    Shared serveurMS As String = "serv-ca.igbmc.u-strasbg.fr:443"
-    Shared token As String = "{6ec09464-6b1f-4f5e-a39e-a7db30e15338}"
-    Shared Function MakeRequest(method As String, requestAPI As String) As String
+    Shared serveurMS As String = ini.ReadValue("MS", "serveur") '"serv-ca.igbmc.u-strasbg.fr:443"
+    Shared token As String = ini.ReadValue("MS", "token_encrypted") '"{6ec09464-6b1f-4f5e-a39e-a7db30e15338}"
+    Shared Function MakeRequest(method As String, requestAPI As String, Optional ByVal data As String = "") As String
         Dim fullUrl As String = "https://" & serveurMS & "/api" & requestAPI
         'Dim fullUrl As String = "https://serv-ca.igbmc.u-strasbg.fr:81/api" & requestAPI
         Dim responseFromServer As String = ""
@@ -21,7 +21,7 @@ Public Class jsonMS
             ' ignore ssl certificate
             ServicePointManager.ServerCertificateValidationCallback = AddressOf clsSSL.AcceptAllCertifications
             'ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12
+            'ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12
             'Dim request As HttpWebRequest = DirectCast(WebRequest.Create(New Uri(fullUrl)), HttpWebRequest)
             Dim request As HttpWebRequest = HttpWebRequest.Create(fullUrl)
 
@@ -32,6 +32,22 @@ Public Class jsonMS
             request.Headers.Add("X-API-KEY", token)
             request.Headers.Add("X-PROFILE", "1")
 
+            If method = "PUT" Or method = "POST" Then
+                request.ContentType = "application/json; charset=utf-8"
+                Dim jsonDataBytes As Byte() = System.Text.Encoding.UTF8.GetBytes(data)
+                request.ContentLength = jsonDataBytes.Length
+                Dim stream = request.GetRequestStream()
+                stream.Write(jsonDataBytes, 0, jsonDataBytes.Length)
+                stream.Close()
+                stream.Dispose()
+            ElseIf method = "GET" Or method = "DELETE" Then
+                request.ContentType = "application/json"
+            Else
+                Exit Function
+            End If
+
+            ServicePointManager.UseNagleAlgorithm = False
+            ServicePointManager.Expect100Continue = False
 
             Dim startTime As Date = Now
             Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
@@ -39,6 +55,8 @@ Public Class jsonMS
 
             If response.StatusCode <> HttpStatusCode.OK Then
                 Throw New Exception([String].Format("Server error (HTTP {0}: {1}).", response.StatusCode, response.StatusDescription))
+                Commun.Journal("ERREUR : Connexion à MS : " & response.StatusCode & " " & response.StatusDescription, True)
+                sendJournalError()
                 End
             End If
 
@@ -62,7 +80,8 @@ Public Class jsonMS
             If responseFromServer <> "" Then
                 'ConsoleWrite("Response from server in " & DateDiff(DateInterval.Second, startTime, endTime) & " seconds : OK", ConsoleColor.Green)
             Else
-                'ConsoleWrite("Response is empty : exit", ConsoleColor.Red)
+                Commun.Journal("Response is empty : exit", True)
+                sendJournalError()
                 End
             End If
             ' Clean up the streams.  
@@ -71,6 +90,7 @@ Public Class jsonMS
             response.Close()
 
         Catch e As Exception
+            'MsgBox(e.Message)
             'ConsoleWrite(e.ToString(), ConsoleColor.Red)
         End Try
 
