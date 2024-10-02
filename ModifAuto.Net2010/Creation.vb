@@ -157,31 +157,10 @@ Public Class Creation
             Commun.AppliquerChangement(objUser)
 
             Try
-                Dim ctrlEnvoiMailAP As Boolean = False
-                If finContrat <> "" Then
-                    Dim dateFinContrat As Date
-                    Try
-                        dateFinContrat = DateTime.ParseExact(finContrat, "dd/MM/yyyy", Nothing)
-                    Catch ex As Exception
-                        Commun.Journal("ERREUR : Envoi de mail Assistants de prévention : Erreur parse date fin de contrat : " & usrLogin & " : " & ex.Message, True)
-                        Throw New Exception("Erreur parse date fin de contrat")
-                    End Try
-                    If DateAdd("d", 91, Now()) < dateFinContrat Then
-                        ctrlEnvoiMailAP = True
-                    End If
-                Else
-                    ctrlEnvoiMailAP = True
-                End If
+                Dim ctrlEnvoiMailAP As Boolean = GetContractsLenght(usrID, True)
 
                 If ctrlEnvoiMailAP = True Then
-                    Dim corpmailAssistentsPrévention =
-                                                     vbCrLf & "Nom : " & usrPrenom & " " & usrNom &
-                                                     vbCrLf & "Identifiant GDPI : " & usrID &
-                                                     vbCrLf & "Service : " & EqDescr &
-                                                     vbCrLf & "Mail : " & usrLogin & "@igbmc.fr" &
-                                                     vbCrLf & "Date de fin de contrat : " & finContrat
-
-                    Commun.SendEmail("administrateur@igbmc.fr", "assistants-de-prevention@igbmc.fr;Bcc:steph@igbmc.fr", "(Mail automatique) Nouvel entrant", corpmailAssistentsPrévention)
+                    SendMailAP(usrPrenom, usrNom, usrID, EqDescr, usrLogin, finContrat)
                 End If
             Catch ex As Exception
                 Commun.Journal("ERREUR : Envoi de mail Assistants de prévention : " & usrLogin & " : " & ex.Message, True)
@@ -281,7 +260,7 @@ Public Class Creation
         Try
 
             Dim adress As New List(Of String)
-            adress.Add("smtp:" & aliasSMTP(0) & "@igbmc.fr")
+            adress.Add("smtp:" & LCase(aliasSMTP(0)) & "@igbmc.fr")
             'adress.Add("smtp:" & aliasSMTP(0) & "@igbmc.u-strasbg.fr")
             adress.Add("SMTP:" & usrLogin & "@igbmc.fr")
             'adress.Add("smtp:" & usrLogin & "@igbmc.u-strasbg.fr")
@@ -291,7 +270,7 @@ Public Class Creation
             If a > 0 Then
                 For a = 1 To a
                     If aliasSMTP(a) <> usrLogin Then
-                        adress.Add("smtp:" & aliasSMTP(a) & "@igbmc.fr")
+                        adress.Add("smtp:" & LCase(aliasSMTP(a) & "@igbmc.fr"))
                         'adress.Add("smtp:" & aliasSMTP(a) & "@igbmc.u-strasbg.fr")
                         objUser.Properties("proxyAddresses").Value = adress.ToArray()
                         Commun.AppliquerChangement(objUser)

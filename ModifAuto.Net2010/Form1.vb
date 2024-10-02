@@ -46,7 +46,8 @@ Module Module1
 
         Dim listExtensionsXivo As String = ""
         If Environment.MachineName <> "SERV-AD1" Then
-            GetContracts("2503")
+            'Dim a = Commun.UIDNumberMini
+            'GetContractsLenght("2503")
             'Supprime.SupprimeMailbox()
             'Supprime.DeleteOldPST()
             'Dim aaa As New Creation
@@ -68,7 +69,7 @@ Module Module1
             'ctrlMS.recupUserAD()
             'ctrlMS.adddatedefin()
             'Thumbn.ComparePhoto("7105", New DirectoryEntry("LDAP: //CN=Catherine BIRCK,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"))
-            'EcritureNumeroBadge(New DirectoryEntry("LDAP://CN=Stephane CERDAN,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"))
+            'EcritureNumeroBadge(New DirectoryEntry("LDAP://CN=Claude KOLB,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"))
             'Commun.SetADLDAPProperty("steph", "serialNumber", tabNumBadge,)
 
             'Dim dataContract As String = Json.SendJson("", "persons/" & 2503 & "/contracts", "AD", "GET") 'Json.SendJson("", "persons/" & 6647 & "/contracts", "AD", "GET")
@@ -391,7 +392,7 @@ Module Module1
                 End Using
 
                 If result Is Nothing Then
-                    Commun.Journal("ERREUR : Modification des données : " & usrLogin & " : LID de l'Utilisateur n'existe pas", True)
+                    Commun.Journal("ERREUR : Modification des données : " & usrLogin & " : L'ID de l'Utilisateur n'existe pas", True)
                     Continue For
                 End If
 
@@ -632,16 +633,25 @@ Module Module1
                         ' et que le chemin parent de l'utilisateur est celui des utilisateurs actifs défini dans le fichier ini
                         If objuser.Properties("extensionAttribute1").Value <> finDeContrat And objuser.Parent.Path = "LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursActifs") Then
 
+                            If finDeContrat <> "" And objuser.Properties("extensionAttribute1").Value = "" Then
+
+                            Else
+                                Dim ctrlEnvoiMailAP As Boolean = GetContractsLenght(usrID, False)
+
+                                If ctrlEnvoiMailAP = True Then
+                                    SendMailAP(usrPrenom, usrNom, usrID, usrDestNomLong, usrLogin, finDeContrat)
+                                End If
+                            End If
+
                             ' Récupère l'ancienne date de fin de contrat de l'utilisateur
                             Dim oldDate As String = CStr(objuser.Properties("extensionAttribute1").Value)
-                            ' Récupère la date de création de l'utilisateur depuis AD
-                            Dim dateCreation As Date = objuser.Properties("whenCreated").Value
+                                ' Récupère la date de création de l'utilisateur depuis AD
+                                Dim dateCreation As Date = objuser.Properties("whenCreated").Value
 
-                            ' Ajoute 3 heures à la date de création
-                            Dim tmp = DateAdd("h", 3, dateCreation)
 
+                            Dim tmp As Integer = DateDiff(DateInterval.Hour, dateCreation, Now)
                             ' Vérifie si la date avec 3 heures ajoutées est antérieure à l'heure actuelle
-                            If tmp < Now Then
+                            If tmp > 3 Then
 
                                 ' Vérifie et assigne "Aucune" à oldDate si cette valeur est vide ou null
                                 If oldDate = "" Or oldDate Is Nothing Then oldDate = "Aucune"
@@ -655,35 +665,39 @@ Module Module1
                                 'Mise a jour de la date de fin de contrat dans MS
                                 SetMSEndValidity(usrID, newDate)
 
-                                'controle des habilitations expirées avant la fin de la nouvelle date de fin de contrat
-                                Dim habilitationsExpirées As String = GetMSClearance(usrID, newDate)
+                                Try
+                                    'controle des habilitations expirées avant la fin de la nouvelle date de fin de contrat
+                                    Dim habilitationsExpirées As String = GetMSClearance(usrID, newDate)
 
-                                If habilitationsExpirées <> "" Then
-                                    ' Indique que le contrôle mail pour les orienteurs doit être activé
-                                    ctrlMailOOrienteurs = True
+                                    If habilitationsExpirées <> "" Then
+                                        ' Indique que le contrôle mail pour les orienteurs doit être activé
+                                        ctrlMailOOrienteurs = True
 
-                                    ' Prépare le contenu du mail pour informer les orienteurs du changement
-                                    corpmailOOrienteurs +=
-                                        vbCrLf & "Nom : " & usrPrenom & " " & usrNom & "<BR>" &
-                                        vbCrLf & "Matricule : " & usrID & "<BR>" &
-                                        vbCrLf & "Service : " & usrDestNomLong & "<BR>" &
-                                        vbCrLf & "Mail : " & usrLogin & "@igbmc.fr" & "<BR>" &
-                                        vbCrLf & "Ancienne date de fin de contrat : " & oldDate & "<BR>" &
-                                        vbCrLf & "Nouvelle date de fin de contrat : " & newDate & "<BR>" &
-                                        vbCrLf & "Les habilitations de cette personne n'iront pas jusqu'a la fin de son contrat." & "<BR>" &
-                                        vbCrLf & "____________________________________________________________________________________________<BR>" & vbCrLf
+                                        ' Prépare le contenu du mail pour informer les orienteurs du changement
+                                        corpmailOOrienteurs +=
+                                                vbCrLf & "Nom : " & usrPrenom & " " & usrNom & "<BR>" &
+                                                vbCrLf & "Matricule : " & usrID & "<BR>" &
+                                                vbCrLf & "Service : " & usrDestNomLong & "<BR>" &
+                                                vbCrLf & "Mail : " & usrLogin & "@igbmc.fr" & "<BR>" &
+                                                vbCrLf & "Ancienne date de fin de contrat : " & oldDate & "<BR>" &
+                                                vbCrLf & "Nouvelle date de fin de contrat : " & newDate & "<BR>" &
+                                                vbCrLf & "Les habilitations de cette personne n'iront pas jusqu'a la fin de son contrat." & "<BR>" &
+                                                vbCrLf & "____________________________________________________________________________________________<BR>" & vbCrLf
 
-                                    ' Enregistre l'action dans le journal pour les officiers orienteurs
-                                    Commun.Journal("ajout de modification pour les Officiers orienteurs pour un changement de fin de contrat : " & usrLogin)
-                                End If
+                                        ' Enregistre l'action dans le journal pour les officiers orienteurs
+                                        Commun.Journal("ajout de modification pour les Officiers orienteurs pour un changement de fin de contrat : " & usrLogin)
+                                    End If
+                                Catch ex As DirectoryNotFoundException
+
+                                End Try
                             End If
 
                             ' Met à jour la propriété extensionAttribute1 de l'utilisateur avec la nouvelle date de fin de contrat
                             Commun.SetADLDAPProperty(objuser, "extensionAttribute1", finDeContrat)
 
-                            ' Applique les changements à l'objet utilisateur dans Active Directory
-                            Commun.AppliquerChangement(objuser)
-                        End If
+                                ' Applique les changements à l'objet utilisateur dans Active Directory
+                                Commun.AppliquerChangement(objuser)
+                            End If
                     Catch ex As Exception
                         Commun.Journal("ERREUR : Modification : Date de fin de contrat : " & usrLogin & " : " & ex.Message, True)
                     End Try
@@ -2625,7 +2639,7 @@ sortie:
         End Try
         Return result
     End Function
-    Function GetContracts(ByVal id As String, Optional ByVal createUser As Boolean = False) As Boolean
+    Function GetContractsLenght(ByVal id As String, Optional ByVal createUser As Boolean = False) As Boolean
         Try
             Dim result As Boolean = False
             Dim dataContracts As String = Json.SendJson("", "persons/" & id & "/contracts", "AD", "GET")
@@ -2642,10 +2656,8 @@ sortie:
 
                 If status <> "running" Then
                     dureeOld += DateDiff(DateInterval.Day, startDate, endDate)
-                    Dim aaa = 1
                 Else
                     dureeCurrent += DateDiff(DateInterval.Day, startDate, endDate)
-                    Dim aaa = 2
                 End If
             Next
             If createUser = True Then
@@ -2665,4 +2677,14 @@ sortie:
         End Try
 
     End Function
+    Sub SendMailAP(ByVal usrPrenom As String, ByVal usrNom As String, ByVal usrID As String, ByVal EqDescr As String, ByVal usrLogin As String, ByVal finContrat As String)
+        Dim corpmailAssistentsPrévention =
+                                                     vbCrLf & "Nom : " & usrPrenom & " " & usrNom &
+                                                     vbCrLf & "Identifiant GDPI : " & usrID &
+                                                     vbCrLf & "Service : " & EqDescr &
+                                                     vbCrLf & "Mail : " & usrLogin & "@igbmc.fr" &
+                                                     vbCrLf & "Date de fin de contrat : " & finContrat
+
+        Commun.SendEmail("administrateur@igbmc.fr", "assistants-de-prevention@igbmc.fr;Bcc:steph@igbmc.fr", "(Mail automatique) Nouvel entrant", corpmailAssistentsPrévention)
+    End Sub
 End Module
