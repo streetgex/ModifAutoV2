@@ -141,7 +141,7 @@ Public Class jsonMS
 
 
     End Function
-    Shared Function AllBadgeNumber(ByVal matricule As String) As String()
+    Shared Function UserBadgeCodeNumber(ByVal matricule As String) As String()
 
         Dim fiche = jsonMS.MakeRequest("GET", "/users?prettyPrint&fields=id&filter=matricule=" & matricule)
         Dim ficheResponseData = New JavaScriptSerializer().Deserialize(Of Object)(fiche)
@@ -159,10 +159,10 @@ Public Class jsonMS
             i += 1
             Dim numeroBadge As String = badge("csn")
             If numeroBadge <> "" Then
-                AllBadgeNumber.Add(numeroBadge)
+                UserBadgeCodeNumber.Add(numeroBadge)
             End If
         Next badge
-        Return AllBadgeNumber
+        Return UserBadgeCodeNumber
     End Function
     Shared Function AllCred()
         Dim fiche = jsonMS.MakeRequest("GET", "/credentials?fields=holder.matricule,holder.id,csn,code&offset=500")
@@ -180,7 +180,7 @@ Public Class jsonMS
         For Each badge In techno1
             i += 1
             Dim numeroBadge As String = badge("code")
-            ' AllBadgeNumber.Add(numeroBadge)
+            'AllBadgeNumber.Add(numeroBadge)
         Next badge
         'Return AllBadgeNumber()
     End Function

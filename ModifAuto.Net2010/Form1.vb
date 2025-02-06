@@ -46,6 +46,7 @@ Module Module1
 
         Dim listExtensionsXivo As String = ""
         If Environment.MachineName <> "SERV-AD1" Then
+            'gestion.GestionReactiveDesactiveComptesInterne()
             'Dim a = Commun.UIDNumberMini
             'GetContractsLenght("2503")
             'Supprime.SupprimeMailbox()
@@ -257,7 +258,7 @@ Module Module1
     Public Sub EcritureNumeroBadge(ByVal adUser As DirectoryEntry)
 
         Dim matricule As String = adUser.Properties("EmployeeID").Value.ToString
-        Dim tabNumBadge As String() = jsonMS.AllBadgeNumber(matricule)
+        Dim tabBadgeCode As String() = jsonMS.UserBadgeCodeNumber(matricule)
         Try
 
             Dim tabBadgeAD As String()
@@ -279,49 +280,46 @@ Module Module1
 
             'Dim aaa = tabBadgeADTmp.GetType
 
-            If Not tabNumBadge Is Nothing Then
-                Array.Sort(tabNumBadge)
-                If tabNumBadge.Count = 1 Then
+            If Not tabBadgeCode Is Nothing Then
+                Array.Sort(tabBadgeCode)
+                If tabBadgeCode.Count = 1 Then
                     If adUser.Properties.Contains("employeeNumber") Then
 
-                        If adUser.Properties("employeeNumber").Value <> tabNumBadge(0) Then
-                            adUser.Properties("employeeNumber").Value = tabNumBadge(0)
+                        If adUser.Properties("employeeNumber").Value <> tabBadgeCode(0) Then
+                            adUser.Properties("employeeNumber").Value = tabBadgeCode(0)
                             adUser.CommitChanges()
                         End If
                     Else
-                        Commun.SetADLDAPProperty(adUser, "employeeNumber", tabNumBadge(0))
+                        Commun.SetADLDAPProperty(adUser, "employeeNumber", tabBadgeCode(0))
                         adUser.CommitChanges()
                     End If
                 End If
             End If
 
-            If Join(tabNumBadge, ",") <> Join(tabBadgeAD, ",") Then
+            If Join(tabBadgeCode, ",") <> Join(tabBadgeAD, ",") Then
                 Commun.SetADLDAPProperty(adUser, "serialNumber", Nothing)
                 adUser.CommitChanges()
 
 
 
-                If Not tabNumBadge Is Nothing Then
-                    For Each badge As String In tabNumBadge
+                If Not tabBadgeCode Is Nothing Then
+                    For Each badge As String In tabBadgeCode
                         adUser.Properties("serialNumber").Add(badge)
                         Commun.Journal("Modification (ajout ou retrait) d'un numero de Badge MicroSesame : " & badge & " : " & adUser.Properties("cn").Value.ToString & " (" & matricule & ")", False)
                     Next
-
-                    'If tabNumBadge.Count = 1 Then
-                    '    If adUser.Properties("employeeNumber").Value.ToString <> tabNumBadge(0) Then
-                    '        adUser.Properties("employeeNumber").Value = tabNumBadge(0)
-                    '    End If
-                    'End If
                 End If
                 adUser.CommitChanges()
             End If
 
 
         Catch ex As Exception
-            Commun.Journal("ERREUR : ecriture du numero de Badge MicroSesame : " & adUser.Properties("SAMAccountName").Value.ToString & " : " & Join(tabNumBadge, ";") & " : " & ex.Message, True)
+            Commun.Journal("ERREUR : ecriture du numero de Badge MicroSesame : " & adUser.Properties("SAMAccountName").Value.ToString & " : " & Join(tabBadgeCode, ";") & " : " & ex.Message, True)
         End Try
 
     End Sub
+    Public Function ReadBadgeCSN(ByVal matricule As String) As String()
+
+    End Function
 
     Public Sub modifDonneesAD()
         'COMPARAISON DU PERSONNEL ENTRE HIER ET AUJOURDH'HUI ET CREATION DU FICHIER DE MODIFICATIONS
@@ -645,11 +643,11 @@ Module Module1
 
                             ' Récupère l'ancienne date de fin de contrat de l'utilisateur
                             Dim oldDate As String = CStr(objuser.Properties("extensionAttribute1").Value)
-                                ' Récupère la date de création de l'utilisateur depuis AD
-                                Dim dateCreation As Date = objuser.Properties("whenCreated").Value
+                            ' Récupère la date de création de l'utilisateur depuis AD
+                            Dim dateCreation As Date = objuser.Properties("whenCreated").Value
 
 
-                            Dim tmp As Integer = DateDiff(DateInterval.Hour, dateCreation, Now)
+                            Dim tmp As Integer = DateDiff(DateInterval.Hour, dateCreation, Now) 'tmp = Now - dateCreation
                             ' Vérifie si la date avec 3 heures ajoutées est antérieure à l'heure actuelle
                             If tmp > 3 Then
 
@@ -670,7 +668,7 @@ Module Module1
                                     Dim habilitationsExpirées As String = GetMSClearance(usrID, newDate)
 
                                     If habilitationsExpirées <> "" Then
-                                        ' Indique que le contrôle mail pour les orienteurs doit être activé
+                                        ' Indique que le contrôle mail pour les officiers orienteurs doit être activé
                                         ctrlMailOOrienteurs = True
 
                                         ' Prépare le contenu du mail pour informer les orienteurs du changement
@@ -695,13 +693,15 @@ Module Module1
                             ' Met à jour la propriété extensionAttribute1 de l'utilisateur avec la nouvelle date de fin de contrat
                             Commun.SetADLDAPProperty(objuser, "extensionAttribute1", finDeContrat)
 
-                                ' Applique les changements à l'objet utilisateur dans Active Directory
-                                Commun.AppliquerChangement(objuser)
-                            End If
+                            ' Applique les changements à l'objet utilisateur dans Active Directory
+                            Commun.AppliquerChangement(objuser)
+                        End If
                     Catch ex As Exception
                         Commun.Journal("ERREUR : Modification : Date de fin de contrat : " & usrLogin & " : " & ex.Message, True)
                     End Try
                     'Données UNIX AD
+
+
 
                     If Not objuser.Properties.Contains("uidNumber") Then
                         Dim uidNumber As String = Commun.UIDNumberMini()
@@ -783,6 +783,18 @@ Module Module1
                                 Commun.AddRemoveADGroup(usrLogin, ld, "Add")
                                 Commun.Journal("Ajout liste de diffusions " & ld & " : " & usrLogin)
                             End If
+                            If ld <> "phd" Then
+                                If Commun.AppartientGroup(usrLogin, "phd") = True Then
+                                    Commun.AddRemoveADGroup(usrLogin, "phd", "Remove")
+                                    Commun.Journal("Retrait liste de diffusions PHD : " & usrLogin)
+                                End If
+                            End If
+                            If ld <> "postdoc" Then
+                                If Commun.AppartientGroup(usrLogin, "postdoc") = True Then
+                                    Commun.AddRemoveADGroup(usrLogin, "postdoc", "Remove")
+                                    Commun.Journal("Retrait liste de diffusions POSTDOC : " & usrLogin)
+                                End If
+                            End If
                         Else
                             If Commun.AppartientGroup(usrLogin, "phd") = True Then
                                 Commun.AddRemoveADGroup(usrLogin, "phd", "Remove")
@@ -792,6 +804,7 @@ Module Module1
                                 Commun.AddRemoveADGroup(usrLogin, "postdoc", "Remove")
                                 Commun.Journal("Retrait liste de diffusions POSTDOC : " & usrLogin)
                             End If
+
                         End If
                     Catch e As Exception
                         Commun.Journal("ERREUR : Ajout liste de diffusions PHD ou POSTDOC : " & e.Message & " : " & usrLogin & " : " & ld, True)
@@ -878,6 +891,9 @@ Module Module1
 
         Commun.Journal("Gestion des modifications utilisateurs réussie", False)
     End Sub
+    Function GetAllCredentialsTech01() As String(,)
+
+    End Function
     Sub SetMSEndValidity(ByVal usrID As String, ByVal finDeContrat As String)
         If finDeContrat = "Aucune" Then finDeContrat = "31/12/2049"
 
@@ -912,7 +928,7 @@ Module Module1
         Dim dataClearance As String = jsonMS.MakeRequest("GET", reqClearance)
 
         ' Vérification si la réponse est nulle (échec de la requête)
-        If dataClearance Is Nothing Then Exit Function
+        If dataClearance Is Nothing Or dataClearance = "" Then Exit Function
 
 
         ' Désérialisation de la réponse JSON en un objet

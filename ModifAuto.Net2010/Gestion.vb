@@ -10,7 +10,7 @@ Public Class gestion
         Commun.Journal("Ecriture des Attribut accountDeletionDT et accountDeactivationDT", False)
 
         Const ADS_UF_ACCOUNT_DISABLE = 2
-        Dim dateNowU As String = Now.ToUniversalTime.ToString("yyyyMMddHHmmss.sZ")
+        Dim dateNowU As String = Now.ToUniversalTime.Date.ToString("yyyyMMddHHmmss.sZ")
 
 
         Using OuUsers As DirectoryEntry = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateurs"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
@@ -323,7 +323,6 @@ Public Class gestion
             For Each utilisateurProv As SearchResult In result
                 Using userUpdate As DirectoryEntry = utilisateurProv.GetDirectoryEntry
 
-                    'Dim dateExpDateTxt As String = Date.ParseExact(userUpdate.Properties("accountDeactivationDT").Value, "dd/MM/yyyy", System.Globalization.DateTimeFormatInfo.InvariantInfo).Date
                     Dim dateExpDate As Date = userUpdate.Properties("accountDeactivationDT").Value
                     Dim dateExpDateTxt As String = dateExpDate.ToString("dd/MM/yyyy")
                     Try
@@ -340,7 +339,6 @@ Public Class gestion
                         End Try
 
                         Try
-                            'dateExpDate = Strings.Left(DateAdd(DateInterval.Day, 0, Commun.ConvertADValueToDateTime(userUpdate.Properties("accountDeactivationDT").Value)), 10)
                             If dateExpDateTxt <> Strings.Right(userUpdate.Properties("Description").Value, 10) Then
                                 userUpdate.Properties("description").Value = "COMPTE PROVISOIRE expire le: " & dateExpDateTxt
                                 Commun.AppliquerChangement(userUpdate)
@@ -582,6 +580,11 @@ Public Class gestion
                                         Commun.AppliquerChangement(dirDepart)
                                     End If
 
+                                    'If dirDepart.Properties("displayName").Value <> "Departement " & department_nom Then
+                                    dirDepart.Properties("displayName").Value = dirDepart.Properties("description").Value
+                                    Commun.AppliquerChangement(dirDepart)
+                                    'End If
+
                                     dirDepart.Close()
                                     dirDepart.Dispose()
                                     dirDepart = Nothing
@@ -814,9 +817,9 @@ Public Class gestion
                                     If cas = 1 Then
                                         Commun.SetADLDAPProperty(DirEntry, "description", "EXCEPTION Désactivé le: " & Strings.Left(CStr(Now), 10))
                                         Commun.SetADLDAPProperty(DirEntry, "Comment", "EXCEPTION Désactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf, True)
-                                        Commun.SetADLDAPProperty(DirEntry, "accountDeletionDate", Strings.Left(DateTime.UtcNow.AddMonths(3).ToString, 10))
-                                        DirEntry.Properties("accountDeactivationDT").Value = Now.ToUniversalTime
-                                        DirEntry.Properties("accountDeletionDT").Value = Now.ToUniversalTime.AddMonths(3)
+                                        Commun.SetADLDAPProperty(DirEntry, "accountDeletionDate", Now.ToUniversalTime.AddMonths(3).ToString("dd/MM/yyyy"))
+                                        DirEntry.Properties("accountDeactivationDT").Value = Now.ToUniversalTime.Date
+                                        DirEntry.Properties("accountDeletionDT").Value = Now.ToUniversalTime.AddMonths(3).Date
                                         Commun.AppliquerChangement(DirEntry)
                                     End If
 
@@ -825,8 +828,8 @@ Public Class gestion
                                         Commun.SetADLDAPProperty(DirEntry, "description", "Désactivé le: " & Strings.Left(CStr(Now), 10))
                                         Commun.SetADLDAPProperty(DirEntry, "Comment", "Désactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf, True)
                                         Commun.SetADLDAPProperty(DirEntry, "accountDeletionDate", Strings.Left(DateTime.UtcNow.AddMonths(3).ToString, 10))
-                                        DirEntry.Properties("accountDeactivationDT").Value = Now.ToUniversalTime
-                                        DirEntry.Properties("accountDeletionDT").Value = Now.ToUniversalTime.AddMonths(3)
+                                        DirEntry.Properties("accountDeactivationDT").Value = Now.ToUniversalTime.Date
+                                        DirEntry.Properties("accountDeletionDT").Value = Now.ToUniversalTime.AddMonths(3).Date
                                         Commun.AppliquerChangement(DirEntry)
                                     End If
 
