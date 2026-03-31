@@ -150,13 +150,15 @@ Public Class jsonMS
             Exit Function
         End If
         Dim id As String = ficheResponseData("data")(0)("id") 'deviceCreate("id")
-        Dim credbadge = jsonMS.MakeRequest("GET", "/users/" & id & "?fields=credentials.TECHNO_01.csn")
+        Dim credbadge = jsonMS.MakeRequest("GET", "/users/" & id & "?fields=credentials.TECHNO_01.csn,credentials.TECHNO_01.status")
         Dim credbadgeResponseData = New JavaScriptSerializer().Deserialize(Of Object)(credbadge)
         Dim techno1 = credbadgeResponseData("credentials")("TECHNO_01")
 
         Dim i As Integer = -1
         For Each badge In techno1
             i += 1
+            Dim status = badge("status")
+            If status <> "k_valid" Then Continue For
             Dim numeroBadge As String = badge("csn")
             If numeroBadge <> "" Then
                 UserBadgeCodeNumber.Add(numeroBadge)

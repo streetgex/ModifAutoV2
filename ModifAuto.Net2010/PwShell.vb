@@ -187,6 +187,8 @@ Public Class Pws
                 .AddParameter("alias", login)
                 .AddParameter("Database", db)
                 .AddParameter("DomainController", ctrlDomain)
+                .AddParameter("ArchiveQuota", "20GB")
+                .AddParameter("ArchiveWarningQuota", "19GB")
             End With
 
             '-- add command to powershell
@@ -230,6 +232,41 @@ Public Class Pws
         Catch e As Exception
             Commun.Journal("ERREUR : Creation de compte : Creation du compte mail: " & e.Message & " : " & login, True)
         End Try
+    End Sub
+    Public Shared Sub ForceSyncPeperCutAD(server As String)
+        ' Connexion WSMan avec l’utilisateur courant
+        Dim connectionInfo As New WSManConnectionInfo(
+            New Uri("http://" & server & ":5985/wsman"),
+            "http://schemas.microsoft.com/powershell/Microsoft.PowerShell",
+            DirectCast(Nothing, PSCredential)
+        )
+        connectionInfo.AuthenticationMechanism = AuthenticationMechanism.Default
+
+        Using runspace = RunspaceFactory.CreateRunspace(connectionInfo)
+            runspace.Open()
+            Using ps As PowerShell = PowerShell.Create()
+                ps.Runspace = runspace
+
+                ' Commande PaperCut (appel correct avec &)
+                Dim cmd As String = "& 'C:\Program Files\PaperCut MF\server\bin\win\server-command.exe' perform-user-and-group-sync"
+                ps.AddScript(cmd)
+
+                ' Exécution
+                Dim results = ps.Invoke()
+
+                ' Sortie standard
+                For Each r In results
+                    Commun.Journal("Resultat de la synchronisation de PaperCut avec l'AD : " & r.ToString(), False)
+                Next
+
+                ' Erreurs éventuelles
+                If ps.Streams.Error.Count > 0 Then
+                    For Each e In ps.Streams.Error
+                        Commun.Journal("ERREUR : Resultat de la synchronisation de PaperCut avec l'AD : " & e.ToString(), True)
+                    Next
+                End If
+            End Using
+        End Using
     End Sub
     Shared Function CreateSecurePasswordString(ByVal strPassword As String) As Security.SecureString
         Dim secureStr = New Security.SecureString()

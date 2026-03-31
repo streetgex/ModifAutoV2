@@ -42,7 +42,7 @@ Public Class ctrlMS
             End If
         Next
 
-        Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateurs"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+        Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateurs), Commun.admin, Commun.passwd, auth)
             'Dim filtre As SearchResultCollection = Commun.SearchFilterAll(AD, "(&(EmployeeID=*)(objectCategory=person)(|((&(accountDeactivationDT>=20200101000000.0Z)(msDS-parentdistname=OU=Out,OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(&(accountDeactivationDT>=20200101000000.0Z)(msDS-parentdistname=OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(msDS-parentdistname=OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))))", SearchScope.Subtree, "employeeID")
             Dim filtre As SearchResultCollection = Commun.SearchFilterAll(AD, "(&(objectCategory=person)(employeeID=*)(|((&(accountDeactivationDT>=" & dateRef & ")(msDS-parentdistname=OU=Out,OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(&(accountDeactivationDT>=" & dateRef & ")(msDS-parentdistname=OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(msDS-parentdistname=OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))))", SearchScope.Subtree)
             Dim i As Integer = filtre.Count
@@ -120,11 +120,11 @@ Public Class ctrlMS
 
             End If
 
-            Dim filter1 As SearchResult = Commun.SearchFilterOne(ini.ReadValue("MODIFAUTO", "OUUtilisateurs"), "(&(employeeID=" & employeeid & "))", SearchScope.Subtree, "employeeID")
+            Dim filter1 As SearchResult = Commun.SearchFilterOne(OUUtilisateurs, "(&(employeeID=" & employeeid & "))", SearchScope.Subtree, "employeeID")
             If filter1 IsNot Nothing Then
                 Using user As DirectoryEntry = New DirectoryEntry(filter1.Path)
 
-                    presentAD = (user.Parent.Path = "LDAP://OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr")
+                    presentAD = (user.Parent.Path = "LDAP://" & Commun.LdapPath("OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"))
 
                     dateSortieTxtAD = user.Properties("extensionAttribute1").Value
                     Dim dateSortie As DateTime
@@ -202,7 +202,7 @@ Public Class ctrlMS
     End Function
 
     Shared Sub adddatedefin()
-        Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursDesactives"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+        Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("OUUtilisateursDesactives"), Commun.admin, Commun.passwd, auth)
             Dim filtre As SearchResultCollection = Commun.SearchFilterAll(AD, "(&(objectCategory=person)(!(extensionAttribute1=*)))", SearchScope.Subtree)
             For Each result As SearchResult In filtre
                 Using user As DirectoryEntry = New DirectoryEntry(result.Path)

@@ -11,7 +11,7 @@ Public Class Creation
     Shared tabDatabase(1, 35) As String
     Shared Function CompteEmployeeIDExisteOUOut(ByVal id As String) As String
         Dim result As String = ""
-        Dim searchID As SearchResult = Commun.SearchFilterOne(ini.ReadValue("MODIFAUTO", "OUUtilisateursSortis"), "employeeID=" & id, SearchScope.OneLevel, "")
+        Dim searchID As SearchResult = Commun.SearchFilterOne(OUUtilisateursSortis, "employeeID=" & id, SearchScope.OneLevel, "")
         If Not searchID Is Nothing Then result = searchID.Path
         Return result
     End Function
@@ -32,7 +32,7 @@ Public Class Creation
 
 
         'Si l'utilisateur existe par rapport a l'employeeID et est dans l'ou Utilisateurs, on prend la ligne suivante du fichier
-        If EmployeeIDExist(usrID) = True And DirectoryEntry.Exists("LDAP://CN=" & usrPrenom & " " & usrNom & "," & ini.ReadValue("MODIFAUTO", "OUUtilisateursActifs")) Then
+        If EmployeeIDExist(usrID) = True And DirectoryEntry.Exists("LDAP://" & Commun.LdapPath("CN=" & usrPrenom & " " & usrNom & "," & OUUtilisateursActifs)) Then
 
 
 
@@ -66,7 +66,7 @@ Public Class Creation
             'verification si un compte Sorti existe
             Dim outCtrlAccountExist As String = CompteEmployeeIDExisteOUOut(usrID)
 
-            objOUUtilisateurs = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursActifs"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+            objOUUtilisateurs = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursActifs), Commun.admin, Commun.passwd, auth)
 
 
 
@@ -82,13 +82,13 @@ Public Class Creation
                 Commun.Journal("Creation de compte : Creation d'un nouveau compte : " & usrLogin, False)
             Else
                 If outCtrlAccountExist <> "" Then
-                    objUser = New DirectoryEntry(outCtrlAccountExist, Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+                    objUser = New DirectoryEntry(outCtrlAccountExist, Commun.admin, Commun.passwd, auth)
                     objUser.Properties("Comment").Value += "Réactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf
                     objUser.Properties("AccountExpires").Value = 0
                     Commun.AppliquerChangement(objUser)
                 ElseIf provCtrlPathExist <> "" Then
 
-                    objUser = New DirectoryEntry(provCtrlPathExist, Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+                    objUser = New DirectoryEntry(provCtrlPathExist, Commun.admin, Commun.passwd, auth)
                     objUser.Rename("CN=" & usrPrenom & " " & usrNom)
                     Commun.AppliquerChangement(objUser)
                     objUser.Properties("Comment").Value += "Transformé le: " & Strings.Left(CStr(Now), 10) & vbCrLf
@@ -329,12 +329,12 @@ Public Class Creation
             Commun.Journal("ERREUR : Creation de compte : Ajout groupe VPN : " & e.Message & " : " & usrLogin, True)
         End Try
 
-        'Ajout au groupe autorisant l'acces par VPN
-        Try
-            Commun.AddRemoveADGroup(usrLogin, "LicenceO365ProPlus", "Add")
-        Catch e As Exception
-            Commun.Journal("ERREUR : Creation de compte : Ajout groupe pour les licenses Office 365 Pro Plus : " & e.Message & " : " & usrLogin, True)
-        End Try
+        ''Ajout au groupe pour les licenses Office 365 Pro Plus
+        'Try
+        '    Commun.AddRemoveADGroup(usrLogin, "LicenceO365ProPlus", "Add")
+        'Catch e As Exception
+        '    Commun.Journal("ERREUR : Creation de compte : Ajout groupe pour les licenses Office 365 Pro Plus : " & e.Message & " : " & usrLogin, True)
+        'End Try
 
         'creation de l'attribut "msExchUsageLocation" synchronisé avec l'attribut "UsageLocation" pour Microsoft Azure
         Try
@@ -376,7 +376,7 @@ Public Class Creation
                     & "You can access to your mail And to the shared calendar at https://igbmcmail.igbmc.fr/owa <BR></center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>Disk space</center></TD><TD WIDTH=490><center>" _
                     & "You have a backed up data storage space that you can access by: " & usrPathEquipeinfo & "</center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>Contact</center></TD><TD WIDTH=490><center>Send an email to: <B>helpdesk@igbmc.fr</B>" _
                     & "</center></TD></TR></TABLE></BODY></HTML>"
-            Commun.SendEmail(ini.ReadValue("GLOBAL", "AdminScriptLogin") & "@igbmc.fr", "serviceinfo@igbmc.fr", "[Creation de compte] " & usrPrenom & " " & usrNom, textMail)
+            Commun.SendEmail(AdminScriptLogin & "@igbmc.fr", "serviceinfo@igbmc.fr", "[Creation de compte] " & usrPrenom & " " & usrNom, textMail)
 
         Catch e As Exception
             Commun.Journal("ERREUR : Creation de compte : envoie du mail de creation de compte : " & e.Message & " : " & usrLogin, True)
@@ -403,11 +403,13 @@ Public Class Creation
         objUser.Close()
         objUser.Dispose()
         objUser = Nothing
+
+        badgeNumberModified = True
     End Sub
 
     Shared Sub NbUserDatabaseExchange()
-
-        Dim Ldap As DirectoryEntry = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursActifs"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+        Dim DNUsersActif = Commun.LdapPath(OUUtilisateursActifs)
+        Dim Ldap As DirectoryEntry = New DirectoryEntry("LDAP://" & DNUsersActif, Commun.admin, Commun.passwd, auth)
         Dim dirSearcher As DirectorySearcher = New DirectorySearcher(Ldap)
         dirSearcher.PageSize = 2000
         dirSearcher.SearchScope = SearchScope.Subtree
@@ -471,7 +473,7 @@ Public Class Creation
 
     Function EmployeeIDExist(ByVal EmployeeID As String) As Boolean
         Dim resultat As Boolean = False
-        Dim objAD As DirectoryEntry = New DirectoryEntry("LDAP://DC=igbmc,DC=u-strasbg,DC=fr", Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+        Dim objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
         Dim searcher As DirectorySearcher = New DirectorySearcher(objAD)
         searcher.PageSize = 5000
         searcher.Filter = "(EmployeeID=" & EmployeeID & ")"
@@ -537,7 +539,7 @@ sortie:
 
     Function UserExist(ByVal CNAVerifier As String) As String
 
-        Dim monEntry As New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursActifs"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+        Dim monEntry As New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursActifs), Commun.admin, Commun.passwd, auth)
         Dim maRecherche As DirectorySearcher = New DirectorySearcher
         maRecherche.PageSize = 2000
         Dim resultat As String = ""

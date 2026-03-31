@@ -70,7 +70,7 @@ Public Class Thumbn
             testCompare = Nothing
 
         Catch ex As Exception
-            Commun.Journal("ERREUR : Comparaison Thumbnail : " & Replace(objDirEnt.Path, "LDAP://", "") & " : " & ex.Message, True)
+            Commun.Journal("ERREUR : Comparaison Thumbnail : " & Replace(objDirEnt.Path, "LDAP://" & Commun.LdapServerPrefix(), "") & " : " & ex.Message, True)
             Return
         End Try
     End Sub

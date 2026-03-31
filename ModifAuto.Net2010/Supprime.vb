@@ -57,7 +57,7 @@ Public Class Supprime
                 'Suppression du compte ADM
                 Dim cheminLdapCompteAdm As String = Commun.TransformeSAMACCOUNTenCN(login & "adm")
                 If cheminLdapCompteAdm <> "" Then
-                    Using userAdm As DirectoryEntry = New DirectoryEntry("LDAP://" & cheminLdapCompteAdm, Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+                    Using userAdm As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(cheminLdapCompteAdm), Commun.admin, Commun.passwd, auth)
                         Try
                             userAdm.DeleteTree()
                             Commun.Journal("SupprimCompte : Suppression Compte AD Adm : " & login)
@@ -73,13 +73,62 @@ Public Class Supprime
         End Try
 
     End Sub
+    Shared Sub SupprimCompteADM()
+        ' OU contenant les comptes admin
+        Dim adminOU As New DirectoryEntry(
+        "LDAP://" & Commun.LdapPath("OU=Admins,DC=igbmc,DC=u-strasbg,DC=fr"),
+        Commun.admin, Commun.passwd, auth
+    )
 
+        ' OU contenant les comptes utilisateurs
+        Dim usersOU As New DirectoryEntry(
+        "LDAP://" & Commun.LdapPath("OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"),
+        Commun.admin, Commun.passwd, auth
+    )
+
+        ' Recherche uniquement les comptes utilisateurs (pas les groupes)
+        Dim adminSearcher As New DirectorySearcher(adminOU)
+        adminSearcher.Filter = "(objectClass=user)"
+        adminSearcher.PropertiesToLoad.Add("sAMAccountName")
+        adminSearcher.PropertiesToLoad.Add("cn")
+
+        Dim adminResults As SearchResultCollection = adminSearcher.FindAll()
+
+        For Each admin As SearchResult In adminResults
+
+            If Not admin.Properties.Contains("sAMAccountName") Then Continue For
+
+            Dim adminLogin As String = admin.Properties("sAMAccountName")(0).ToString()
+            If adminLogin.Equals("userprog", StringComparison.OrdinalIgnoreCase) Then Continue For
+            ' Exclure les comptes modèles
+            Dim cn As String = admin.Properties("cn")(0).ToString()
+            If cn.StartsWith("Modele", StringComparison.OrdinalIgnoreCase) Then Continue For
+
+            ' Déduction du compte utilisateur (retire les 3 derniers caractères "adm")
+            If adminLogin.Length <= 3 Then Continue For
+            Dim userLogin As String = adminLogin.Substring(0, adminLogin.Length - 3)
+
+            ' Recherche du compte utilisateur correspondant
+            Dim userSearcher As New DirectorySearcher(usersOU)
+            userSearcher.Filter = "(sAMAccountName=" & userLogin & ")"
+
+            Dim userFound As SearchResult = userSearcher.FindOne()
+
+            ' Si le compte utilisateur n'existe pas, supprimer le compte admin
+            If userFound Is Nothing Then
+                Dim adminEntry As DirectoryEntry = admin.GetDirectoryEntry()
+                Console.WriteLine("Suppression du compte admin orphelin : " & adminLogin)
+                adminEntry.DeleteTree()
+            End If
+
+        Next
+    End Sub
     Shared Sub SupprimeMailbox()
 
         Commun.Journal("Creation des archives PST", False)
 
         'Dim dateSuppressionMB As String = Now.AddDays(-2).ToString("dd/MM/yyyy")
-        Using OUDisable As DirectoryEntry = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursSortis"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+        Using OUDisable As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursSortis), Commun.admin, Commun.passwd, auth)
             Using dirSearcher As DirectorySearcher = New DirectorySearcher(OUDisable)
                 dirSearcher.Filter = "(&(objectClass=user)(homeMDB=*))"
                 dirSearcher.SearchScope = SearchScope.OneLevel
@@ -224,7 +273,7 @@ Public Class Supprime
 
             Commun.ReactiveDesactiveCompte(login, "desactive")
 
-            Using ouOut As DirectoryEntry = New DirectoryEntry("LDAP://" & ini.ReadValue("MODIFAUTO", "OUUtilisateursSortis"), Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+            Using ouOut As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursSortis), Commun.admin, Commun.passwd, auth)
                 DirEntry.MoveTo(ouOut)
             End Using
         Catch ex As Exception
@@ -250,7 +299,7 @@ Public Class Supprime
         Dim i As Integer = -1
         Try
             'Recupération de l'attribut Member pour le mettre dans le tableau des resultats
-            Using AD As DirectoryEntry = New DirectoryEntry("LDAP://DC=igbmc,DC=u-strasbg,DC=fr", Commun.admin, Commun.passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+            Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
                 Using searcherGroup As DirectorySearcher = New DirectorySearcher(AD)
                     searcherGroup.Filter = "(&(objectClass=user) (SAMAccountName=" & SamAccount & "))"
                     searcherGroup.PropertiesToLoad.Add("Member")

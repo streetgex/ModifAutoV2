@@ -170,6 +170,8 @@
     <Compile Include="..\..\CLASS COMMUNES\passwd.vb">
       <Link>passwd.vb</Link>
     </Compile>
+    <Compile Include="ActiveDirectoryObject.vb" />
+    <Compile Include="ADConfig.vb" />
     <Compile Include="Creation.vb" />
     <Compile Include="ctrlMS.vb" />
     <Compile Include="Gestion.vb" />
