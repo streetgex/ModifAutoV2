@@ -4,10 +4,10 @@ Imports System.IO
 
 
 
-Public Class gestion
+Public Class Gestion
     Shared Sub GestionAttributsDT()
 
-        Commun.Journal("Ecriture des Attribut accountDeletionDT et accountDeactivationDT", False)
+        Commun.Journal("Activation/desactivation des comptes par accountDeletionDT et accountDeactivationDT", False)
 
         Const ADS_UF_ACCOUNT_DISABLE = 2
         Dim dateNowU As String = Now.ToUniversalTime.Date.ToString("yyyyMMddHHmmss.sZ")
@@ -30,7 +30,7 @@ Public Class gestion
                             'Cas des utilisateurs "Interne"
                             If userAD.Parent.Path = "LDAP://" & Commun.LdapPath(OUUtilisateursDesactives) Then
                                 Supprime.SupprimCompte(userAD)
-                                Commun.Journal("Suppression du compte interne : " & userAD.Properties("SAMAccountName").Value)
+                                Commun.Journal("Suppression du compte interne : " & userAD.Properties("sAMAccountName").Value)
 
                                 'Cas des utilisateurs "Externes", "Provisoires" et "Invité"
                             ElseIf userAD.Parent.Path = "LDAP://" & Commun.LdapPath(OUUtilisateursExternes) Or userAD.Parent.Path = "LDAP://" & Commun.LdapPath(ini.ReadValue("MODIFAUTO", "OUUtilisateursProvisoires")) Or userAD.Parent.Path = "LDAP://" & Commun.LdapPath(ini.ReadValue("MODIFAUTO", "OUUtilisateursInvites")) Then
@@ -40,13 +40,13 @@ Public Class gestion
                                     Dim interval As Integer = DateDiff("d", userAD.Properties("accountDeletionDT").Value, Now.ToUniversalTime)
                                     If interval >= 1 Or userAD.Parent.Path = "LDAP://" & Commun.LdapPath(ini.ReadValue("MODIFAUTO", "OUUtilisateursInvites")) Then
                                         userAD.DeleteTree()
-                                        Commun.Journal("Suppression du compte : " & userAD.Properties("SAMAccountName").Value)
+                                        Commun.Journal("Suppression du compte : " & userAD.Properties("sAMAccountName").Value)
                                         'GoTo fermerUsing
                                     End If
                                 End If
                             End If
                         Catch ex As Exception
-                            Commun.Journal("ERREUR : GestionAttributsDT : Suppression du compte : " & userAD.Properties("SAMAccountName").Value)
+                            Commun.Journal("ERREUR : GestionAttributsDT : Suppression du compte : " & userAD.Properties("sAMAccountName").Value)
                         End Try
                     End Using
                 Next user
@@ -75,12 +75,12 @@ Public Class gestion
                                         Commun.SetADLDAPProperty(userAD, "info", "Compte éxpiré le: " & dateDesactivationtxt, True)
                                         Commun.AppliquerChangement(userAD)
                                         Commun.ReactiveDesactiveCompte(userAD, "desactive")
-                                        Commun.Journal("Désactivation du compte : " & userAD.Properties("SAMAccountName").Value)
+                                        Commun.Journal("Désactivation du compte : " & userAD.Properties("sAMAccountName").Value)
                                     End If
                                 End If
                             End If
                         Catch ex As Exception
-                            Commun.Journal("ERREUR : GestionAttributsDT : Désactivation du compte : " & userAD.Properties("SAMAccountName").Value)
+                            Commun.Journal("ERREUR : GestionAttributsDT : Désactivation du compte : " & userAD.Properties("sAMAccountName").Value)
                         End Try
                     End Using
 
@@ -110,7 +110,7 @@ Public Class gestion
                                 End If
                             End If
                         Catch ex As Exception
-                            Commun.Journal("ERREUR : GestionAttributsDT : Activation du compte : " & userAD.Properties("SAMAccountName").Value)
+                            Commun.Journal("ERREUR : GestionAttributsDT : Activation du compte : " & userAD.Properties("sAMAccountName").Value)
                         End Try
                     End Using
 
@@ -145,7 +145,7 @@ Public Class gestion
 
 
     End Sub
-    Shared Sub GestionSuppressionPIetDR()
+    Shared Sub GestionSuppressionProfilsItinerantsEtDossiersRedirigés()
 
         Commun.Journal("Debut de la gestion des profils itinerants", False)
 
@@ -184,7 +184,7 @@ Public Class gestion
         '    For Each dir As String In subDirs
         '        If Strings.Right(dir, 6) = " - old" Then Continue For
         '        Dim login As String = Replace(dir, chemin, "")
-        '        Dim checkUserLogin As Boolean = VerifyUserProfil(login, "SAMAccountName")
+        '        Dim checkUserLogin As Boolean = VerifyUserProfil(login, "sAMAccountName")
         '        If checkUserLogin = False And login <> ".etc" And login <> "All Users" Then
         '            'MsgBox(login)
         '            If Directory.Exists(dir) Then
@@ -278,7 +278,7 @@ Public Class gestion
                     'tabMembre = Split(LCase(Join(tabMembre, ";")), ";")
                     For Each unMembre In tabMembre
 
-                        Dim userLogin As String = Commun.TransformeSAMACCOUNTenCN(unMembre.ToString) 'user.Properties("SAMAccountName").Value
+                        Dim userLogin As String = Commun.TransformeSAMACCOUNTenCN(unMembre.ToString) 'user.Properties("sAMAccountName").Value
                         userLogin = LCase(userLogin)
 
                         If Array.IndexOf(tabMembresAutorises, userLogin) = -1 Then
@@ -332,11 +332,11 @@ Public Class gestion
                             'Nettoyage des destinations sur les utilisateurs provisoires
                             For i As Integer = 0 To userUpdate.Properties("MemberOf").Count - 1
                                 If InStr(userUpdate.Properties("MemberOf")(i), " grp,") > 0 Then
-                                    Commun.AddRemoveADGroup(userUpdate.Properties("SAMAccountName").Value, userUpdate.Properties("MemberOf")(i), "Remove")
+                                    Commun.AddRemoveADGroup(userUpdate.Properties("sAMAccountName").Value, userUpdate.Properties("MemberOf")(i), "Remove")
                                 End If
                             Next
                         Catch ex As Exception
-                            Commun.Journal("ERREUR : UpdateComptesProvisoires : Nettoyage destination : " & userUpdate.Properties("SAMAccountName").Value & " : " & ex.Message, True)
+                            Commun.Journal("ERREUR : UpdateComptesProvisoires : Nettoyage destination : " & userUpdate.Properties("sAMAccountName").Value & " : " & ex.Message, True)
                         End Try
 
                         Try
@@ -345,11 +345,11 @@ Public Class gestion
                                 Commun.AppliquerChangement(userUpdate)
                             End If
                         Catch ex As Exception
-                            Commun.Journal("ERREUR : UpdateComptesProvisoires : Mise a jour Description :" & userUpdate.Properties("SAMAccountName").Value & " : " & ex.Message, True)
+                            Commun.Journal("ERREUR : UpdateComptesProvisoires : Mise a jour Description :" & userUpdate.Properties("sAMAccountName").Value & " : " & ex.Message, True)
                         End Try
 
                     Catch ex As Exception
-                        Commun.Journal("ERREUR : UpdateComptesProvisoires : " & userUpdate.Properties("SAMAccountName").Value & " : " & ex.Message, True)
+                        Commun.Journal("ERREUR : UpdateComptesProvisoires : " & userUpdate.Properties("sAMAccountName").Value & " : " & ex.Message, True)
                     End Try
                 End Using
             Next
@@ -367,13 +367,13 @@ Public Class gestion
         Commun.Journal("Controle de l'OU Utilisateurs", False)
 
         'Desactivation des comptes dans l'OU Exception qui n'ont rien a y faire
-        Dim OUException As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(ini.ReadValue("MODIFAUTO", "OUUtilisateursExceptions")), Commun.admin, Commun.passwd, auth)
+        Dim OUException As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursExceptions), Commun.admin, Commun.passwd, auth)
         Dim searchOUException As DirectorySearcher = New DirectorySearcher(OUException)
         searchOUException.Filter = "(&(objectClass=user))"
-        searchOUException.PropertiesToLoad.Add("SamAccountName")
+        searchOUException.PropertiesToLoad.Add("samAccountName")
         Dim searchOUExceptionResult As SearchResultCollection = searchOUException.FindAll()
         For Each userOUException As SearchResult In searchOUExceptionResult
-            If Commun.IsException(userOUException.Properties("SamAccountName")(0), "") = False Then
+            If Commun.IsException(userOUException.Properties("samAccountName")(0), "") = False Then
                 Dim userToDisable As DirectoryEntry = userOUException.GetDirectoryEntry
                 userToDisable.NativeObject.accountdisabled = True
                 Commun.AppliquerChangement(userToDisable)
@@ -421,194 +421,203 @@ Public Class gestion
 
     Shared Sub GestionDestinationsDepartements()
         Commun.Journal("Gestion des destinations et departements")
-        'CREATION DU TABLEAU DES DESTINATIONS
-        Dim tableauDest As String()
-        FileOpen(1, "c:\temp\eq.txt", OpenMode.Input)
 
-        Dim m As Integer = -1
-        While Not EOF(1)
-            Dim ligneDest As String = LineInput(1)
-            'evite les lignes vides
-            If InStr(ligneDest, ",") <> 0 Then
-                m += 1
-                ReDim Preserve tableauDest(m)
-                tableauDest(m) = ligneDest
-            End If
-        End While
-
-        FileClose(1)
-
-        'CREATION DU TABLEAU DES DEPARTEMENTS
-        Dim tableauDepartment As String()
-        FileOpen(1, "c:\temp\eq.txt", OpenMode.Input)
-
-        Dim n As Integer = -1
-        While Not EOF(1)
-
-            Dim ligneDepartment As String = LineInput(1)
-
-            'evite les lignes vides
-            If InStr(ligneDepartment, ",") <> 0 Then
-                ligneDepartment = Split(ligneDepartment, ",")(4) & "," & Split(ligneDepartment, ",")(5) & "," & Split(ligneDepartment, ",")(6) & ","
-                If n = -1 Then
-                    n += 1
-                    ReDim Preserve tableauDepartment(n)
-                    tableauDepartment(n) = ligneDepartment
-                ElseIf Array.IndexOf(tableauDepartment, ligneDepartment) = -1 Then
-                    n += 1
-                    ReDim Preserve tableauDepartment(n)
-                    tableauDepartment(n) = ligneDepartment
-                End If
-            End If
-        End While
-
-        FileClose(1)
-
-
-
-        If tableauDest Is Nothing Then Throw New Exception("tableauDest est vide")
+        If DicoDestinationsRH Is Nothing OrElse DicoDestinationsRH.Count = 0 Then Throw New Exception("DicoDestinationsRH est vide")
 
 
 
         'MODIFICATION ET AJOUT DES NOUVELLES DESTINATIONS
         Using OUDomDest As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=Equipes,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
             Using dirDestSearcher As DirectorySearcher = New DirectorySearcher(OUDomDest)
+                Dim dicoDestAd As New Dictionary(Of String, SearchResult)(StringComparer.OrdinalIgnoreCase)
+                dirDestSearcher.Filter = "(&(objectClass=group)(languageCode=*))"
+                dirDestSearcher.SearchScope = SearchScope.OneLevel
+                dirDestSearcher.PropertiesToLoad.Clear()
+                dirDestSearcher.PropertiesToLoad.Add("languageCode")
 
-                For l = 0 To UBound(tableauDest)
-                    Dim temp() As String = Split(tableauDest(l), ",")
-                    Dim SAMAccountGroup As String = temp(0) & " grp"
-                    Dim description As String = temp(1)
-                    Dim IdDest As String = temp(2)
-                    Dim samManager As String = temp(3)
-                    Dim department_nomCourt As String = temp(4)
-                    Dim department_nom As String = temp(5)
+                Dim resultDestExistants As SearchResultCollection = dirDestSearcher.FindAll()
+                For Each sr As SearchResult In resultDestExistants
+                    If sr.Properties.Contains("languageCode") Then
+                        Dim idDestExistant As String = sr.Properties("languageCode")(0).ToString().Trim()
+                        If idDestExistant <> "" AndAlso Not dicoDestAd.ContainsKey(idDestExistant) Then
+                            dicoDestAd.Add(idDestExistant, sr)
+                        End If
+                    End If
+                Next
+
+                Dim maxTadDest As Integer = DicoDestinationsRH.Count - 1
+                Dim l As Integer = -1
+                For Each dest As DestinationInfo In DicoDestinationsRH.Values
+                    l += 1
+                    Commun.AfficherBarre("gestion des destinations", l, maxTadDest, False)
+
+                    Dim dept As DepartementInfo = Nothing
+                    If Not String.IsNullOrWhiteSpace(dest.id_dept) AndAlso DicoDepartementsRH.ContainsKey(dest.id_dept) Then
+                        dept = DicoDepartementsRH(dest.id_dept)
+                    End If
+
+                    Dim SAMAccountGroup As String = dest.nom_court_dest & " grp"
+                    Dim description As String = dest.nom_long_dest
+                    Dim IdDest As String = dest.id_dest
+                    Dim samManager As String = dest.login_responsable_dest
+                    Dim department_nom As String = If(dept IsNot Nothing, dept.nom_long_dept, "")
+                    Dim department_ID As String = If(dept IsNot Nothing, dept.id_dept, "")
+
 
                     Try
-                        If tableauDest(l) <> "" Then
-                            'L'attribut "languageCode" contient le groupe ID de GDPI
-                            dirDestSearcher.Filter = "(&(objectClass=group) (languageCode=" & IdDest & "))"
-                            'dirDestSearcher.Filter = "(&(objectClass=group) (sAMAccountName=" & SAMAccountGroup & "))"
-                            dirDestSearcher.SearchScope = SearchScope.OneLevel
-                            Dim result As SearchResult = dirDestSearcher.FindOne()
-                            Dim dirDest As New DirectoryEntry
-                            If result Is Nothing Then
-                                'Creation d'une nouvelle destination
-                                Commun.NouveauGroupe(OUDomDest, SAMAccountGroup, description)
-                                dirDest = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN(SAMAccountGroup)), Commun.admin, Commun.passwd, auth)
-                                'L'attribut "languageCode" contient le groupe ID de GDPI
-                                dirDest.Properties("languageCode").Value = IdDest
-                                Commun.AppliquerChangement(dirDest)
-                                Commun.Journal(vbTab & "Creation d'une nouvelle destination: " & SAMAccountGroup)
-                            Else
-                                dirDest = result.GetDirectoryEntry
-                            End If
-
-
-
-                            'Modification des destinations 
-
-
-                            If dirDest.Properties("SAMAccountName").Value <> SAMAccountGroup Then
-                                dirDest.Properties("SAMAccountName").Value = SAMAccountGroup
-                                Commun.AppliquerChangement(dirDest)
-                                dirDest.Rename("CN=" & SAMAccountGroup)
-                                Commun.AppliquerChangement(dirDest)
-                            End If
-
-                            If samManager <> "?" Then
-                                Dim CNchefEquipe As String = Commun.TransformeSAMACCOUNTenCN(samManager)
-                                If dirDest.Properties("managedBy").Value <> CNchefEquipe Then
-                                    dirDest.Properties("managedBy").Value = CNchefEquipe
-                                    Commun.AppliquerChangement(dirDest)
-                                End If
-                            End If
-
-                            If dirDest.Properties("description").Value <> description Then
-                                dirDest.Properties("description").Value = description
-                                Commun.AppliquerChangement(dirDest)
-                            End If
-                            If dirDest.Properties("department").Value <> department_nom Then
-                                dirDest.Properties("department").Value = department_nom
-                                Commun.AppliquerChangement(dirDest)
-                            End If
-
-
-
-                            dirDest.Close()
-                            dirDest.Dispose()
-                            dirDest = Nothing
-                            result = Nothing
-
+                        'L'attribut "languageCode" contient le groupe ID de GDPI
+                        'L'attribut "languageCode" contient le groupe ID de GDPI
+                        Dim result As SearchResult = Nothing
+                        If dicoDestAd.ContainsKey(IdDest) Then
+                            result = dicoDestAd(IdDest)
                         End If
+                        Dim dirDest As New DirectoryEntry
+                        If result Is Nothing Then
+                            'Creation d'une nouvelle destination
+                            Commun.NouveauGroupe(OUDomDest, SAMAccountGroup, description)
+                            dirDest = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN(SAMAccountGroup)), Commun.admin, Commun.passwd, auth)
+                            'L'attribut "languageCode" contient le groupe ID de GDPI
+                            dirDest.Properties("languageCode").Value = IdDest
+                            Commun.AppliquerChangement(dirDest)
+                            Commun.Journal(vbTab & "Creation d'une nouvelle destination: " & SAMAccountGroup)
+                            dirDestSearcher.Filter = "(&(objectClass=group)(languageCode=" & IdDest & "))"
+                            dirDestSearcher.SearchScope = SearchScope.OneLevel
+                            Dim createdResult As SearchResult = dirDestSearcher.FindOne()
+                            If createdResult IsNot Nothing Then
+                                dicoDestAd(IdDest) = createdResult
+                            End If
+                        Else
+                            dirDest = result.GetDirectoryEntry
+                        End If
+
+
+
+                        'Modification des destinations 
+
+
+                        If dirDest.Properties("SAMAccountName").Value <> SAMAccountGroup Then
+                            dirDest.Properties("SAMAccountName").Value = SAMAccountGroup
+                            Commun.AppliquerChangement(dirDest)
+                            dirDest.Rename("CN=" & SAMAccountGroup)
+                            Commun.AppliquerChangement(dirDest)
+                        End If
+
+                        If samManager <> "?" Then
+                            Dim CNchefEquipe As String = Commun.TransformeSAMACCOUNTenCN(samManager)
+                            If dirDest.Properties("managedBy").Value <> CNchefEquipe Then
+                                dirDest.Properties("managedBy").Value = CNchefEquipe
+                                Commun.AppliquerChangement(dirDest)
+                            End If
+                        End If
+
+                        If dirDest.Properties("description").Value <> description Then
+                            dirDest.Properties("description").Value = description
+                            Commun.AppliquerChangement(dirDest)
+                        End If
+                        If dirDest.Properties("department").Value <> department_nom Then
+                            dirDest.Properties("department").Value = department_nom
+                            Commun.AppliquerChangement(dirDest)
+                        End If
+
+
+
+                        dirDest.Close()
+                        dirDest.Dispose()
+                        dirDest = Nothing
+                        result = Nothing
                     Catch ex As Exception
-                        Commun.Journal("vbtab & ERREUR : Gestion des Destinations : Ajout/Modification " & SAMAccountGroup & " : " & ex.Message, True)
+                        Commun.Journal(vbTab & "ERREUR : Gestion des Destinations : Ajout/Modification " & SAMAccountGroup & " : " & ex.Message, True)
                     End Try
 
-                Next l
+                Next
 
 
                 'gestion des departements
                 Using OUDomDepart As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=Departements,OU=EMC Celerra,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
                     Using dirDepartSearcher As DirectorySearcher = New DirectorySearcher(OUDomDepart)
-                        For p = 0 To UBound(tableauDepartment)
-                            Dim temp() As String = Split(tableauDepartment(p), ",")
-                            Dim SAMAccountDepart As String = "Dpt_" & temp(0)
-                            Dim department_nom As String = temp(1)
-                            Dim IdDepart As String = temp(2)
+                        Dim dicoDepartAd As New Dictionary(Of String, SearchResult)(StringComparer.OrdinalIgnoreCase)
+                        dirDepartSearcher.Filter = "(&(objectClass=group)(languageCode=*))"
+                        dirDepartSearcher.SearchScope = SearchScope.OneLevel
+                        dirDepartSearcher.PropertiesToLoad.Clear()
+                        dirDepartSearcher.PropertiesToLoad.Add("languageCode")
+
+                        Dim resultDepartExistants As SearchResultCollection = dirDepartSearcher.FindAll()
+                        For Each sr As SearchResult In resultDepartExistants
+                            If sr.Properties.Contains("languageCode") Then
+                                Dim idDepartExistant As String = sr.Properties("languageCode")(0).ToString().Trim()
+                                If idDepartExistant <> "" AndAlso Not dicoDepartAd.ContainsKey(idDepartExistant) Then
+                                    dicoDepartAd.Add(idDepartExistant, sr)
+                                End If
+                            End If
+                        Next
+
+                        Dim maxTabDept As Integer = DicoDepartementsRH.Count - 1
+                        Dim d As Integer = -1
+                        For Each dept As DepartementInfo In DicoDepartementsRH.Values
+                            d += 1
+                            Commun.AfficherBarre("gestion des departements", d, maxTabDept, False)
+
+                            Dim SAMAccountDepart As String = "Dpt_" & dept.nom_court_dept
+                            Dim department_nom As String = dept.nom_long_dept
+                            Dim IdDepart As String = dept.id_dept
                             Try
-                                If tableauDepartment(p) <> "" Then
-                                    'L'attribut "languageCode" contient le departement ID de GDPI
-                                    dirDepartSearcher.Filter = "(&(objectClass=group) (languageCode=" & IdDepart & "))"
-                                    'dirDestSearcher.Filter = "(&(objectClass=group) (sAMAccountName=" & SAMAccountGroup & "))"
-                                    dirDepartSearcher.SearchScope = SearchScope.OneLevel
-                                    Dim result As SearchResult = dirDepartSearcher.FindOne()
-                                    Dim dirDepart As New DirectoryEntry
-                                    If result Is Nothing Then
-                                        'Creation d'un nouveau departement
-                                        Try
-                                            Commun.NouveauGroupe(OUDomDepart, SAMAccountDepart, "Departement " & department_nom)
-                                            Commun.Journal(vbTab & "Creation d'un nouveau departement: " & SAMAccountDepart)
-                                        Catch
+                                'L'attribut "languageCode" contient le departement ID de GDPI
+                                'L'attribut "languageCode" contient le departement ID de GDPI
+                                Dim result As SearchResult = Nothing
+                                If dicoDepartAd.ContainsKey(IdDepart) Then
+                                    result = dicoDepartAd(IdDepart)
+                                End If
+                                Dim dirDepart As New DirectoryEntry
+                                If result Is Nothing Then
+                                    'Creation d'un nouveau departement
+                                    Try
+                                        Commun.NouveauGroupe(OUDomDepart, SAMAccountDepart, "Departement " & department_nom)
+                                        Commun.Journal(vbTab & "Creation d'un nouveau departement: " & SAMAccountDepart)
+                                        dirDepartSearcher.Filter = "(&(objectClass=group)(languageCode=" & IdDepart & "))"
+                                        dirDepartSearcher.SearchScope = SearchScope.OneLevel
+                                        Dim createdResult As SearchResult = dirDepartSearcher.FindOne()
+                                        If createdResult IsNot Nothing Then
+                                            dicoDepartAd(IdDepart) = createdResult
+                                        End If
+                                    Catch
 
-                                        End Try
-                                        dirDepart = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN(SAMAccountDepart)), Commun.admin, Commun.passwd, auth)
-                                        'L'attribut "languageCode" contient le groupe ID de GDPI
-                                        dirDepart.Properties("languageCode").Value = IdDepart
-                                        Commun.AppliquerChangement(dirDepart)
-                                    Else
-                                        dirDepart = result.GetDirectoryEntry
-                                    End If
-
-                                    'Modification des departements 
-                                    If dirDepart.Properties("SAMAccountName").Value <> SAMAccountDepart Then
-                                        dirDepart.Properties("SAMAccountName").Value = SAMAccountDepart
-                                        Commun.AppliquerChangement(dirDepart)
-                                        dirDepart.Rename("CN=" & SAMAccountDepart)
-                                        Commun.AppliquerChangement(dirDepart)
-                                    End If
-
-                                    If dirDepart.Properties("description").Value <> "Departement " & department_nom Then
-                                        dirDepart.Properties("description").Value = "Departement " & department_nom
-                                        Commun.AppliquerChangement(dirDepart)
-                                    End If
-
-                                    'If dirDepart.Properties("displayName").Value <> "Departement " & department_nom Then
-                                    dirDepart.Properties("displayName").Value = dirDepart.Properties("description").Value
+                                    End Try
+                                    dirDepart = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN(SAMAccountDepart)), Commun.admin, Commun.passwd, auth)
+                                    'L'attribut "languageCode" contient le groupe ID de GDPI
+                                    dirDepart.Properties("languageCode").Value = IdDepart
                                     Commun.AppliquerChangement(dirDepart)
-                                    'End If
-
-                                    dirDepart.Close()
-                                    dirDepart.Dispose()
-                                    dirDepart = Nothing
-                                    result = Nothing
+                                Else
+                                    dirDepart = result.GetDirectoryEntry
                                 End If
 
+                                'Modification des departements 
+                                If dirDepart.Properties("SAMAccountName").Value <> SAMAccountDepart Then
+                                    dirDepart.Properties("SAMAccountName").Value = SAMAccountDepart
+                                    Commun.AppliquerChangement(dirDepart)
+                                    dirDepart.Rename("CN=" & SAMAccountDepart)
+                                    Commun.AppliquerChangement(dirDepart)
+                                End If
+
+                                If dirDepart.Properties("description").Value <> "Departement " & department_nom Then
+                                    dirDepart.Properties("description").Value = "Departement " & department_nom
+                                    Commun.AppliquerChangement(dirDepart)
+                                End If
+
+                                'If dirDepart.Properties("displayName").Value <> "Departement " & department_nom Then
+                                dirDepart.Properties("displayName").Value = dirDepart.Properties("description").Value
+                                Commun.AppliquerChangement(dirDepart)
+                                'End If
+
+                                dirDepart.Close()
+                                dirDepart.Dispose()
+                                dirDepart = Nothing
+                                result = Nothing
                             Catch ex As Exception
                                 Commun.Journal(vbTab & "ERREUR : Gestion des Departements: Ajout/Modification " & SAMAccountDepart & " : " & ex.Message, True)
                             End Try
 
 
-                        Next p
+                        Next
                     End Using
 
                     'gestion des PI departements
@@ -621,6 +630,12 @@ Public Class gestion
                     dirDestSearcher.PropertiesToLoad.Add("description")
                     Dim result1 As SearchResultCollection = dirDestSearcher.FindAll
 
+                    Dim dicoSamDestRh As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+                    For Each dest As DestinationInfo In DicoDestinationsRH.Values
+                        dicoSamDestRh.Add(dest.nom_court_dest & " grp")
+                    Next
+                    dicoSamDestRh.Add("EXTERNE grp")
+
                     For Each grpResult As SearchResult In result1
                         Dim SAMAccountGroup As String = grpResult.Properties("SAMAccountName")(0)
                         Try
@@ -629,13 +644,7 @@ Public Class gestion
                                 descriptionGroup = grpResult.Properties("description")(0)
                             End If
                             'Controle si l'equipe Existe dans la BDP
-                            Dim ctrlGrpExistBDP As Boolean = False
-                            For l = 0 To UBound(tableauDest)
-                                If SAMAccountGroup = Split(tableauDest(l), ",")(0) & " grp" Or SAMAccountGroup = "EXTERNE grp" Then
-                                    ctrlGrpExistBDP = True
-                                    Exit For
-                                End If
-                            Next l
+                            Dim ctrlGrpExistBDP As Boolean = dicoSamDestRh.Contains(SAMAccountGroup)
 
                             'Si l'equipe n'existe pas dans la BDP
                             If ctrlGrpExistBDP = False Then
@@ -677,19 +686,23 @@ Public Class gestion
                     result1 = Nothing
                 End Using
             End Using
-            'dirSearcher = Nothing
-            '----------------------------------------------------------------------------------------------------------------------------------
-
         End Using
-        Erase tableauDest
         Commun.Journal("Gestion des destinations et départements réussie", False)
 
     End Sub
 
+
+
+
     Shared Sub PIDepartementGroup()
         Using dptAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=Departements,OU=EMC Celerra,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
             Dim resultsDpt As SearchResultCollection = Commun.SearchFilterAll("OU=Departements,OU=EMC Celerra,DC=igbmc,DC=u-strasbg,DC=fr", "objectClass=group", SearchScope.OneLevel, "description,cn")
+
+            Dim maxTabPI As Integer = resultsDpt.Count
+            Dim p As Integer = 0
             For Each resultDpt As SearchResult In resultsDpt
+                p += 1
+                Commun.AfficherBarre("gestion des PI", p, maxTabPI, False)
                 Dim description As String = Replace(resultDpt.Properties("description")(0), "Departement", "")
                 Dim nom As String = resultDpt.Properties("cn")(0)
                 Dim resultsDest As SearchResultCollection = Commun.SearchFilterAll("OU=Equipes,DC=igbmc,DC=u-strasbg,DC=fr", "(&(objectClass=group)(department=" & description & "))", SearchScope.OneLevel, "department")
@@ -708,207 +721,307 @@ Public Class gestion
 
         End Using
     End Sub
-    Shared Sub GestionReactiveDesactiveComptesInterne()
+
+
+    Shared Sub GestionReactiveDesactiveComptesInterne(adUsersByEmployeeId As Dictionary(Of String, UtilisateurADIndex))
+        Dim i As Integer = -1
         Commun.Journal("Gestion des activation/desactivation des comptes interne")
-        Dim OUSource As DirectoryEntry
-        Using ouDestDesactive As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursDesactives), Commun.admin, Commun.passwd, auth)
-            Using ouDestException As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(ini.ReadValue("MODIFAUTO", "OUUtilisateursExceptions")), Commun.admin, Commun.passwd, auth)
-                Using ouDestUser As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursActifs), Commun.admin, Commun.passwd, auth)
 
+        For Each kvp As KeyValuePair(Of String, UtilisateurADIndex) In adUsersByEmployeeId
+            i += 1
+            Commun.AfficherBarre("Gestion de l'activation/desactivation des comptes", i, adUsersByEmployeeId.Count, False)
 
-                    Dim typeSearchScope As SearchScope
+            Dim userAD As UtilisateurADIndex = kvp.Value
+            If userAD Is Nothing Then Continue For
+            If String.IsNullOrWhiteSpace(userAD.samAccountName) Then Continue For
 
-                    For cas = 0 To 2
-                        If cas = 0 Then
-                            OUSource = ouDestDesactive
-                            typeSearchScope = SearchScope.Subtree
-                        ElseIf cas = 1 Then
-                            OUSource = ouDestException
-                            typeSearchScope = SearchScope.OneLevel
-                        Else
-                            OUSource = ouDestUser
-                            typeSearchScope = SearchScope.OneLevel
+            Dim login As String = userAD.samAccountName
+            Dim dateTxtFinException As String = exceptionUser(login)
+            Dim estEnException As Boolean = LCase(Trim(dateTxtFinException)) <> "false"
+            Dim estPresentRH As Boolean = PresenceBDP(login)
+
+            'L'utilisateur est present RH : il doit etre dans l'etat actif.
+            'S'il n'est pas deja dans l'OU actifs, on devra le reactiver et le deplacer vers OUUtilisateursActifs.
+            Dim doitPasserActif As Boolean =
+            estPresentRH AndAlso Not userAD.isInOUActifs
+
+            Dim descriptionExceptionAttendue As String = ""
+            If estEnException Then
+                descriptionExceptionAttendue = "EXCEPTION jusqu'au: " & dateTxtFinException
+            End If
+
+            'L'utilisateur n'est plus present RH, a une exception valide,
+            'et n'est pas deja dans l'OU exceptions : il devra etre deplace vers OUUtilisateursExceptions.
+            Dim doitPasserException As Boolean =
+            Not estPresentRH AndAlso
+            estEnException AndAlso
+            Not userAD.isInOUExceptions
+
+            'L'utilisateur n'est plus present RH, a une exception valide,
+            'et sa description AD ne correspond pas a la date d'exception actuelle.
+            Dim doitMettreAJourException As Boolean =
+            Not estPresentRH AndAlso
+            estEnException AndAlso
+            userAD.description <> descriptionExceptionAttendue
+
+            'L'utilisateur n'est plus present RH, a une exception valide,
+            'et possede encore des dates de desactivation/suppression a nettoyer.
+            Dim doitNettoyerDatesDesactivation As Boolean =
+            Not estPresentRH AndAlso
+            estEnException AndAlso
+            (
+                userAD.accountActivationDT.HasValue OrElse
+                userAD.accountDeactivationDT.HasValue OrElse
+                userAD.accountDeletionDT.HasValue OrElse
+                Not String.IsNullOrWhiteSpace(userAD.accountDeletionDate)
+            )
+
+            'L'utilisateur n'est plus present RH, n'a pas d'exception valide,
+            'et n'est ni deja desactive, ni deja sorti : il devra passer dans OUUtilisateursDesactives.
+            Dim doitPasserDesactive As Boolean =
+            Not estPresentRH AndAlso
+            Not estEnException AndAlso
+            Not userAD.isInOUDesactives AndAlso
+            Not userAD.isInOUSortis
+
+            'Aucune ouverture LDAP n'est faite si le compte est deja dans le bon etat.
+            Dim actionNecessaire As Boolean =
+            doitPasserActif OrElse
+            doitPasserException OrElse
+            doitMettreAJourException OrElse
+            doitNettoyerDatesDesactivation OrElse
+            doitPasserDesactive
+
+            If Not actionNecessaire Then
+                Continue For
+            End If
+
+            Using dirEntry As New DirectoryEntry("LDAP://" & Commun.LdapPath(userAD.distinguishedName), Commun.admin, Commun.passwd, auth)
+
+                'Si l'utilisateur est present RH mais n'est pas dans l'OU actifs,
+                'on nettoie les attributs de desactivation, on reactive les comptes,
+                'puis on le deplace vers OUUtilisateursActifs.
+                If doitPasserActif Then
+                    Try
+                        GestionGroupeUserActive(dirEntry)
+
+                        Commun.SetADLDAPProperty(dirEntry, "description", "")
+                        Commun.SetADLDAPProperty(dirEntry, "Comment", "Réactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf, True)
+                        ClearAttributDeactivationDeletionDate(dirEntry, userAD)
+                        Commun.SetADLDAPProperty(dirEntry, "extensionAttribute1", "")
+                        Commun.AppliquerChangement(dirEntry)
+
+                        userAD.description = ""
+                        userAD.comment = "Réactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf
+                        userAD.extensionAttribute1 = ""
+
+                        Commun.ReactiveDesactiveCompte(login, "Active")
+                    Catch ex As Exception
+                        Commun.Journal(vbTab & "ERREUR : réactivation du compte(propriétés) : " & dirEntry.Name & " : " & ex.Message, True)
+                    End Try
+
+                    'Active le compte loginadm s'il existe
+                    Commun.ReactiveDesactiveCompte(login & "adm", "Active")
+
+                    Try
+                        CompararaisonAjoutRetraitDestinationsDepartement(dirEntry)
+                        MoveToOu(dirEntry, userAD, OUUtilisateursActifs)
+                    Catch ex As Exception
+                        Commun.Journal(vbTab & "ERREUR : réactivation du compte (deplacement Vers OU Utilisateurs) : " & dirEntry.Name, True)
+                    End Try
+                End If
+
+                'Si l'utilisateur n'est plus present RH mais a une exception valide,
+                'on corrige uniquement ce qui est necessaire : description d'exception,
+                'nettoyage des dates de desactivation/suppression, ou deplacement vers OUUtilisateursExceptions.
+                If doitPasserException OrElse doitMettreAJourException OrElse doitNettoyerDatesDesactivation Then
+                    Try
+                        Dim commentaireException As String = "Exception le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf
+
+                        If doitMettreAJourException Then
+                            Commun.SetADLDAPProperty(dirEntry, "description", descriptionExceptionAttendue)
+                            Commun.SetADLDAPProperty(dirEntry, "Comment", commentaireException, True)
+                            userAD.description = descriptionExceptionAttendue
+                            userAD.comment = commentaireException
                         End If
 
-                        Dim users As SearchResultCollection
-                        Using searcher As DirectorySearcher = New DirectorySearcher(OUSource)
-                            searcher.PageSize = 2000
-                            searcher.SearchScope = typeSearchScope
+                        If doitNettoyerDatesDesactivation Then
+                            ClearAttributDeactivationDeletionDate(dirEntry, userAD)
+                        End If
 
-                            searcher.Filter = "(&(objectClass=user))"
-                            ' pour la recherche non recursive(SearchScope.OneLevel)
-                            users = searcher.FindAll()
-                        End Using
+                        If doitMettreAJourException OrElse doitNettoyerDatesDesactivation Then
+                            Commun.AppliquerChangement(dirEntry)
+                        End If
+                    Catch ex As Exception
+                        Commun.Journal(vbTab & "ERREUR : mise à jour exception du compte : " & dirEntry.Name, True)
+                    End Try
 
-                        For Each user As SearchResult In users
-                            Dim DirEntry As DirectoryEntry = user.GetDirectoryEntry
+                    'Si l'utilisateur est en exception valide mais n'est pas deja dans l'OU exceptions,
+                    'on reactive le compte adm si besoin, on remet les groupes actifs,
+                    'puis on le deplace vers OUUtilisateursExceptions.
+                    If doitPasserException Then
+                        Commun.ReactiveDesactiveCompte(login & "adm", "Active")
 
-                            Dim login As String = DirEntry.Properties("SAMAccountName").Value()
-                            Dim except As String = exceptionUser(login)
-                            Dim ctrlPresentBDP As Boolean = PresentBDP(login)
+                        Try
+                            GestionGroupeUserActive(dirEntry)
+                            MoveToOu(dirEntry, userAD, OUUtilisateursExceptions)
+                        Catch ex As Exception
+                            Commun.Journal(vbTab & "ERREUR : réactivation du compte (deplacement vers OU Exceptions) : " & dirEntry.Name, True)
+                        End Try
+                    End If
+                End If
 
-                            'Cas d'un compte Actif par BDP ou par Exception
-                            If ctrlPresentBDP = True Or except <> "False" Then
-                                GestionGroupeUserActive(DirEntry)
-                                'Si l'utilistateur est present dans la base du perso mais n'est pas dans l'OU Utilisateur
-                                If ctrlPresentBDP = True And cas <> 2 Then
-                                    Try
-                                        Commun.SetADLDAPProperty(DirEntry, "description", "")
-                                        Commun.SetADLDAPProperty(DirEntry, "Comment", "Réactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf, True)
-                                        Commun.AppliquerChangement(DirEntry)
-                                        Commun.ClearAttributDeactivationDeletionDate(DirEntry)
-                                        Commun.ReactiveDesactiveCompte(login, "Active")
-                                    Catch ex As Exception
-                                        Commun.Journal(vbTab & "ERREUR : réactivation du compte(propriétés) : " & DirEntry.Name & " : " & ex.Message, True)
-                                    End Try
+                'Si l'utilisateur n'est plus present RH, n'a pas d'exception valide,
+                'et n'est pas deja dans l'etat desactive ou sorti,
+                'on le fait passer dans l'etat desactive.
+                'Le compte login reste dans la periode desactive, avec une date de sortie prevue a +3 mois.
+                'Le compte loginadm est desactive.
+                'La sortie definitive du compte login est geree plus tard dans OUUtilisateursSortis.
+                If doitPasserDesactive Then
+                    Dim dateDefinDeContrat As String = ""
 
-                                    Try
+                    Try
+                        Dim commentaireDesactivation As String = ""
+                        Dim descriptionDesactivation As String = ""
 
-                                    Catch ex As Exception
-                                        Commun.Journal(vbTab & "ERREUR : date d'expiration du compte (deplacement Vers OU Utilisateurs) : " & DirEntry.Name, True)
-                                    End Try
+                        Dim id As String = userAD.employeeID
 
-                                    'Réactivation du compte et deplacement dans l'OU Utilisateurs
+                        'Si l'employeeID est disponible, on recupere la date de fin de contrat reelle.
+                        'Cette date sert de reference pour accountDeactivationDT et pour calculer la date de sortie a +3 mois.
+                        If id <> "" Then
+                            Dim datacontract As String = Json.SendJson("", "persons/" & id & "/contracts?current_contract=true", "AD", "GET")
+                            Dim contracts = Json.DeserializeJson(datacontract, "contracts")
+                            dateDefinDeContrat = DateDeFinDeContract(contracts, id)
 
-                                    'Active l'utilisateur ADM s'il existe
-                                    Commun.ReactiveDesactiveCompte(login & "adm", "Active")
-                                    Try
-                                        CompararaisonAjoutRetraitDestinationsDepartement(DirEntry)
-                                        DirEntry.MoveTo(ouDestUser)
-                                    Catch ex As Exception
-                                        Commun.Journal(vbTab & "ERREUR : réactivation du compte (deplacement Vers OU Utilisateurs) : " & DirEntry.Name, True)
-                                    End Try
-                                End If
-
-                                'Si l'utilisateur n'est pas present dans la base du perso mais est en exception
-                                If ctrlPresentBDP = False And except <> "False" Then
-                                    Try
-                                        If DirEntry.Properties("description").Value <> "EXCEPTION jusqu'au: " & except Then
-                                            Commun.SetADLDAPProperty(DirEntry, "description", "EXCEPTION jusqu'au: " & except)
-                                            Commun.SetADLDAPProperty(DirEntry, "Comment", "Exception le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf, True)
-                                            Commun.AppliquerChangement(DirEntry)
-                                            Commun.ClearAttributDeactivationDeletionDate(DirEntry)
-                                        End If
-                                    Catch ex As Exception
-                                        Commun.Journal(vbTab & "ERREUR : réactivation du compte(propriétés) : " & DirEntry.Name, True)
-                                    End Try
-
-                                    'si il n'est pas deja dans l'OU Exception
-                                    If cas <> 1 Then
-
-                                        'Active l'utilisateur ADM s'il existe
-                                        Commun.ReactiveDesactiveCompte(login & "adm", "Active")
-
-                                        GestionGroupeUserActive(DirEntry)
-
-                                        Try
-                                            'Le deplacer dans l'OU Exception
-                                            DirEntry.MoveTo(ouDestException)
-
-                                        Catch ex As Exception
-                                            Commun.Journal(vbTab & "ERREUR : réactivation du compte (deplacement vers OU Exceptions) : " & DirEntry.Name, True)
-                                        End Try
-                                    End If
-                                End If
+                            If dateDefinDeContrat = "" Then
+                                Commun.Journal(vbTab & "ERREUR : GestionReactiveDesactiveCompte : Determination de la date de fin de contrat : " & dirEntry.Name & " : employeeID : " & id, True)
                             End If
+                        End If
 
-                            'Si l'utilisateur n'est pas present dans la base du perso ni dans les exceptions et, est dans l'OU Utilisateur
-                            If ctrlPresentBDP = False And except = "False" And cas <> 0 Then
-                                Dim dateDefinDeContrat As String
-                                Try
-                                    'si il est dans l'OU Exception
-                                    If cas = 1 Then
-                                        Commun.SetADLDAPProperty(DirEntry, "description", "EXCEPTION Désactivé le: " & Strings.Left(CStr(Now), 10))
-                                        Commun.SetADLDAPProperty(DirEntry, "Comment", "EXCEPTION Désactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf, True)
-                                        Commun.SetADLDAPProperty(DirEntry, "accountDeletionDate", Now.ToUniversalTime.AddMonths(3).ToString("dd/MM/yyyy"))
-                                        DirEntry.Properties("accountDeactivationDT").Value = Now.ToUniversalTime.Date
-                                        DirEntry.Properties("accountDeletionDT").Value = Now.ToUniversalTime.AddMonths(3).Date
-                                        Commun.AppliquerChangement(DirEntry)
-                                    End If
+                        Dim dateReferenceDesactivation As Date = Now.Date
+                        If dateDefinDeContrat <> "" Then
+                            Try
+                                dateReferenceDesactivation = DateTime.ParseExact(
+                                dateDefinDeContrat,
+                                "dd/MM/yyyy",
+                                System.Globalization.CultureInfo.InvariantCulture
+                            ).Date
+                            Catch exDate As Exception
+                                Commun.Journal(vbTab & "ERREUR : GestionReactiveDesactiveCompte : conversion de la date de fin de contrat : " & dirEntry.Name & " : " & dateDefinDeContrat, True)
+                            End Try
+                        End If
 
-                                    'si il est dans l'OU Utilisateurs
-                                    If cas = 2 Then
-                                        Commun.SetADLDAPProperty(DirEntry, "description", "Désactivé le: " & Strings.Left(CStr(Now), 10))
-                                        Commun.SetADLDAPProperty(DirEntry, "Comment", "Désactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf, True)
-                                        Commun.SetADLDAPProperty(DirEntry, "accountDeletionDate", Now.ToUniversalTime.AddMonths(3).ToString("dd/MM/yyyy"))
-                                        DirEntry.Properties("accountDeactivationDT").Value = Now.ToUniversalTime.Date
-                                        DirEntry.Properties("accountDeletionDT").Value = Now.ToUniversalTime.AddMonths(3).Date
-                                        Commun.AppliquerChangement(DirEntry)
-                                    End If
+                        Dim dateSortiePrevue As Date = dateReferenceDesactivation.AddMonths(3)
+                        Dim dateReferenceDesactivationUtc As Date = dateReferenceDesactivation.ToUniversalTime()
+                        Dim dateSortiePrevueUtc As Date = dateSortiePrevue.ToUniversalTime()
 
-                                    If DirEntry.Properties.Contains("EmployeeID") Then
-                                        Dim id As String = DirEntry.Properties("EmployeeID").Value
-                                        Dim datacontract As String = Json.SendJson("", "persons/" & id & "/contracts?current_contract=true", "AD", "GET")
-                                        Dim contracts = Json.DeserializeJson(datacontract, "contracts")
-                                        dateDefinDeContrat = DateDeFinDeContract(contracts, id)
-                                        If dateDefinDeContrat = "" Then
-                                            Commun.Journal(vbTab & "ERREUR : GestionReactiveDesactiveCompte : Determination de la date de fin de contrat : " & DirEntry.Name & " : EmployeeID : " & DirEntry.Properties("EmployeeID").Value, True)
-                                        End If
-                                        Commun.SetADLDAPProperty(DirEntry, "extensionAttribute1", dateDefinDeContrat)
-                                        Commun.AppliquerChangement(DirEntry)
-                                    End If
+                        'Si le compte vient de l'etat exception, on garde une trace explicite dans la description.
+                        If userAD.isInOUExceptions Then
+                            descriptionDesactivation = "EXCEPTION Désactivé le: " & Strings.Left(CStr(Now), 10)
+                            commentaireDesactivation = "EXCEPTION Désactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf
+                        Else
+                            descriptionDesactivation = "Désactivé le: " & Strings.Left(CStr(Now), 10)
+                            commentaireDesactivation = "Désactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf
+                        End If
 
-                                    Commun.SetADLDAPProperty(DirEntry, "Comment", "Désactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf, True)
-                                    Commun.SetADLDAPProperty(DirEntry, "serialNumber", Nothing)
-                                    Commun.SetADLDAPProperty(DirEntry, "employeeNumber", Nothing)
-                                    Commun.AppliquerChangement(DirEntry)
+                        Commun.SetADLDAPProperty(dirEntry, "description", descriptionDesactivation)
+                        Commun.SetADLDAPProperty(dirEntry, "Comment", commentaireDesactivation, True)
+                        Commun.SetADLDAPProperty(dirEntry, "accountDeletionDate", dateSortiePrevue.ToString("dd/MM/yyyy"))
+                        dirEntry.Properties("accountDeactivationDT").Value = dateReferenceDesactivationUtc.ToString("yyyyMMddHHmmss") & ".0Z"
+                        dirEntry.Properties("accountDeletionDT").Value = dateSortiePrevueUtc.ToString("yyyyMMddHHmmss") & ".0Z"
 
-                                Catch ex As Exception
-                                    Commun.Journal(vbTab & "ERREUR : désactivation du compte(propriétés) : " & DirEntry.Name, True)
-                                End Try
+                        userAD.description = descriptionDesactivation
+                        userAD.comment = commentaireDesactivation
+                        userAD.accountDeactivationDT = dateReferenceDesactivationUtc
+                        userAD.accountDeletionDT = dateSortiePrevueUtc
+                        userAD.accountDeletionDate = dateSortiePrevue.ToString("dd/MM/yyyy")
 
-                                'Desactive l'utilisateur ADM s'il existe
-                                Commun.ReactiveDesactiveCompte(login & "adm", "Desactive")
+                        If id <> "" Then
+                            Commun.SetADLDAPProperty(dirEntry, "extensionAttribute1", dateDefinDeContrat)
+                            userAD.extensionAttribute1 = dateDefinDeContrat
+                        End If
 
-                                'Le deplacer dans l'ou Comptes Désactivés
-                                GestionGroupeUserDesactive(DirEntry)
-                                CompararaisonAjoutRetraitDestinationsDepartement(DirEntry)
+                        Commun.SetADLDAPProperty(dirEntry, "serialNumber", Nothing)
+                        Commun.SetADLDAPProperty(dirEntry, "employeeNumber", Nothing)
+                        Commun.AppliquerChangement(dirEntry)
 
-                                Dim adresseMail As String = DirEntry.Properties("Mail").Value
-                                Dim prenom As String = DirEntry.Properties("givenName").Value
-                                Dim dateDeSuppressionPrevue As String = Format(DirEntry.Properties("accountDeletionDT").Value, "dd/MM/yyyy")
+                        userAD.serialNumber = Nothing
+                        userAD.employeeNumber = Nothing
+                    Catch ex As Exception
+                        Commun.Journal(vbTab & "ERREUR : désactivation du compte(propriétés) : " & dirEntry.Name, True)
+                    End Try
 
+                    'Lorsque le compte principal passe dans l'etat desactive, le compte admin associe est desactive.
+                    Commun.ReactiveDesactiveCompte(login & "adm", "Desactive")
 
+                    'Avant le deplacement vers OUUtilisateursDesactives,
+                    'on applique les groupes/restrictions correspondant a l'etat desactive.
+                    GestionGroupeUserDesactive(dirEntry)
+                    CompararaisonAjoutRetraitDestinationsDepartement(dirEntry)
 
-                                Try
-                                    Dim mail As String = MailCloture1(prenom, dateDeSuppressionPrevue, dateDefinDeContrat)
-                                    Commun.SendEmail("noreply@igbmc.fr", adresseMail & ";Cc:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail)
-                                    Commun.Journal(vbTab & "Mail de fermeture de compte envoyé (m-3) : " & adresseMail)
+                    'Preparation du mail d'information envoye lors du passage en etat desactive.
+                    Dim adresseMail As String = userAD.mail
+                    Dim prenom As String = userAD.givenName
 
-                                Catch ex As Exception
-                                    Commun.Journal(vbTab & "ERREUR : Mail de fermeture de compte envoyé (m-3) : " & adresseMail & " : " & ex.Message, True)
-                                End Try
+                    Dim dateDeSuppressionPrevue As String = userAD.accountDeletionDate
 
-                                Try
-                                    DirEntry.MoveTo(ouDestDesactive)
-                                Catch ex As Exception
-                                    Commun.Journal(vbTab & "ERREUR : désactivation du compte (deplacement vers OU Désactivés) : " & DirEntry.Name & " : " & ex.Message, True)
-                                End Try
-                            End If
+                    Try
+                        Dim mail As String = MailCloture(prenom, dateDeSuppressionPrevue, dateDefinDeContrat)
+                        'Commun.SendEmail("noreply@igbmc.fr", adresseMail & ";Cc:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail)
+                        Commun.Journal(vbTab & "Mail de fermeture de compte envoyé : " & adresseMail)
+                    Catch ex As Exception
+                        Commun.Journal(vbTab & "ERREUR : Mail de fermeture de compte envoyé : " & adresseMail & " : " & ex.Message, True)
+                    End Try
 
-                            'Mise de la valeur a "False" apres le traitement pour eviter une boucle dans for
-                            except = "False"
-
-
-                            DirEntry.Close()
-                            DirEntry.Dispose()
-                            DirEntry = Nothing
-                        Next user
-                        users.Dispose()
-                        users = Nothing
-
-                        OUSource.Close()
-
-                    Next cas
-
-                    OUSource.Dispose()
-                    OUSource = Nothing
-
-                End Using
+                    'Deplacement final du compte vers l'OU des comptes desactives.
+                    Try
+                        MoveToOu(dirEntry, userAD, OUUtilisateursDesactives)
+                    Catch ex As Exception
+                        Commun.Journal(vbTab & "ERREUR : deplacement du compte vers l'OU Utilisateurs Desactives : " & dirEntry.Name & " : " & ex.Message, True)
+                    End Try
+                End If
             End Using
-        End Using
+        Next
 
         Commun.Journal("Gestion de l'activation/desactivation des comptes réussie", False)
+    End Sub
+    Shared Sub ClearAttributDeactivationDeletionDate(ByVal dirEntry As DirectoryEntry, ByVal userAD As UtilisateurADIndex)
+        Try
+            dirEntry.Properties("accountDeletionDate").Clear()
+            dirEntry.Properties("accountDeletionDT").Clear()
+            dirEntry.Properties("accountDeactivationDT").Clear()
+
+            Commun.AppliquerChangement(dirEntry)
+
+            If userAD IsNot Nothing Then
+                userAD.accountDeactivationDT = Nothing
+                userAD.accountDeletionDT = Nothing
+                userAD.accountDeletionDate = ""
+            End If
+        Catch ex As Exception
+            Commun.Journal("ERREUR : ClearAttributDeactivationDeletionDate : " & dirEntry.Properties("sAMAccountName").Value, True)
+        End Try
+    End Sub
+
+    Private Shared Sub MoveToOu(ByVal dirEntry As DirectoryEntry,
+                            ByVal userAD As UtilisateurADIndex,
+                            ByVal destinationOu As String)
+
+        Dim ancienDn As String = userAD.distinguishedName
+        Dim login As String = userAD.samAccountName
+
+        Using ouDest As New DirectoryEntry("LDAP://" & Commun.LdapPath(destinationOu), Commun.admin, Commun.passwd, auth)
+            dirEntry.MoveTo(ouDest)
+            dirEntry.RefreshCache(New String() {"distinguishedName"})
+
+            If dirEntry.Properties.Contains("distinguishedName") Then
+                userAD.distinguishedName = CStr(dirEntry.Properties("distinguishedName").Value)
+            End If
+        End Using
+
+        Commun.Journal(vbTab & "Déplacement OU réussi : " & login &
+                    " : " & ancienDn &
+                    " -> " & userAD.distinguishedName, False)
     End Sub
 
     Shared Function exceptionUser(ByVal login As String) As String
@@ -955,13 +1068,18 @@ Public Class gestion
         Return resultat
 
     End Function
-    Shared Function PresentBDP(ByVal login As String) As Boolean
-        For i = 0 To UBound(tabPersoMonoEquipe, 2)
-            If login = tabPersoMonoEquipe(2, i) Then
+    Shared Function PresenceBDP(ByVal login As String) As Boolean
+        If String.IsNullOrWhiteSpace(login) Then Return False
+        If usersRH Is Nothing Then Return False
+
+        For Each userRH As UtilisateurRH In usersRH
+            'If userRH IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(userRH.login_samAccountName) AndAlso
+            'String.Equals(userRH.login_samAccountName.Trim(), login, StringComparison.OrdinalIgnoreCase) Then
+            If login = userRH.login_samAccountName Then
                 Return True
-                Exit Function
             End If
-        Next i
+        Next
+
         Return False
     End Function
 
@@ -1038,7 +1156,8 @@ Public Class gestion
             Using group As DirectoryEntry = New DirectoryEntry(result.Path)
 
                 group.Properties("accountNameHistory").Remove(login)
-                group.CommitChanges()
+
+                Commun.AppliquerChangement(group)
             End Using
         Next
 

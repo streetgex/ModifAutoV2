@@ -98,93 +98,130 @@ Public Class jsonMS
 
 
     End Function
-    Shared Function MakeRequest1(method As String, requestAPI As String) As String
-        Dim fullUrl As String = "https://" & serveurMS & "/api" & requestAPI
-        Dim responseFromServer As String = ""
-        'Try
-        ServicePointManager.ServerCertificateValidationCallback = AddressOf clsSSL.AcceptAllCertifications
-        'We this to make an HTTP web request
-        Dim request As Net.HttpWebRequest = Net.WebRequest.Create(fullUrl)
-        request.KeepAlive = False
-        request.Headers.Add("X-API-KEY", token)
-        request.Headers.Add("X-PROFILE", "1")
-        request.ServerCertificateValidationCallback = AddressOf clsSSL.AcceptAllCertifications
-        'Make the web request and get the response
-        Dim response As Net.WebResponse = request.GetResponse
 
-        response.Close()
-            Dim stream As System.IO.Stream = response.GetResponseStream
+    Shared Function ChargerBadgesParEmployeeId() As Dictionary(Of String, String())
+        Dim result As New Dictionary(Of String, String())(StringComparer.OrdinalIgnoreCase)
 
-            'Prepare buffer for reading from stream
-            Dim buffer As Byte() = New Byte(1000) {}
+        Dim offset As Integer = 0
+        Dim limit As Integer = 100
 
-            'Data read from stream is gathered here
-            Dim data As New List(Of Byte)
+        Do
+            Dim url As String =
+            "/credentials/?filter=idTechno=1,csn,holder.matricule,status=k_valid" &
+            "&limit=" & limit &
+            "&offset=" & offset &
+            "&fields=holder.matricule,status,csn,holder.mail"
 
-            'Start reading stream
-            Dim bytesRead = stream.Read(buffer, 0, buffer.Length)
+            Dim fiche As String = jsonMS.MakeRequest("GET", url)
+            Dim responseData = New JavaScriptSerializer().Deserialize(Of Object)(fiche)
 
-            Do Until bytesRead = 0
-                For i = 0 To bytesRead - 1
-                    data.Add(buffer(i))
-                Next
-
-                bytesRead = stream.Read(buffer, 0, buffer.Length)
-            Loop
-
-
-            'Gets the JSON data
-            Debug.WriteLine(System.Text.Encoding.UTF8.GetString(data.ToArray))
-
-            response.Close()
-            stream.Close()
-
-
-    End Function
-    Shared Function UserBadgeCodeNumber(ByVal matricule As String) As String()
-
-        Dim fiche = jsonMS.MakeRequest("GET", "/users?prettyPrint&fields=id&filter=matricule=" & matricule)
-        Dim ficheResponseData = New JavaScriptSerializer().Deserialize(Of Object)(fiche)
-
-        If ficheResponseData("data").length = 0 Then
-            Exit Function
-        End If
-        Dim id As String = ficheResponseData("data")(0)("id") 'deviceCreate("id")
-        Dim credbadge = jsonMS.MakeRequest("GET", "/users/" & id & "?fields=credentials.TECHNO_01.csn,credentials.TECHNO_01.status")
-        Dim credbadgeResponseData = New JavaScriptSerializer().Deserialize(Of Object)(credbadge)
-        Dim techno1 = credbadgeResponseData("credentials")("TECHNO_01")
-
-        Dim i As Integer = -1
-        For Each badge In techno1
-            i += 1
-            Dim status = badge("status")
-            If status <> "k_valid" Then Continue For
-            Dim numeroBadge As String = badge("csn")
-            If numeroBadge <> "" Then
-                UserBadgeCodeNumber.Add(numeroBadge)
+            If responseData Is Nothing OrElse Not responseData.ContainsKey("data") Then
+                Exit Do
             End If
-        Next badge
-        Return UserBadgeCodeNumber
-    End Function
-    Shared Function AllCred()
-        Dim fiche = jsonMS.MakeRequest("GET", "/credentials?fields=holder.matricule,holder.id,csn,code&offset=500")
-        Dim ficheResponseData = New JavaScriptSerializer().Deserialize(Of Object)(fiche)
-        'Dim data = ficheResponseData("data")
-        'Dim ficheResponseData = New JavaScriptSerializer().Deserialize(Of Object)(dataResponseData)
-        Dim data = ficheResponseData("data")
-        Dim max = UBound(Data)
-        Dim id = ficheResponseData("data")(0)("holder") 'deviceCreate("id")
-        Dim credbadge = jsonMS.MakeRequest("GET", "/users/" & id & "?fields=credentials.TECHNO_01.code")
-        Dim credbadgeResponseData = New JavaScriptSerializer().Deserialize(Of Object)(credbadge)
-        Dim techno1 = credbadgeResponseData("credentials")("TECHNO_01")
 
-        Dim i As Integer = -1
-        For Each badge In techno1
-            i += 1
-            Dim numeroBadge As String = badge("code")
-            'AllBadgeNumber.Add(numeroBadge)
-        Next badge
-        'Return AllBadgeNumber()
+            Dim data = responseData("data")
+            If data Is Nothing OrElse data.length = 0 Then
+                Exit Do
+            End If
+
+            For Each cred In data
+                Dim matricule As String = ""
+                Dim csn As String = ""
+
+                If Not cred("csn") Is Nothing Then
+                    csn = CStr(cred("csn"))
+                End If
+
+                If cred.ContainsKey("holder") AndAlso Not cred("holder") Is Nothing Then
+                    Dim holder = cred("holder")
+                    If holder.ContainsKey("matricule") AndAlso Not holder("matricule") Is Nothing Then
+                        matricule = CStr(holder("matricule"))
+                    End If
+                End If
+
+                If matricule = "" OrElse csn = "" Then
+                    Continue For
+                End If
+
+                If Not result.ContainsKey(matricule) Then
+                    result.Add(matricule, New String() {})
+                End If
+
+                result(matricule).Add(csn)
+            Next
+
+            If data.length < limit Then
+                Exit Do
+            End If
+
+            offset += limit
+        Loop
+
+        For Each matricule As String In result.Keys.ToList()
+            result(matricule) = TrierTableau(result(matricule))
+        Next
+
+        Return result
+    End Function
+    Shared Function GetIdMS(ByVal matricule As Integer) As String
+        'recuperation de l'id MS
+        Dim reqUser As String = "/users?fields=id&filter=matricule=" & matricule
+        Dim dataUser As String = jsonMS.MakeRequest("GET", reqUser)
+        Dim responseUser = New JavaScriptSerializer().Deserialize(Of Object)(dataUser)
+        Dim idMS As Integer = responseUser("data")(0)("id")
+        Return idMS
+    End Function
+    Shared Sub SetMSEndValidity(ByVal idMS As String, ByVal finDeContrat As String)
+        If finDeContrat = "Aucune" Then finDeContrat = "01/01/2050"
+
+
+
+        Dim dateObj As DateTime
+
+        DateTime.TryParseExact(finDeContrat, "dd/MM/yyyy", Globalization.CultureInfo.InvariantCulture, Globalization.DateTimeStyles.None, dateObj)
+
+        Dim dateFormatee As String = dateObj.ToString("yyyy-MM-dd")
+
+        Dim data As String = "{""validityEndDate"":  """ & dateFormatee & """}"
+        Dim dataresponse As String = jsonMS.MakeRequest("PUT", "/users/" & idMS, data)
+    End Sub
+    Shared Function GetMSAccreditation(ByVal idMS As String, ByVal finDeContrat As String) As String
+        GetMSAccreditation = ""
+        'https://serv-ca.igbmc.u-strasbg.fr/api/userClearances?fields=all&filter=user.id=7724
+        If finDeContrat = "Aucune" Then finDeContrat = "01/01/2050"
+        ' Construction de la requête pour récupérer les utilisateurs présents dans la zone
+
+        Dim dateFindeContrat As DateTime
+
+        DateTime.TryParseExact(finDeContrat, "dd/MM/yyyy", Globalization.CultureInfo.InvariantCulture, Globalization.DateTimeStyles.None, dateFindeContrat)
+
+        Dim dateFormatee As String = dateFindeContrat.ToString("yyyy-MM-dd")
+
+        '$"Contrôleur de domaine sélectionné : {SelectedDomainController}"
+        'Dim reqClearance As String = "/userClearances?fields=clearance[name,id],endDate&filter=user.matricule=" & usrID & ",endDate<=" & dateFormatee
+        Dim reqAccreditation As String = $"/users/{idMS}/accreditations?fields=accreditation.name,endDate&filter=endDate<{dateFormatee}&limit=100"
+        Dim dataAccreditation As String = jsonMS.MakeRequest("GET", reqAccreditation)
+
+        ' Vérification si la réponse est nulle (échec de la requête)
+        If dataAccreditation Is Nothing Or dataAccreditation = "" Then Exit Function
+
+
+        ' Désérialisation de la réponse JSON en un objet
+        Dim responseClearance = New JavaScriptSerializer().Deserialize(Of Object)(dataAccreditation)
+
+        ' Boucle sur les utilisateurs présents dans la zone
+        For Each accreditation In responseClearance("data")
+            Dim accreditationName As String = accreditation("accreditation")("name")
+            Dim endDateTxt As String = accreditation("endDate")
+            Dim endDate As Date
+            DateTime.TryParseExact(endDateTxt, "yyyy-MM-dd", Globalization.CultureInfo.InvariantCulture, Globalization.DateTimeStyles.None, endDate)
+
+            GetMSAccreditation += accreditationName & " (" & endDate.ToString("dd/MM/yyyy") & "), "
+        Next
+        If GetMSAccreditation <> "" Then
+            GetMSAccreditation = Left(GetMSAccreditation, GetMSAccreditation.Length - 2)
+        End If
+        Return GetMSAccreditation
     End Function
 End Class
 

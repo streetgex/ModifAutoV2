@@ -54,7 +54,7 @@ Public Class Creation
         Dim aliasSMTP As String() = Commun.DetermineAliasLibre(usrPrenom, usrNom, usrID)
 
         'Commun.Journal("Debut de Creation de compte : " & usrNom & "," & usrPrenom & "," & usrDest & "," & usrID & "," & usrLogin & "," & usrListeDiff)
-
+        Console.WriteLine()
         Commun.Journal("Debut de Creation de compte : " & usrNom & "," & usrPrenom & "," & usrDest & "," & usrID & "," & usrLogin & "," & genre & "," & finContrat & "," & usrListeDiff)
 
         EqDescr = Commun.FindAttribut(usrDest & " grp", "Description")
@@ -66,11 +66,13 @@ Public Class Creation
             'verification si un compte Sorti existe
             Dim outCtrlAccountExist As String = CompteEmployeeIDExisteOUOut(usrID)
 
+            Dim userExiste As String = UserExist(usrPrenom & " " & usrNom)
+
             objOUUtilisateurs = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursActifs), Commun.admin, Commun.passwd, auth)
 
 
 
-            If provCtrlPathExist = "" And outCtrlAccountExist = "" Then
+            If provCtrlPathExist = "" And outCtrlAccountExist = "" And userExiste = "" Then
 
                 objUser = objOUUtilisateurs.Children.Add("CN=" & usrPrenom & " " & usrNom, "user")
                 objUser.Properties("SAMAccountName").Value = usrLogin
@@ -94,7 +96,8 @@ Public Class Creation
                     objUser.Properties("Comment").Value += "Transformé le: " & Strings.Left(CStr(Now), 10) & vbCrLf
                     objUser.Properties("AccountExpires").Value = 0
                     Commun.AppliquerChangement(objUser)
-
+                ElseIf userExiste <> "" Then
+                    objUser = New DirectoryEntry(userExiste, Commun.admin, Commun.passwd, auth)
                 End If
                 Try
 
@@ -103,10 +106,10 @@ Public Class Creation
                     Commun.AppliquerChangement(objUser)
 
                     Commun.SetADLDAPProperty(objUser, "accountDeletionDate", "")
-                    objUser.Properties("accountDeletionDT").Value = Nothing
-                    objUser.Properties("accountDeactivationDT").Value = Nothing
-                    objUser.Properties("description").Value = Nothing
-                    objUser.Properties("SAMAccountName").Value = usrLogin
+                    objUser.Properties("accountDeletionDT").Clear()
+                    objUser.Properties("accountDeactivationDT").Clear()
+                    objUser.Properties("description").Clear()
+                    objUser.Properties("sAMAccountName").Value = usrLogin
                     objUser.Properties("userPrincipalName").Value = usrLogin & "@igbmc.fr"
 
                     'dfsdf
@@ -123,7 +126,7 @@ Public Class Creation
 
             End If
 
-            objUser.Properties("SN").Value = usrNom
+            objUser.Properties("sn").Value = usrNom
             objUser.Properties("givenName").Value = usrPrenom
             objUser.Properties("Displayname").Value = usrPrenom & " " & usrNom
             objUser.Properties("displayNamePrintable").Value = usrNom & " " & usrPrenom
@@ -144,24 +147,21 @@ Public Class Creation
             objUser.Properties("ObjectClass").Add("posixaccount")
 
             objUser.Properties("mail").Value = usrLogin & "@igbmc.fr"
-            objUser.Properties("Department").Value = EqDescr
+            objUser.Properties("department").Value = EqDescr
             Commun.AppliquerChangement(objUser)
 
 
-            objUser.Properties("EmployeeID").Value = usrID
+            objUser.Properties("employeeID").Value = usrID
             objUser.Properties("company").Value = "IGBMC"
-            objUser.Properties("DepartmentNumber").Value = usrDest
+            objUser.Properties("departmentNumber").Value = usrDest
             If finContrat <> "" Then
                 objUser.Properties("extensionAttribute1").Value = finContrat
             End If
             Commun.AppliquerChangement(objUser)
 
             Try
-                Dim ctrlEnvoiMailAP As Boolean = GetContractsLenght(usrID, True)
 
-                If ctrlEnvoiMailAP = True Then
-                    SendMailAP(usrPrenom, usrNom, usrID, EqDescr, usrLogin, finContrat)
-                End If
+                EnvoyerMailAPSiNecessaire(usrPrenom, usrNom, usrID, EqDescr, usrLogin, finContrat, True)
             Catch ex As Exception
                 Commun.Journal("ERREUR : Envoi de mail Assistants de prévention : " & usrLogin & " : " & ex.Message, True)
             End Try
@@ -249,7 +249,7 @@ Public Class Creation
         NbUserDatabaseExchange()
         Try
             Dim petiteDB As String = TrouverPetiteDatabase()
-            commandePWSMailbox(usrLogin, petiteDB)
+            Pws.commandePWSMailbox(usrLogin, petiteDB)
         Catch e As Exception
             Commun.Journal("ERREUR : Creation de compte : Creation du compte mail : " & e.Message & " : " & usrLogin, True)
         End Try
@@ -360,6 +360,12 @@ Public Class Creation
         End Try
 
         Try
+            Gestion.GestionGroupeUserActive(objUser)
+        Catch e As Exception
+            Commun.Journal("ERREUR : Creation de compte : ajout des groupes : " & e.Message & " : " & usrLogin, True)
+        End Try
+
+        Try
             'Dim textmail As String = corpMailCreation(usrPrenom, usrNom, usrLogin, usrPasswd, aliasSMTP, usrPathEquipeinfo)
             Dim textMail = "<!DOCTYPE HTML PUBLIC ""-//W3C//DTD HTML 4.0 Transitional//EN""><HTML><HEAD><META HTTP-EQUIV="" CONTENT-TYPE"" " &
         " CONTENT="" text/html; charset=windows-1252""><TITLE></TITLE><STYLE TYPE="" text/css""><!--P { margin-bottom: 0.21cm }--></STYLE></HEAD><BODY LANG="" fr-FR"" DIR="" LTR"">Bienvenue a l'IGBMC " _
@@ -403,13 +409,13 @@ Public Class Creation
         objUser.Close()
         objUser.Dispose()
         objUser = Nothing
-
-        badgeNumberModified = True
     End Sub
 
     Shared Sub NbUserDatabaseExchange()
-        Dim DNUsersActif = Commun.LdapPath(OUUtilisateursActifs)
-        Dim Ldap As DirectoryEntry = New DirectoryEntry("LDAP://" & DNUsersActif, Commun.admin, Commun.passwd, auth)
+        Dim DNUsersActif = Commun.LdapPrefix & OUUtilisateursActifs
+        Dim Ldap As DirectoryEntry = New DirectoryEntry(DNUsersActif, Commun.admin, Commun.passwd, auth)
+        'Public Shared Function LdapPrefix() As String
+
         Dim dirSearcher As DirectorySearcher = New DirectorySearcher(Ldap)
         dirSearcher.PageSize = 2000
         dirSearcher.SearchScope = SearchScope.Subtree
@@ -471,12 +477,12 @@ Public Class Creation
 
     End Sub
 
-    Function EmployeeIDExist(ByVal EmployeeID As String) As Boolean
+    Function EmployeeIDExist(ByVal employeeID As String) As Boolean
         Dim resultat As Boolean = False
         Dim objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
         Dim searcher As DirectorySearcher = New DirectorySearcher(objAD)
         searcher.PageSize = 5000
-        searcher.Filter = "(EmployeeID=" & EmployeeID & ")"
+        searcher.Filter = "(employeeID=" & employeeID & ")"
 
         Dim result As SearchResult = searcher.FindOne
         If Not result Is Nothing Then
@@ -537,16 +543,16 @@ sortie:
 
     End Function
 
-    Function UserExist(ByVal CNAVerifier As String) As String
+    Function UserExist(ByVal prenom_nom As String) As String
 
         Dim monEntry As New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursActifs), Commun.admin, Commun.passwd, auth)
-        Dim maRecherche As DirectorySearcher = New DirectorySearcher
+        Dim maRecherche As DirectorySearcher = New DirectorySearcher(monEntry)
         maRecherche.PageSize = 2000
         Dim resultat As String = ""
 
         Try
 
-            maRecherche.Filter = "(&(objectClass=user) (CN=" + CNAVerifier + "))"
+            maRecherche.Filter = "(&(objectClass=user) (CN=" + prenom_nom + "))"
             maRecherche.SearchScope = SearchScope.Subtree
 
             Dim result As SearchResult = maRecherche.FindOne()
@@ -582,101 +588,5 @@ sortie:
         Return DBpetit
     End Function
 
-    Shared Sub commandePWSMailbox(ByVal login As String, ByVal db As String)
-        Dim ctrlDomain As String = "serv-ad1"
-        Try
-            Dim pCredential As PSCredential
-            Dim pConnectionInfo As WSManConnectionInfo
-            Dim pRunspace As Runspace
-            Dim pShell As PowerShell
-            Dim pCommand As PSCommand
-            Dim pCommand1 As PSCommand
-            Dim pResult As Collection(Of PSObject)
-            Dim pResult1 As Collection(Of PSObject)
-            Dim pCommand2 As PSCommand
-            Dim pResult2 As Collection(Of PSObject)
-            Dim pCommand3 As PSCommand
-            Dim pResult3 As Collection(Of PSObject)
 
-            '-- set credentials      
-            pCredential = DirectCast(Nothing, PSCredential) 'New PSCredential("igbmc\steph", CreateSecurePasswordString("aaaaaa"))
-
-            '-- set connection info
-            pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & ini.ReadValue("MODIFAUTO", "CasExchangeServer") & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
-
-            '-- create remote runspace
-            pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
-            pRunspace.Open()
-
-            '-- create powershell
-            pShell = PowerShell.Create
-            pShell.Runspace = pRunspace
-
-            '-- create command
-            pCommand = New PSCommand
-            With pCommand
-                .AddCommand("Enable-mailbox")
-                .AddParameter("identity", login)
-                .AddParameter("alias", login)
-                .AddParameter("Database", db)
-                .AddParameter("DomainController", ctrlDomain)
-            End With
-
-            '-- add command to powershell
-            pShell.Commands = pCommand
-
-            '-- invoke the powershell
-            pResult = pShell.Invoke
-
-            pCommand1 = New PSCommand
-
-            With pCommand1
-                .AddCommand("Set-CASMailbox")
-                .AddParameter("identity", login)
-                .AddParameter("ActiveSyncEnabled", True)
-                .AddParameter("ImapEnabled", False)
-                .AddParameter("PopEnabled", False)
-                .AddParameter("DomainController", ctrlDomain)
-            End With
-
-            pShell.Commands = pCommand1
-            pResult1 = pShell.Invoke
-
-            pCommand2 = New PSCommand
-
-            With pCommand2
-                .AddCommand("Set-MailboxCalendarConfiguration")
-                .AddParameter("identity", login)
-                .AddParameter("FirstWeekOfYear", "FirstFourDayWeek")
-                '.AddParameter("WeatherUnit", "Celsius")
-                .AddParameter("DomainController", ctrlDomain)
-            End With
-
-            pShell.Commands = pCommand2
-            pResult2 = pShell.Invoke
-
-            pCommand3 = New PSCommand
-
-            With pCommand3
-                .AddCommand("Set-MailboxRegionalConfiguration")
-                .AddParameter("identity", login)
-                .AddParameter("TimeZone", "Romance Standard Time")
-                .AddParameter("Language", "fr-FR")
-                .AddParameter("LocalizeDefaultFolderName", True)
-                .AddParameter("DomainController", ctrlDomain)
-            End With
-
-            pShell.Commands = pCommand3
-            pResult3 = pShell.Invoke
-
-            pRunspace.Close()
-            pRunspace.Dispose()
-            pRunspace = Nothing
-
-            Commun.Journal("Creation de la boite mail Réussie: " & login)
-        Catch e As Exception
-            Commun.Journal("ERREUR : Creation de compte : Creation du compte mail: " & e.Message & " : " & login, True)
-        End Try
-
-    End Sub
 End Class

@@ -43,7 +43,7 @@ Public Class ctrlMS
         Next
 
         Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateurs), Commun.admin, Commun.passwd, auth)
-            'Dim filtre As SearchResultCollection = Commun.SearchFilterAll(AD, "(&(EmployeeID=*)(objectCategory=person)(|((&(accountDeactivationDT>=20200101000000.0Z)(msDS-parentdistname=OU=Out,OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(&(accountDeactivationDT>=20200101000000.0Z)(msDS-parentdistname=OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(msDS-parentdistname=OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))))", SearchScope.Subtree, "employeeID")
+            'Dim filtre As SearchResultCollection = Commun.SearchFilterAll(AD, "(&(employeeID=*)(objectCategory=person)(|((&(accountDeactivationDT>=20200101000000.0Z)(msDS-parentdistname=OU=Out,OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(&(accountDeactivationDT>=20200101000000.0Z)(msDS-parentdistname=OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(msDS-parentdistname=OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))))", SearchScope.Subtree, "employeeID")
             Dim filtre As SearchResultCollection = Commun.SearchFilterAll(AD, "(&(objectCategory=person)(employeeID=*)(|((&(accountDeactivationDT>=" & dateRef & ")(msDS-parentdistname=OU=Out,OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(&(accountDeactivationDT>=" & dateRef & ")(msDS-parentdistname=OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(msDS-parentdistname=OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))))", SearchScope.Subtree)
             Dim i As Integer = filtre.Count
             For Each result As SearchResult In filtre
@@ -88,19 +88,6 @@ Public Class ctrlMS
 
             If presentMS = True Then
 
-                'If ficheResponseData("data")(0)("valid") = "true" Then
-
-
-                '    Dim dateDebut As String = ficheResponseData("data")(0)("validityStartDate")
-                '    Dim dateFin As String = ficheResponseData("data")(0)("validityEndDate")
-                '    If dateDebut = "" Then dateDebut = "1900-01-01"
-
-                '    If dateFin <> "" Then
-                '        activeMS = IsValidMS(dateDebut, dateFin)
-                '    Else
-                '        activeMS = True
-                '    End If
-                'End If
 
                 Dim dateFin As String = ficheResponseData("data")(0)("validityEndDate")
                 If dateFin <> "" Then
@@ -190,52 +177,5 @@ Public Class ctrlMS
         Commun.SendEmail("administrateur@igbmc.fr", "officiersorienteurs@igbmc.fr", "Fichier de controle MicroSesame  (" & Now & ")", corpMail, nomFichierRapportMS) 'kolb@igbmc.fr;
 
     End Sub
-    Shared Function IsValidMS(ByVal startDateTxt As String, ByVal endDateTxt As String) As Boolean
-        Dim result As Boolean = False
-        Dim startDate As Date = Convert.ToDateTime(startDateTxt)
-        Dim endDate As Date = Convert.ToDateTime(endDateTxt)
-        Dim aaa = Now
-        If Now > startDate And Now < DateAdd("d", 1, endDate) Then
-            result = True
-        End If
-        Return result
-    End Function
 
-    Shared Sub adddatedefin()
-        Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("OUUtilisateursDesactives"), Commun.admin, Commun.passwd, auth)
-            Dim filtre As SearchResultCollection = Commun.SearchFilterAll(AD, "(&(objectCategory=person)(!(extensionAttribute1=*)))", SearchScope.Subtree)
-            For Each result As SearchResult In filtre
-                Using user As DirectoryEntry = New DirectoryEntry(result.Path)
-
-                    Dim employeeID As String = user.Properties("employeeid").Value
-                    Dim dataContract As String = Json.SendJson("", "persons/" & employeeID & "/contracts", "AD", "GET")
-                    'Dim contractRunning As Boolean = Form1.ContratEnCours(dataContract)
-                    'Dim dataContract As String = Json.SendJson("", "persons/" & IDuser & "/contracts?current_contract=true", "AD", "GET")
-
-                    Dim contracts = Json.DeserializeJson(dataContract, "contracts")
-                    Dim finContrat As String = DateDeFinDeContract(dataContract, employeeID)
-                    Dim dateactu As String = user.Properties("extensionAttribute1").Value
-                    If finContrat = "" Then
-
-                        If dateactu <> finContrat Then
-                            user.Properties("extensionAttribute1").Value = finContrat
-                            user.CommitChanges()
-                            Commun.Journal("Mise a jour d'une date de fin de contrat : " & employeeID & " : " & user.Properties("cn").Value & " : " & finContrat & " --> " & dateactu)
-                        End If
-                    Else
-                        Dim findecontratDate As Date = DateTime.ParseExact(finContrat, "dd/MM/yyyy", Nothing)
-
-                        If findecontratDate <> "01/01/0001" Then
-                            If dateactu <> finContrat Then
-
-                                user.Properties("extensionAttribute1").Value = finContrat
-                                user.CommitChanges()
-                                Commun.Journal("Mise a jour d'une date de fin de contrat : " & employeeID & " : " & user.Properties("cn").Value & " : " & finContrat & " --> " & dateactu)
-                            End If
-                        End If
-                    End If
-                End Using
-            Next
-        End Using
-    End Sub
 End Class

@@ -8,14 +8,14 @@ Public Class Supprime
     Shared Sub SupprimCompte(ByVal userAD As DirectoryEntry)
 
 
-        Dim login As String = userAD.Properties("SAMAccountName").Value
+        Dim login As String = userAD.Properties("sAMAccountName").Value
         'Dim path As String = result.Path
         Try
 
-            'Si l'utilisateur a un EmployeeID, on le recupere, s'il n'en a pas (utilisateurs Externe), userID reste defini sur nothing
+            'Si l'utilisateur a un employeeID, on le recupere, s'il n'en a pas (utilisateurs Externe), userID reste defini sur nothing
             Dim userID As String = Nothing
-            If userAD.Properties.Contains("EmployeeID") Then
-                userID = userAD.Properties("EmployeeID").Value
+            If userAD.Properties.Contains("employeeID") Then
+                userID = userAD.Properties("employeeID").Value
             Else
 
             End If
@@ -41,7 +41,7 @@ Public Class Supprime
 
                 Commun.Journal("SupprimCompte : Suppression Compte AD : " & login)
 
-                
+
                 'si userID a une valeur (utilisateur enregistré dans la base du perso) on supprime son mail dans la BDP
                 If Not userID Is Nothing Then
                     Try
@@ -73,56 +73,7 @@ Public Class Supprime
         End Try
 
     End Sub
-    Shared Sub SupprimCompteADM()
-        ' OU contenant les comptes admin
-        Dim adminOU As New DirectoryEntry(
-        "LDAP://" & Commun.LdapPath("OU=Admins,DC=igbmc,DC=u-strasbg,DC=fr"),
-        Commun.admin, Commun.passwd, auth
-    )
 
-        ' OU contenant les comptes utilisateurs
-        Dim usersOU As New DirectoryEntry(
-        "LDAP://" & Commun.LdapPath("OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr"),
-        Commun.admin, Commun.passwd, auth
-    )
-
-        ' Recherche uniquement les comptes utilisateurs (pas les groupes)
-        Dim adminSearcher As New DirectorySearcher(adminOU)
-        adminSearcher.Filter = "(objectClass=user)"
-        adminSearcher.PropertiesToLoad.Add("sAMAccountName")
-        adminSearcher.PropertiesToLoad.Add("cn")
-
-        Dim adminResults As SearchResultCollection = adminSearcher.FindAll()
-
-        For Each admin As SearchResult In adminResults
-
-            If Not admin.Properties.Contains("sAMAccountName") Then Continue For
-
-            Dim adminLogin As String = admin.Properties("sAMAccountName")(0).ToString()
-            If adminLogin.Equals("userprog", StringComparison.OrdinalIgnoreCase) Then Continue For
-            ' Exclure les comptes modèles
-            Dim cn As String = admin.Properties("cn")(0).ToString()
-            If cn.StartsWith("Modele", StringComparison.OrdinalIgnoreCase) Then Continue For
-
-            ' Déduction du compte utilisateur (retire les 3 derniers caractères "adm")
-            If adminLogin.Length <= 3 Then Continue For
-            Dim userLogin As String = adminLogin.Substring(0, adminLogin.Length - 3)
-
-            ' Recherche du compte utilisateur correspondant
-            Dim userSearcher As New DirectorySearcher(usersOU)
-            userSearcher.Filter = "(sAMAccountName=" & userLogin & ")"
-
-            Dim userFound As SearchResult = userSearcher.FindOne()
-
-            ' Si le compte utilisateur n'existe pas, supprimer le compte admin
-            If userFound Is Nothing Then
-                Dim adminEntry As DirectoryEntry = admin.GetDirectoryEntry()
-                Console.WriteLine("Suppression du compte admin orphelin : " & adminLogin)
-                adminEntry.DeleteTree()
-            End If
-
-        Next
-    End Sub
     Shared Sub SupprimeMailbox()
 
         Commun.Journal("Creation des archives PST", False)
@@ -136,12 +87,12 @@ Public Class Supprime
 
                 For Each result As SearchResult In results
                     Using userAD As DirectoryEntry = result.GetDirectoryEntry
-                        Dim login As String = userAD.Properties("SAMAccountName").Value
+                        Dim login As String = userAD.Properties("sAMAccountName").Value
                         Try
-                            'Si l'utilisateur a un EmployeeID, on le recupere, s'il n'en a pas (utilisateurs Externe), userID reste defini sur nothing
+                            'Si l'utilisateur a un employeeID, on le recupere, s'il n'en a pas (utilisateurs Externe), userID reste defini sur nothing
                             Dim userID As String = Nothing
-                            If userAD.Properties.Contains("EmployeeID") Then
-                                userID = userAD.Properties("EmployeeID").Value
+                            If userAD.Properties.Contains("employeeID") Then
+                                userID = userAD.Properties("employeeID").Value
                             End If
 
                             Dim archiveEnabled As Boolean = False
@@ -254,19 +205,19 @@ Public Class Supprime
 
     Shared Sub CompteSorti(ByVal DirEntry As DirectoryEntry)
         Try
-            Dim login As String = DirEntry.Properties("SAMAccountName").Value
+            Dim login As String = DirEntry.Properties("sAMAccountName").Value
 
             Commun.SetADLDAPProperty(DirEntry, "Description", "Supprimé le: " & Strings.Left(CStr(Now), 10), False)
 
             Commun.SetADLDAPProperty(DirEntry, "Comment", " : Supprimé le: " & Strings.Left(CStr(Now), 10) & " (Autocompte)", True)
-            Commun.SetADLDAPProperty(DirEntry, "Manager", "")
+            Commun.SetADLDAPProperty(DirEntry, "manager", "")
             Commun.SetADLDAPProperty(DirEntry, "ipPhone", "")
             Commun.SetADLDAPProperty(DirEntry, "physicalDeliveryOfficeName", "")
             Commun.SetADLDAPProperty(DirEntry, "telephoneNumber", "")
             Commun.SetADLDAPProperty(DirEntry, "departmentNumber", "")
             Commun.SetADLDAPProperty(DirEntry, "department", "")
             Commun.SetADLDAPProperty(DirEntry, "company", "")
-            DirEntry.Properties("accountDeletionDate").Value = Nothing
+            'DirEntry.Properties("accountDeletionDate").Value = Nothing
             'DirEntry.Properties("accountDeletionDT").Value = Nothing
 
             Commun.AppliquerChangement(DirEntry)
@@ -301,7 +252,7 @@ Public Class Supprime
             'Recupération de l'attribut Member pour le mettre dans le tableau des resultats
             Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
                 Using searcherGroup As DirectorySearcher = New DirectorySearcher(AD)
-                    searcherGroup.Filter = "(&(objectClass=user) (SAMAccountName=" & SamAccount & "))"
+                    searcherGroup.Filter = "(&(objectClass=user) (sAMAccountName=" & SamAccount & "))"
                     searcherGroup.PropertiesToLoad.Add("Member")
                     searcherGroup.PropertiesToLoad.Add("objectSid")
                     Dim resultGroup As SearchResult = searcherGroup.FindOne()

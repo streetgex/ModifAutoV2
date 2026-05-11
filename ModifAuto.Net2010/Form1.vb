@@ -13,8 +13,9 @@ Imports System.Runtime.InteropServices
 Module Module1
     Public iniFilePath = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2.ini"
     Public ini As New IniFile(iniFilePath)
-    Public withJson As String = "json" 'debug" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
-    Public tabPersoMonoEquipe As String(,)
+    Public withJson As String = "json" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
+    'Public tabPersoMonoEquipe As String(,)
+    Public listeUtilisateursRH As New List(Of UtilisateurRH)
     Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Integer)
     Public tabExcepUser(,) As String
     'Shared organismContractName As String
@@ -26,55 +27,48 @@ Module Module1
     Public OUUtilisateursExternes As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursExternes")
     Public OUUtilisateurs As String = ini.ReadValue("MODIFAUTO", "OUUtilisateurs")
     Public OUUtilisateursDesactives As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursDesactives")
+    Public OUUtilisateursExceptions As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursExceptions")
     Public OUUtilisateursActifs As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursActifs")
     Public OUUtilisateursSortis As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursSortis")
+
+    Dim cheminMAJZoneInfo As String = ini.ReadValue("MODIFAUTO", "cheminMAJZoneInfo")
+
+    Public directeurLogin As String = ini.ReadValue("MODIFAUTO", "LoginDirecteur")
 
     Public AdminScriptLogin As String = ini.ReadValue("GLOBAL", "AdminScriptLogin")
     Public AdminScriptPassword As String = ini.ReadValue("GLOBAL", "AdminScriptPassword_encrypted")
 
     Public nomFichierRapportMS As String = "c:\temp\MSrapport(" & Replace(Now.ToString("dd-MM-yyyy HH.mm"), "/", "-") & ").csv"
     Public auth As AuthenticationTypes = AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure ' 'AuthenticationTypes.Secure
-    Public badgeNumberModified As Boolean = False
+    Public usersRH As New List(Of UtilisateurRH)
 
 
-
-    'Public Shared ini As New RecupDataini1(iniFilePath)
-
-    Public Sub exec(ByVal cmd As String, Optional ByVal argu As String = "")
-        Dim p As New Process
-        p.StartInfo.UseShellExecute = False
-        p.StartInfo.CreateNoWindow = True
-
-        p.StartInfo.Arguments = argu
-        p.StartInfo.FileName = cmd
-        p.Start()
-        p.WaitForExit(5000)
-    End Sub
 
     Public Sub Main()
+        Dim debutScript As DateTime = Now()
+        'pour affichage correct de la barre de progression
+        Console.OutputEncoding = System.Text.Encoding.UTF8
+
+        Commun.fichierLog = "c:\temp\Log" & application.productname & ".log"
+        Sleep(3000)
+        'Commun.Journal(New String("_"c, Math.Max(1, Console.WindowWidth - 1)), False)
+        Commun.Journal("Debut de traitement")
 
         'choix du DC
         ADHelper.InitialiserDC()
 
-        'pour affichage correct de la barre de progression
-        Console.OutputEncoding = System.Text.Encoding.UTF8
-
-        'Dim aaa = ini.ReadValue("MS", "token_encrypted")
-        Commun.fichierLog = "c:\temp\Log" & application.productname & ".log"
-        Sleep(3000)
-        Commun.Journal("____________________________________________________________________________________________________")
-        Commun.Journal("Debut de traitement")
-
         Dim listExtensionsXivo As String = ""
         If Environment.MachineName <> "SERV-AD1" Then
-
+            Gestion.GestionGroupeUserActive(New DirectoryEntry("LDAP://serv-ad2.igbmc.u-strasbg.fr/CN=Pietro GIRAUDO,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr", AdminScriptLogin, AdminScriptPassword, auth))
+            'Dim dateNowU  = Now.ToUniversalTime.Date.ToString("yyyyMMddHHmmss.sZ")
+            'ModEquipeDestinationDepartement.ChargerEquipeDestinationDepartement()
+            'Dim a As New Creation
+            'Dim aaa As String = a.UserExist("Stephane CERDAN")
             'Commun.ClearAttributDeactivationDeletionDate("steph")
-            'Supprime.SupprimCompteADM()
+            'UtilisateurADIndexSupprime.SupprimCompteADM()
             'Pws.ForceSyncPeperCutAD("serv-printtools.igbmc.u-strasbg.fr")
             'jsonMS.UserBadgeCodeNumber("6879")
             'Json.SendJson("login=duzgunm&domain=%40igbmc.fr&alias=mikail.duzgun", "persons/8096/email", "AD", "PUT")
-
-
 
         Else
             withJson = "json"
@@ -94,30 +88,43 @@ Module Module1
             End If
         End If
 
-        Dim DebutCreationFichier As DateTime = Now()
+        Dim debutCreationFichier As DateTime = Now()
         'creer les comptes des utilisateurs qui sont dans le fichier ForceCreationDeCompte.txt sous la forme <EmployéeID>,<Short_name_destination>
         exceptionCreationCompte()
 
         Dim ctrlCreationFichier As Boolean = CreationFichiers()
         Dim finCreationFichier As DateTime = Now()
         If ctrlCreationFichier = True Then
-            Dim duration As TimeSpan = finCreationFichier - DebutCreationFichier
-            Dim duree As String = String.Format("{0:00}h {1:00}m {2:00}s", duration.Hours, duration.Minutes, duration.Seconds)
+            Dim durationCF As TimeSpan = finCreationFichier - debutCreationFichier
+            Dim dureeCF As String = String.Format("{0:00}h {1:00}m {2:00}s", durationCF.Hours, durationCF.Minutes, durationCF.Seconds)
             Dim dureeTolerable As Integer = Convert.ToInt32(ini.ReadValue("MODIFAUTO", "DureeMaxJson"))
 
             If DateDiff(DateInterval.Minute, DebutCreationFichier, finCreationFichier) > dureeTolerable Then
-                Commun.SendEmail("administrateur@igbmc.fr", ini.ReadValue("MODIFAUTO", "mailDureeMaxJson"), "Duree de creation de fichier JSON superieure à " & dureeTolerable.ToString & " minutes", "La durée de creation du fichier JSON a travers IGBMC services a été anormalement longue: " & duree)
+                Commun.SendEmail("administrateur@igbmc.fr", ini.ReadValue("MODIFAUTO", "mailDureeMaxJson"), "Duree de creation de fichier JSON superieure à " & dureeTolerable.ToString & " minutes", "La durée de creation du fichier JSON a travers IGBMC services a été anormalement longue: " & dureeCF)
             End If
 
-            Commun.Journal("Création du fichier listepersoJson.txt réussie en : " & duree, False)
+            Commun.Journal("Création du fichier listepersoJson.txt réussie en : " & dureeCF, False)
 
             GestionDesFichiers()
 
+            'ne pas sauter GestionDestinationsDepartements, construction du dictionnaire equipeinfo
             gestion.GestionDestinationsDepartements()
-            modifDonneesAD()
+
+            Dim usersRaw As Dictionary(Of String, UserRaw) = LoadUsersFromFile("c:\temp\listepersoJson.txt")
+            Dim dnParEmployeeId As Dictionary(Of String, String) = ChargerIndexDnParEmployeeId()
+            Dim badgesParEmployeeId As Dictionary(Of String, String()) = jsonMS.ChargerBadgesParEmployeeId()
+
+            Dim adUsersByEmployeeId As Dictionary(Of String, UtilisateurADIndex) = ChargerIndexUtilisateursAD()
+
+            usersRH.Clear()
+            For Each kvp As KeyValuePair(Of String, UserRaw) In usersRaw
+                usersRH.Add(ConvertToUtilisateurRH(kvp.Value, dnParEmployeeId, badgesParEmployeeId))
+            Next
+
+            ModifDonneesAD(usersRH, adUsersByEmployeeId)
 
             If Environment.MachineName = "SERV-AD1" Then
-                gestion.GestionReactiveDesactiveComptesInterne()
+                gestion.GestionReactiveDesactiveComptesInterne(adUsersByEmployeeId)
             End If
 
         End If
@@ -128,7 +135,7 @@ Module Module1
         'La gestion des AttributsDT doit imperativement intervenir apres GestionReactiveDesactiveComptesInterne
         gestion.GestionAttributsDT()
 
-        gestion.GestionSuppressionPIetDR()
+        gestion.GestionSuppressionProfilsItinerantsEtDossiersRedirigés()
 
         AttributionStrategieMDP()
         gestion.CtrlGroupAdmins()
@@ -150,7 +157,6 @@ Module Module1
             EnvoiMailCompteExpireXjour(1)
             Commun.Journal("Fin de la gestion de l'envoi des mails de cloture de compte", False)
 
-            'SansContrat()
 
             'Changement tous les mois pair, le premier du mois, des mots de passe des comptes prestataires de l'imagerie
             If System.DateTime.Now.ToString("dd") = "01" And EstPair(System.DateTime.Now.ToString("MM")) = True Then
@@ -162,37 +168,52 @@ Module Module1
             Supprime.DeleteOldPST()
         End If
 
+        Try
+            Commun.Journal("Lancement de la synchronisation de PaperCut avec l'AD", False)
+            Pws.ForceSyncPeperCutAD("serv-printtools.igbmc.u-strasbg.fr")
+            Commun.Journal("Fin de la synchronisation de PaperCut avec l'AD", False)
+        Catch ex As Exception
+            Commun.Journal(vbTab & "ERREUR : Lancement de la synchronisation de PaperCut avec l'AD : " & ex.Message, True)
+        End Try
+
 
         If Commun.controlSendMail = True Then
             sendJournalError()
         End If
 
         Try
-            Shell(ini.ReadValue("MODIFAUTO", "cheminMAJZoneInfo"))
+            Shell(cheminMAJZoneInfo)
         Catch
-            Commun.Journal("ERREUR:Lancement de MAJZoneInfo", True)
+            Commun.Journal("ERREUR: Lancement de MAJZoneInfo", True)
         End Try
 
         If File.Exists(nomFichierRapportMS) Then
             File.Delete(nomFichierRapportMS)
         End If
-        Commun.Journal("Fin de traitement")
-        Commun.Journal("____________________________________________________________________________________________________")
+
+        Dim finScript As DateTime = Now()
+        Dim durationScript As TimeSpan = finScript - debutScript
+        Dim dureeScript As String = String.Format("{0:00}h {1:00}m {2:00}s", durationScript.Hours, durationScript.Minutes, durationScript.Seconds)
+
+        Commun.Journal("Fin de traitement en : " & dureeScript)
+        'Commun.Journal("____________________________________________________________________________________________________")
         'CreationAuto.start()
+        ini.WriteValue("MODIFAUTO", "lastExec", Now.ToString("dd/MM/yyyy HH:mm:ss"))
     End Sub
     Public Sub sendJournalError()
         Commun.SendEmail(AdminScriptLogin & "@igbmc.fr", "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
     End Sub
 
     Public Sub GestionDesFichiers()
+        Dim cheminPartage As String = ini.ReadValue("MODIFAUTO", "CheminPartage")
         ' COPIE DES FICHIERS 
         Try
 
-            File.Copy("c:\temp\eq.txt", ini.ReadValue("MODIFAUTO", "CheminPartage") & "\todo\eq.txt", True)
-            File.Copy("c:\temp\listep.txt", ini.ReadValue("MODIFAUTO", "CheminPartage") & "\todo\listep.txt", True)
+            File.Copy("c:\temp\eq.txt", CheminPartage & "\todo\eq.txt", True)
+            File.Copy("c:\temp\listep.txt", cheminPartage & "\todo\listep.txt", True)
             If withJson = "json" Then
-                File.Copy("c:\temp\listepersoJson.txt", ini.ReadValue("MODIFAUTO", "CheminPartage") & "\todo\listepersoJson.txt", True)
-                File.Copy("c:\temp\listepersoJson.txt", ini.ReadValue("MODIFAUTO", "CheminPartage") & "\cmpttmp\listepersoJson" & Now.ToString("dd") & "-" & Now.ToString("MM") & "-" & Now.ToString("yy") & "-" & Now.ToString("HH") & "h.txt", True)
+                File.Copy("c:\temp\listepersoJson.txt", cheminPartage & "\todo\listepersoJson.txt", True)
+                File.Copy("c:\temp\listepersoJson.txt", cheminPartage & "\cmpttmp\listepersoJson" & Now.ToString("dd") & "-" & Now.ToString("MM") & "-" & Now.ToString("yy") & "-" & Now.ToString("HH") & "h.txt", True)
             End If
         Catch ex As Exception
             Commun.Journal("ERREUR : COPIE : Copie du fichier : " & ex.Message, True)
@@ -209,7 +230,7 @@ Module Module1
         End Try
 
         Try
-            Kill("c:\temp\listep.txt")
+            'Kill("c:\temp\listep.txt")
         Catch
             Commun.Journal("ERREUR : suppression du fichier temporaire listep.txt", True)
         End Try
@@ -219,899 +240,2213 @@ Module Module1
             Commun.Journal("ERREUR : suppression du fichier temporaire eq.txt", True)
         End Try
     End Sub
-    Public Function TrouverCNUserAvecID(ByVal ID As String) As String
 
-        Dim result As String = ""
-        If ID <> "" Then
-            Using Ldap As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
-                Using searcher As DirectorySearcher = New DirectorySearcher(Ldap)
-                    searcher.Filter = "(&(objectClass=user) (EmployeeID=" & ID & "))"
-                    searcher.PropertiesToLoad.Add("distinguishedName")
-                    Dim resultSearcher As SearchResult = searcher.FindOne()
-                    result = CStr(resultSearcher.Properties("distinguishedName")(0))
-                End Using
-            End Using
-        End If
-        Return result
-    End Function
+    ''' <summary>
+    ''' Met à jour les comptes Active Directory à partir des utilisateurs RH normalisés.
+    ''' </summary>
+    ''' <param name="usersRH">
+    ''' Collection d'utilisateurs RH déjà normalisés pour la comparaison avec l'AD.
+    ''' </param>
+    ''' <summary>
+    ''' Met à jour les comptes Active Directory à partir des utilisateurs RH normalisés.
+    ''' </summary>
+    ''' <param name="usersRH">
+    ''' Collection d'utilisateurs RH déjà normalisés pour la comparaison avec l'AD.
+    ''' </param>
 
-    Public Sub EcritureNumeroBadge(ByVal adUser As DirectoryEntry)
-        Dim change As Boolean = False
-        Dim matricule As String = adUser.Properties("EmployeeID").Value.ToString
-        Dim tabBadgeCode As String() = jsonMS.UserBadgeCodeNumber(matricule)
-        Try
-
-            Dim tabBadgeAD As String()
-            Dim tabBadgeADTmp = adUser.Properties("serialNumber").Value
-
-            If Not tabBadgeADTmp Is Nothing Then
-
-                If tabBadgeADTmp.GetType.FullName = "System.String" Then
-                    tabBadgeAD.Add(tabBadgeADTmp)
-                Else
-                    For Each obj In tabBadgeADTmp
-                        If obj <> "" Then
-                            tabBadgeAD.Add(obj)
-                        End If
-                    Next
-                    Array.Sort(tabBadgeAD)
-                End If
-            End If
-
-            'Dim aaa = tabBadgeADTmp.GetType
-
-            If Not tabBadgeCode Is Nothing Then
-                Array.Sort(tabBadgeCode)
-                If tabBadgeCode.Count = 1 Then
-                    If adUser.Properties.Contains("employeeNumber") Then
-
-                        If adUser.Properties("employeeNumber").Value <> tabBadgeCode(0) Then
-                            adUser.Properties("employeeNumber").Value = tabBadgeCode(0)
-                            adUser.CommitChanges()
-                            badgeNumberModified = True
-                        End If
-                    Else
-                        Commun.SetADLDAPProperty(adUser, "employeeNumber", tabBadgeCode(0))
-                        adUser.CommitChanges()
-                        badgeNumberModified = True
-                    End If
-                End If
-            End If
-
-            If Join(tabBadgeCode, ",") <> Join(tabBadgeAD, ",") Then
-                Commun.SetADLDAPProperty(adUser, "serialNumber", Nothing)
-                adUser.CommitChanges()
-                badgeNumberModified = True
-
-
-
-                If Not tabBadgeCode Is Nothing Then
-                    For Each badge As String In tabBadgeCode
-                        adUser.Properties("serialNumber").Add(badge)
-                        Commun.Journal("Modification (ajout ou retrait) d'un numero de Badge MicroSesame : " & badge & " : " & adUser.Properties("cn").Value.ToString & " (" & matricule & ")", False)
-                    Next
-                End If
-                adUser.CommitChanges()
-            End If
-
-
-        Catch ex As Exception
-            Commun.Journal("ERREUR : ecriture du numero de Badge MicroSesame : " & adUser.Properties("SAMAccountName").Value.ToString & " : " & Join(tabBadgeCode, ";") & " : " & ex.Message, True)
-        End Try
-
-    End Sub
-    Public Function ReadBadgeCSN(ByVal matricule As String) As String()
-
-    End Function
-
-    Public Sub modifDonneesAD()
-        'COMPARAISON DU PERSONNEL ENTRE HIER ET AUJOURDH'HUI ET CREATION DU FICHIER DE MODIFICATIONS
-
-        Commun.Journal(vbTab & "Debut des Modification des Utilisateurs", False)
+    Public Sub ModifDonneesAD(usersRH As IEnumerable(Of UtilisateurRH), adUsersByEmployeeId As Dictionary(Of String, UtilisateurADIndex))
+        Commun.Journal("Debut des Modification des Utilisateurs", False)
 
         Dim ctrlMailOOrienteurs As Boolean = False
-        Dim corpmailOOrienteurs As String = "<!DOCTYPE html PUBLIC ""-//W3C//DTD XHTML 1.0 Transitional//EN"" ""http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"">" &
-                                                    "<html>" &
-                                                    "<head>" &
-                                                    "<meta http-equiv=""Content-Type"" content=""text/html; charset=utf-8"">" &
-                                                    "<title>ARRET DU COMPTE</title>" &
-                                                    "</head>" &
-                                                    "<body>" &
-                                                    "Attention, la date de fin de contrat de cette/ces personne(s) a changée : <BR><BR>"
-
+        Dim corpmailOOrienteurs As String = ""
 
         Dim tabPhoto(,) As String = Json.GetMyIGBMC()
-        Commun.Journal(vbTab & vbTab & "Photos Modifiées Récupérées", False)
-        Using Ldap As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
+        Commun.Journal(vbTab & "Photos Modifiées Récupérées", False)
 
-            Dim ancienEQ As String = ""
-            Dim test As String = ""
-            Dim listExtensionsXivo As String = ""
+        Dim usersRHList As List(Of UtilisateurRH) = usersRH.ToList()
 
-            Try
-                Json.LoginXivo("https", "serv-xivo:9497")
-
-                Commun.Journal(vbTab & vbTab & "Token Xivo Récupéré", False)
-                'listExtensionsXivo = Json.MakeRequestXivo("GET", "https://serv-xivo:9486/1.1/extensions")
-                listExtensionsXivo = LCase(Json.MakeRequestXivo("GET", "https://serv-xivo:9486/1.1/lines_sip"))
-
-                Commun.Journal(vbTab & vbTab & "Liste des numeros de téléphone récupérée", False)
-            Catch ex As Exception
-                Commun.Journal(vbTab & vbTab & "ERREUR : modifDonneesAD : Recuperation des données Xivo", True)
-            End Try
-
-            Dim max As Integer = UBound(tabPersoMonoEquipe, 2)
-            For n = 0 To max
-
-                Commun.AfficherBarre("Traitement des utilisateurs", n, max, False)
-
-                Dim userRH As New UtilisateurRH()
-                userRH.nom = tabPersoMonoEquipe(0, n)
-                userRH.prenom = tabPersoMonoEquipe(1, n)
-                userRH.samAccountName = tabPersoMonoEquipe(2, n)
-                userRH.destinationNomCourt = tabPersoMonoEquipe(3, n)
-                userRH.destinationNomLong = tabPersoMonoEquipe(4, n)
-                userRH.tempsTravail = Convert.ToInt32(Split(tabPersoMonoEquipe(5, n), ".")(0))
-                userRH.bureaux = tabPersoMonoEquipe(6, n)
-                userRH.telephones = tabPersoMonoEquipe(7, n)
-                'user.equipeInfo = tabPersoMonoEquipe(8, n)
-                userRH.IDNplus1 = tabPersoMonoEquipe(9, n)
-                userRH.DNNplus1 = TrouverCNUserAvecID(tabPersoMonoEquipe(9, n)) 'id du N+1
-                userRH.ID = tabPersoMonoEquipe(10, n)
-                userRH.aliasMailLong = tabPersoMonoEquipe(11, n) 'avec @igbmc.fr
-                userRH.listesDiffusions = tabPersoMonoEquipe(12, n)
-                userRH.organism = tabPersoMonoEquipe(13, n)
-                userRH.finDeContrat = tabPersoMonoEquipe(14, n) 'correspond au dernier jour de travail du contrat. reste vide si pas de date de fin connue
-                userRH.genre = tabPersoMonoEquipe(15, n)
-                'user.diffusionPhoto = tabPersoMonoEquipe(16, n) 'true/false
-                userRH.unité = tabPersoMonoEquipe(17, n)
-
-                'Si l'utilistateur n'existe pas, on continue avec le suivant
-                Dim result As SearchResult
-                Using searcher As DirectorySearcher = New DirectorySearcher(Ldap)
-                    searcher.Filter = "(&(objectClass=user) (EmployeeID=" & userRH.ID & "))"
-                    result = searcher.FindOne()
-                End Using
-
-                If result Is Nothing Then
-                    Commun.Journal(vbTab & vbTab & "ERREUR : Modification des données : " & userRH.samAccountName & " : L'ID de l'Utilisateur n'existe pas", True)
-                    Continue For
-                End If
+        Dim max As Integer = usersRHList.Count
+        Dim n As Integer = 0
 
 
-                Using objuser As DirectoryEntry = result.GetDirectoryEntry
 
-                    result = Nothing
+        For Each userRH As UtilisateurRH In usersRHList
+            n += 1
+            Commun.AfficherBarre("Traitement des utilisateurs", n, max, False)
 
-                    'recuperation de l'ancienne equipe comptable
-                    If objuser.Properties("DepartmentNumber").Value <> "" Then
-                        ancienEQ = objuser.Properties("DepartmentNumber").Value
-                    End If
+            Dim userAD As UtilisateurADIndex = Nothing
+            If adUsersByEmployeeId.ContainsKey(userRH.employeeID_id) Then
+                userAD = adUsersByEmployeeId(userRH.employeeID_id)
+            End If
+            Dim changementPhotoAFaire As Boolean = (Commun.MultiIndexOf(tabPhoto, userRH.employeeID_id, 0) <> -1)
+            ChargerJpegPhotoDepuisTabPhoto(userRH, tabPhoto)
+            PreparerUidNumber(userAD, userRH)
+            PreparerDatesDesactivationSuppression(userRH)
 
-                    'Gestion de la photo et du Thumbnail
-                    Dim rech = Commun.MultiIndexOf(tabPhoto, userRH.ID, 0)
-                    If rech <> -1 Then
-                        Thumbn.ComparePhoto(tabPhoto(1, rech), tabPhoto(2, rech), objuser)
+            Dim changementsAD As List(Of ChangementAttributAD) = UtilisateurADDiffereDeRH(userAD, userRH, changementPhotoAFaire)
+            If changementsAD.Count = 0 Then
+                Continue For
+            End If
 
-                    End If
+            Dim changementsSet As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+            Dim changementsMap As New Dictionary(Of String, ChangementAttributAD)(StringComparer.OrdinalIgnoreCase)
 
-                    'Ecriture du Numero de badge extrait de MicroSesame
-                    EcritureNumeroBadge(objuser)
+            For Each changement As ChangementAttributAD In changementsAD
+                changementsSet.Add(changement.Attribut)
+                changementsMap(changement.Attribut) = changement
+            Next
 
-                    Try
-                        If ((objuser.Properties("SN").Value <> userRH.nom) Or (objuser.Properties("givenName").Value <> userRH.prenom) Or (objuser.Properties("physicalDeliveryOfficeName").Value <> userRH.bureaux)) Then
-                            objuser.Properties("SN").Value = userRH.nom
-                            objuser.Properties("givenName").Value = userRH.prenom
+            Commun.Journal(vbTab & vbTab & "Changements détectés pour " & userRH.login_samAccountName, False)
+            If userAD Is Nothing Then
+                Commun.Journal(vbTab & vbTab & "ERREUR : Modification des données : " & userRH.login_samAccountName & " : utilisateur absent de l'index AD", True)
+                Continue For
+            End If
 
+            Using objuser As New DirectoryEntry("LDAP://" & Commun.LdapPath(userAD.distinguishedName), Commun.admin, Commun.passwd, auth)
+                Try
+                    Dim prop As String = "jpegPhoto"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPPropertyByte(objuser, prop, userRH.jpegPhoto_jpegPhoto)
 
-                            objuser.Properties("mail").Value = userRH.samAccountName & "@igbmc.fr"
-
-                            If userRH.bureaux = "" Then
-                                objuser.Properties("physicalDeliveryOfficeName").Clear()
-                            Else
-                                Commun.SetADLDAPProperty(objuser, "physicalDeliveryOfficeName", userRH.bureaux)
-                            End If
-                            Commun.AppliquerChangement(objuser)
-                            Commun.Journal(vbTab & vbTab & "Changement des Données basiques Réussi : " & userRH.samAccountName)
+                        If userRH.jpegPhoto_jpegPhoto IsNot Nothing Then
+                            Dim imageByteTh As Byte() = Thumbn.CreateThumb1(userRH.jpegPhoto_jpegPhoto, userRH.employeeID_id)
+                            Commun.SetADLDAPPropertyByte(objuser, "thumbnailPhoto", imageByteTh)
+                        Else
+                            Commun.SetADLDAPPropertyByte(objuser, "thumbnailPhoto", Nothing)
                         End If
-                    Catch ex As Exception
-                        Commun.Journal(vbTab & vbTab & "ERREUR : Modification des données basiques : " & userRH.samAccountName & " : " & ex.Message, True)
-                    End Try
 
-                    'mise a jour du userRH.genre: Homme Femme
-                    If Not objuser.Properties.Contains("extensionAttribute2") Then
-                        objuser.Properties("extensionAttribute2").Add(userRH.genre)
                         Commun.AppliquerChangement(objuser)
-                    Else
-                        'Changement de sexe
-                        If objuser.Properties("extensionAttribute2").Value <> userRH.genre Then
-                            objuser.Properties("extensionAttribute2").Value = userRH.genre
-                            Commun.AppliquerChangement(objuser)
-                        End If
+                        userAD.jpegPhoto = userRH.jpegPhoto_jpegPhoto
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
                     End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""jpegPhoto"" : {ex.Message}", True)
+                End Try
 
-                    'Commun.AppliquerChangement(objuser)
-
-                    'gestion de l'user.organisme
-                    Try
-                        If objuser.Properties("Division").Value <> userRH.organism Then
-                            Commun.SetADLDAPProperty(objuser, "Division", userRH.organism)
-                            Commun.AppliquerChangement(objuser)
-                            Commun.Journal(vbTab & vbTab & "Changement de l'user.organisme réussi : " & userRH.samAccountName)
-                        End If
-                    Catch ex As Exception
-                        Commun.Journal(vbTab & vbTab & "ERREUR : Modification de l'user.organisme : " & userRH.samAccountName & " : " & ex.Message, True)
-                    End Try
-
-
-                    'Mise a jour du mail principal
-                    Try
-                        Dim mailPrincipalcourt = TrouverMailPrincipal(userRH.samAccountName, "court")
-                        If mailPrincipalcourt <> objuser.Properties("mail").Value Then
-                            objuser.Properties("mail").Value = mailPrincipalcourt
-                            Commun.AppliquerChangement(objuser)
-                        End If
-
-                        If objuser.Properties("mailNickname").Value <> userRH.samAccountName Then
-                            objuser.Properties("mailNickname").Value = userRH.samAccountName
-                            Commun.AppliquerChangement(objuser)
-
-                        End If
-
-                    Catch ex As Exception
-                        Commun.Journal(vbTab & vbTab & "ERREUR : Modification du mail principal : " & userRH.samAccountName & " : " & ex.Message, True)
-                    End Try
-
-
-                    'Données Téléphonique
-                    If listExtensionsXivo <> "" Then
-
-                        Dim tabPhoneFichier As String() = Split(userRH.telephones, ";")
-                        Dim telephonePrincipal As String = tabPhoneFichier(0)
-                        Dim IPphone As String = telephonePrincipal
-                        Try
-                            Dim tabOtherphoneAD() As String
-                            If Not objuser.Properties("otherTelephone").Value Is Nothing Then
-                                ReDim tabOtherphoneAD(objuser.Properties("otherTelephone").Count - 1)
-                                objuser.Properties("otherTelephone").CopyTo(tabOtherphoneAD, 0)
-                            End If
-
-                            's'il y a des numeros dans le fichier
-                            If UBound(tabPhoneFichier) > 0 Then
-                                Dim tabOtherphoneFichier As String()
-
-                                For h = 1 To UBound(tabPhoneFichier)
-                                    If InStr(tabPhoneFichier(h), "/") > 0 Then
-                                        Dim tmpTab As String() = Split(tabPhoneFichier(h), "/")
-                                        For Each tel In tmpTab
-                                            tabOtherphoneFichier.Add(tel)
-                                        Next
-                                    Else
-                                        tabOtherphoneFichier.Add(tabPhoneFichier(h))
-                                    End If
-
-                                    'ReDim Preserve tabOtherphoneFichier(h - 1)
-                                    'tabOtherphoneFichier(h - 1) = tabPhoneFichier(h)
-                                Next h
-                                'Erase tabOtherphoneFichier
-
-                                'si des numeros sont deja présents dans l'AD
-                                If Not tabOtherphoneAD Is Nothing Then
-
-                                    'si le nombre de numero de telephone n'est pas le meme dans le fichier que dans l'AD
-                                    If UBound(tabOtherphoneFichier) <> UBound(tabOtherphoneAD) Then
-                                        'on remplace la valeur de l'AD
-                                        objuser.Properties("otherTelephone").Value = tabOtherphoneFichier
-                                        Commun.AppliquerChangement(objuser)
-                                        Commun.Journal(vbTab & vbTab & "Changement d'attribut ""OtherTelephone"" Réussi : " & userRH.samAccountName)
-                                        'Si le nombre de numero est egal
-                                    Else
-                                        'on verifie qu'un des numeros a changé
-                                        For Each valeur As String In tabOtherphoneAD
-                                            Dim index As Integer = Array.IndexOf(tabOtherphoneFichier, valeur)
-                                            'Si un a changé, on remplace tout
-                                            If index = -1 Then
-                                                objuser.Properties("otherTelephone").Value = tabOtherphoneFichier
-                                                Commun.AppliquerChangement(objuser)
-                                                Commun.Journal(vbTab & vbTab & "Changement d'attribut ""OtherTelephone"" Réussi : " & userRH.samAccountName)
-                                            End If
-                                        Next valeur
-                                    End If
-                                    's'il n'y a pas de numero dans l'AD
-                                Else
-                                    'on remplace tout par les valeurs du fichier
-                                    objuser.Properties("otherTelephone").Add(" ")
-                                    objuser.Properties("otherTelephone").Value = tabOtherphoneFichier
-                                    Commun.AppliquerChangement(objuser)
-                                    Commun.Journal(vbTab & vbTab & "Creation de l'attribut ""OtherTelephone"" Réussi : " & userRH.samAccountName)
-                                End If
-                                tabOtherphoneFichier = Nothing
-                                tabOtherphoneAD = Nothing
-                                's'il n'y a pas de numero dans le fichier,
-                            Else
-                                'on nettoie l'attribut dans l'AD
-                                If objuser.Properties.Contains("otherTelephone") Then
-                                    objuser.Properties("otherTelephone").Clear()
-                                    Commun.AppliquerChangement(objuser)
-                                    Commun.Journal(vbTab & vbTab & "Suppression de l'attribut ""OtherTelephone"" Réussi : " & userRH.samAccountName)
-                                End If
-                            End If
-                            tabPhoneFichier = Nothing
-
-                            IPphone = Replace(IPphone, "(+3336948) ", "")
-                            IPphone = Replace(IPphone, "(+3338865) ", "")
-                            IPphone = Replace(IPphone, ")", "")
-                            IPphone = Replace(IPphone, "+33 ", "0")
-                            If Len(IPphone) = 4 Then
-                                'si le numero de poste est trouvé dans le xivo
-                                'If InStr(listExtensionsXivo, """exten"": """ & IPphone & """") <> 0 Then 
-                                If InStr(listExtensionsXivo, """callerid"": ""\""" & LCase(userRH.prenom & " " & userRH.nom) & "\""") <> 0 Then
-                                    'on efface l'attribut IPphone
-                                    IPphone = ""
-                                End If
-                            End If
-                        Catch ex As Exception
-                            Commun.Journal(vbTab & vbTab & "ERREUR : Traitement des données téléphoniques " & userRH.samAccountName & " : " & ex.Message, True)
-                        End Try
-
-
-                        Try
-                            If objuser.Properties("TelephoneNumber").Value <> telephonePrincipal Then
-                                If telephonePrincipal = "" Then
-                                    objuser.Properties("TelephoneNumber").Clear()
-                                Else
-                                    Commun.SetADLDAPProperty(objuser, "TelephoneNumber", telephonePrincipal)
-                                    'objuser.Properties("TelephoneNumber").Add(telephonePrincipal)
-                                End If
-                                Commun.AppliquerChangement(objuser)
-                                Commun.Journal(vbTab & vbTab & "Modification de l'attribut ""TelephoneNumber"" Réussi : " & userRH.samAccountName)
-                            End If
-                        Catch ex As Exception
-                            Commun.Journal(vbTab & vbTab & "ERREUR : Modification des données téléphoniques ""TelephoneNumber : " & userRH.samAccountName & " : " & telephonePrincipal & " : " & ex.Message, True)
-                        End Try
-
-                        Try
-                            If objuser.Properties("IPphone").Value <> IPphone Then
-                                If IPphone = "" Or IPphone = Nothing Then
-                                    objuser.Properties("IpPhone").Clear()
-                                    Commun.Journal(vbTab & vbTab & "Suppression de l'attribut ""IpPhone"" Réussi : " & userRH.samAccountName)
-                                    Commun.AppliquerChangement(objuser)
-                                Else
-                                    Commun.SetADLDAPProperty(objuser, "IpPhone", IPphone)
-                                    Commun.Journal(vbTab & vbTab & "Modification de l'attribut ""IpPhone"" Réussi : " & userRH.samAccountName)
-                                    Commun.AppliquerChangement(objuser)
-                                End If
-                            End If
-                        Catch ex As Exception
-                            Commun.Journal(vbTab & vbTab & "ERREUR : Modification des données téléphoniques ""IPPhone : " & userRH.samAccountName & " : " & IPphone & " : " & ex.Message, True)
-                        End Try
+                Try
+                    Dim prop As String = "sn"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.nom_sn)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.sn = userRH.nom_sn
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
                     End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""sn"" : {ex.Message}", True)
+                End Try
 
-                    'gestion des données de service
-                    Try
-                        If (objuser.Properties("company").Value <> "IGBMC") Then
-                            objuser.Properties("company").Value = "IGBMC"
-                            Commun.Journal(vbTab & vbTab & "Modification de l'attribut ""Company""")
-                            objuser.CommitChanges()
-                        End If
+                Try
+                    Dim prop As String = "givenName"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.prenom_givenName)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.givenName = userRH.prenom_givenName
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""givenName"" : {ex.Message}", True)
+                End Try
 
-                        If (objuser.Properties("department").Value <> userRH.destinationNomLong) Then
-                            If userRH.destinationNomLong <> "" Then
-                                objuser.Properties("department").Value = userRH.destinationNomLong
-                            Else
-                                objuser.Properties("department").Clear()
-                            End If
-                            Commun.Journal(vbTab & vbTab & "Modification de l'attribut ""department""")
-                            objuser.CommitChanges()
-                        End If
-                        If (objuser.Properties("departmentNumber").Value <> userRH.destinationNomCourt) Then
-                            If userRH.destinationNomCourt <> "" Then
-                                objuser.Properties("departmentNumber").Value = userRH.destinationNomCourt
-                            Else
-                                objuser.Properties("departmentNumber").Clear()
-                            End If
-                            Commun.Journal(vbTab & vbTab & "Modification de l'attribut ""DepartmentNumber""")
-                            objuser.CommitChanges()
-                        End If
-                        If (objuser.Properties("title").Value <> userRH.unité) Then
-                            If userRH.unité <> "" Then
-                                objuser.Properties("title").Value = userRH.unité
-                            Else
-                                objuser.Properties("title").Clear()
-                            End If
-                            Commun.Journal(vbTab & vbTab & "Modification de l'attribut ""title""")
-                            objuser.CommitChanges()
-                        End If
+                Try
+                    Dim prop As String = "physicalDeliveryOfficeName"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.physicalDeliveryOfficeName_bureaux)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.physicalDeliveryOfficeName = userRH.physicalDeliveryOfficeName_bureaux
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""physicalDeliveryOfficeName"" : {ex.Message}", True)
+                End Try
 
-                    Catch
-                        Commun.Journal(vbTab & "ERREUR : Modification : Departement de l'utilisateur : " & userRH.samAccountName, True)
-                    End Try
+                Try
+                    Dim prop As String = "extensionAttribute2"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.extensionAttribute2_genre)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.extensionAttribute2 = userRH.extensionAttribute2_genre
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""extensionAttribute2"" : {ex.Message}", True)
+                End Try
 
-                    'Gestion de la date de fin de contrat
-                    Try
-                        ' Vérifie si la valeur de la propriété extensionAttribute1 n'est pas égale à userRH.finDeContrat
-                        ' et que le chemin parent de l'utilisateur est celui des utilisateurs actifs défini dans le fichier ini
-                        If objuser.Properties("extensionAttribute1").Value <> userRH.finDeContrat And objuser.Parent.Path = "LDAP://" & Commun.LdapPath(OUUtilisateursActifs) Then
+                Try
+                    Dim prop As String = "division"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.division_organism)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.division = userRH.division_organism
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""division"" : {ex.Message}", True)
+                End Try
 
-                            If userRH.finDeContrat <> "" And objuser.Properties("extensionAttribute1").Value = "" Then
+                Try
+                    Dim prop As String = "sAMAccountName"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.login_samAccountName)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.samAccountName = userRH.login_samAccountName
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""sAMAccountName"" : {ex.Message}", True)
+                End Try
 
-                            Else
-                                Dim ctrlEnvoiMailAP As Boolean = GetContractsLenght(userRH.ID, False)
+                Try
+                    Dim prop As String = "mail"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.mail_mailPrincipal)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.mail = userRH.mail_mailPrincipal
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""mail"" : {ex.Message}", True)
+                End Try
 
-                                If ctrlEnvoiMailAP = True Then
-                                    SendMailAP(userRH.prenom, userRH.nom, userRH.ID, userRH.destinationNomLong, userRH.samAccountName, userRH.finDeContrat)
-                                End If
-                            End If
+                Try
+                    Dim prop As String = "mailNickname"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.login_samAccountName)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.mailNickname = userRH.login_samAccountName
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""mailNickname"" : {ex.Message}", True)
+                End Try
 
-                            ' Récupère l'ancienne date de fin de contrat de l'utilisateur
-                            Dim oldDate As String = CStr(objuser.Properties("extensionAttribute1").Value)
-                            ' Récupère la date de création de l'utilisateur depuis AD
-                            Dim dateCreation As Date = objuser.Properties("whenCreated").Value
+                Dim telephoneMobile As String = userRH.mobile_telPortable
+                Dim telephonePrincipal As String = userRH.telephoneNumber_telPrincipal
+                Dim tabOtherphoneFichier As String() = userRH.otherTelephone_telSecondaire
 
+                Try
+                    Dim prop As String = "otherTelephone"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPPropertyMulti(objuser, prop, tabOtherphoneFichier)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.otherTelephone = If(tabOtherphoneFichier IsNot Nothing, tabOtherphoneFichier, Array.Empty(Of String)())
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""otherTelephone"" : {ex.Message}", True)
+                End Try
 
-                            Dim tmp As Integer = DateDiff(DateInterval.Hour, dateCreation, Now) 'tmp = Now - dateCreation
-                            ' Vérifie si la date avec 3 heures ajoutées est antérieure à l'heure actuelle
+                Try
+                    Dim prop As String = "mobile"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, telephoneMobile)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.mobile = If(telephoneMobile IsNot Nothing, telephoneMobile, "")
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""mobile"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "telephoneNumber"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, telephonePrincipal)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.telephoneNumber = If(telephonePrincipal IsNot Nothing, telephonePrincipal, "")
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""telephoneNumber"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "company"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, "IGBMC")
+                        Commun.AppliquerChangement(objuser)
+                        userAD.company = "IGBMC"
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""company"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "department"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.department_destinationNomLong)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.department = userRH.department_destinationNomLong
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""department"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "departmentNumber"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.departmentNumber_destinationNomCourt)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.departmentNumber = userRH.departmentNumber_destinationNomCourt
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""departmentNumber"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "title"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.title_unité)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.title = userRH.title_unité
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""title"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "extensionAttribute1"
+                    If changementsSet.Contains(prop) Then
+                        If objuser.Parent.Path = "LDAP://" & Commun.LdapPath(OUUtilisateursActifs) Then
+                            EnvoyerMailAPSiNecessaire(userRH, userAD)
+
+                            Dim oldDate As String = userAD.extensionAttribute1
+                            Dim dateCreation As Date = If(userAD.whenCreated.HasValue, userAD.whenCreated.Value, Now)
+                            Dim tmp As Integer = DateDiff(DateInterval.Hour, dateCreation, Now)
+
                             If tmp > 3 Then
+                                If String.IsNullOrEmpty(oldDate) Then oldDate = "Aucune"
 
-                                ' Vérifie et assigne "Aucune" à oldDate si cette valeur est vide ou null
-                                If oldDate = "" Or oldDate Is Nothing Then oldDate = "Aucune"
+                                Dim newDate As String = userRH.extensionAttribute1_finDeContrat
+                                If String.IsNullOrEmpty(newDate) Then newDate = "Aucune"
 
-                                'Dim olDateDate As DateTime = Date.ParseExact(oldDate, "dd/MM/yyyy", System.Globalization.DateTimeFormatInfo.InvariantInfo)
+                                Dim idMS As String = jsonMS.GetIdMS(userRH.employeeID_id)
+                                jsonMS.SetMSEndValidity(idMS, newDate)
 
-                                ' Assignation de userRH.finDeContrat à newDate si cette valeur est vide ou null
-                                Dim newDate As String = userRH.finDeContrat
-                                If newDate = "" Or newDate Is Nothing Then newDate = "Aucune"
-
-                                'Mise a jour de la date de fin de contrat dans MS
-                                Dim idMS As String = GetIdMS(userRH.ID)
-                                SetMSEndValidity(idMS, newDate)
                                 If sendMailOO = True Then
                                     Try
-                                        'controle des habilitations expirées avant la fin de la nouvelle date de fin de contrat
-                                        Dim habilitationsExpirées As String = GetMSAccreditation(idMS, newDate)
+                                        Dim habilitationsExpirées As String = jsonMS.GetMSAccreditation(idMS, newDate)
 
-                                        If habilitationsExpirées <> "" Then
-                                            ' Indique que le contrôle mail pour les officiers orienteurs doit être activé
-                                            ctrlMailOOrienteurs = True
-
-                                            ' Prépare le contenu du mail pour informer les orienteurs du changement
-                                            corpmailOOrienteurs +=
-                                                vbCrLf & "Nom : " & userRH.prenom & " " & userRH.nom & "<BR>" &
-                                                vbCrLf & "Matricule : " & userRH.ID & "<BR>" &
-                                                vbCrLf & "Service : " & userRH.destinationNomLong & "<BR>" &
-                                                vbCrLf & "Mail : " & userRH.samAccountName & "@igbmc.fr" & "<BR>" &
-                                                vbCrLf & "Ancienne date de fin de contrat : " & oldDate & "<BR>" &
-                                                vbCrLf & "Nouvelle date de fin de contrat : " & newDate & "<BR>" &
-                                                vbCrLf & "Habilitation(s) concernée(s) : " & habilitationsExpirées & "<BR>" &
-                                                vbCrLf & "Certaines habilitations de cette personne n'iront pas jusqu'a la fin de son contrat." & "<BR>" &
-                                                vbCrLf & "____________________________________________________________________________________________<BR>" & vbCrLf
-
-                                            ' Enregistre l'action dans le journal pour les officiers orienteurs
-                                            Commun.Journal(vbTab & "ajout de modification pour les Officiers orienteurs pour un changement de fin de contrat : " & userRH.samAccountName)
-                                        End If
+                                        AjouterNotificationOfficierOrienteur(
+                                        userRH,
+                                        oldDate,
+                                        newDate,
+                                        habilitationsExpirées,
+                                        ctrlMailOOrienteurs,
+                                        corpmailOOrienteurs
+                                    )
                                     Catch ex As DirectoryNotFoundException
-
+                                        Commun.Journal(vbTab & vbTab & $"ERREUR : Lecture des habilitations expirées pour les Officiers orienteurs : {userRH.login_samAccountName} : {ex.Message}", True)
                                     End Try
                                 End If
                             End If
 
-                            ' Met à jour la propriété extensionAttribute1 de l'utilisateur avec la nouvelle date de fin de contrat
-                            Commun.SetADLDAPProperty(objuser, "extensionAttribute1", userRH.finDeContrat)
-
-                            ' Applique les changements à l'objet utilisateur dans Active Directory
+                            Commun.SetADLDAPProperty(objuser, prop, userRH.extensionAttribute1_finDeContrat)
                             Commun.AppliquerChangement(objuser)
+                            userAD.extensionAttribute1 = userRH.extensionAttribute1_finDeContrat
+                            Dim ch As ChangementAttributAD = changementsMap(prop)
+                            Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
                         End If
-                    Catch ex As Exception
-                        Commun.Journal(vbTab & "ERREUR : Modification : Date de fin de contrat : " & userRH.samAccountName & " : " & ex.Message, True)
-                    End Try
-                    'Données UNIX AD
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""extensionAttribute1"" : {ex.Message}", True)
+                End Try
 
-
-
-                    If Not objuser.Properties.Contains("uidNumber") Then
-                        Dim uidNumber As String = Commun.UIDNumberMini()
-                        Commun.SetADLDAPProperty(objuser, "uidNumber", uidNumber)
+                Try
+                    Dim prop As String = "accountDeletionDate"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.accountDeletionDate_finDeContratPlus3Mois)
                         Commun.AppliquerChangement(objuser)
-                        Commun.Journal(vbTab & "Creation de l'attribut AD ""uidNumber"" réussi : " & userRH.samAccountName)
+                        userAD.accountDeletionDate = userRH.accountDeletionDate_finDeContratPlus3Mois
+
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
                     End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""accountDeletionDate"" : {ex.Message}", True)
+                End Try
 
-                    Dim err As String = ""
-                    Try
-                        Dim uidAD As String = objuser.Properties("SAMAccountName").Value
-                        Dim gidNumberAD As String = Commun.FindAttribut(userRH.equipeInfo & "_eq", "gidNumber")
-                        Dim unixHomeDirectoryAD As String = LCase("/shared/home/") & userRH.samAccountName
-                        Dim loginShellAD As String = objuser.Properties("loginShell").Value
-
-                        If objuser.Properties("uid").Value.ToString <> uidAD Then
-                            err = "uid"
-                            Commun.SetADLDAPProperty(objuser, "uid", uidAD)
-                            Commun.AppliquerChangement(objuser)
-                            Commun.Journal(vbTab & "Modification de l'attribut AD ""uid"" réussi : " & userRH.samAccountName)
-                        End If
-
-                        'objuser.Properties.Contains("gidNumber")
-                        If Not objuser.Properties.Contains("gidNumber") OrElse objuser.Properties("gidNumber").Value.ToString <> gidNumberAD Then
-                            err = "gidNumber"
-                            Commun.SetADLDAPProperty(objuser, "gidNumber", gidNumberAD)
-                            Commun.AppliquerChangement(objuser)
-                            Commun.Journal(vbTab & "Modification de l'attribut AD ""gidNumber"" réussi : " & userRH.samAccountName)
-                        End If
-
-                        'Dim test1 As Integer = InStr(objuser.Properties("unixHomeDirectory").Value.ToString, "seafile")
-                        If objuser.Properties("unixHomeDirectory").Value.ToString <> unixHomeDirectoryAD Then
-                            Commun.SetADLDAPProperty(objuser, "unixHomeDirectory", unixHomeDirectoryAD)
-                            Commun.AppliquerChangement(objuser)
-                            Commun.Journal(vbTab & "Modification de l'attribut AD ""unixHomeDirectory"" réussi : " & userRH.samAccountName)
-                        End If
-
-                        If Not objuser.Properties.Contains("loginShell") Then
-                            Commun.SetADLDAPProperty(objuser, "loginShell", "/bin/bash")
+                Try
+                    Dim prop As String = "accountDeactivationDT"
+                    If changementsSet.Contains(prop) Then
+                        If userRH.accountDeactivationDT_finDeContrat.HasValue Then
+                            objuser.Properties(prop).Value = userRH.accountDeactivationDT_finDeContrat.Value.Date
                         Else
-                            If objuser.Properties("loginShell").Value.ToString = "" Then
-                                Commun.SetADLDAPProperty(objuser, "loginShell", "/bin/bash")
-                            End If
+                            objuser.Properties(prop).Clear()
                         End If
 
+                        Commun.AppliquerChangement(objuser)
+                        userAD.accountDeactivationDT = userRH.accountDeactivationDT_finDeContrat
+
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""accountDeactivationDT"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "accountDeletionDT"
+                    If changementsSet.Contains(prop) Then
+                        If userRH.accountDeletionDT_finDeContratPlus3Mois.HasValue Then
+                            objuser.Properties(prop).Value = userRH.accountDeletionDT_finDeContratPlus3Mois.Value.Date
+                        Else
+                            objuser.Properties(prop).Clear()
+                        End If
+
+                        Commun.AppliquerChangement(objuser)
+                        userAD.accountDeletionDT = userRH.accountDeletionDT_finDeContratPlus3Mois
+
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""accountDeletionDT"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "uidNumber"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.uidNumber_uidNumber)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.uidNumber = userRH.uidNumber_uidNumber
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""uidNumber"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "uid"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.uid_uid)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.uid = userRH.uid_uid
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""uid"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "gidNumber"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.gidNumberAD_gidNumber)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.gidNumber = userRH.gidNumberAD_gidNumber
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""gidNumber"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "unixHomeDirectory"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.unixHomeDirectoryAD_unixHomeDirectoryAD)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.unixHomeDirectory = userRH.unixHomeDirectoryAD_unixHomeDirectoryAD
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""unixHomeDirectory"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "loginShell"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, "/bin/bash")
+                        Commun.AppliquerChangement(objuser)
+                        userAD.loginShell = "/bin/bash"
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""loginShell"" : {ex.Message}", True)
+                End Try
+                Try
+                    Dim prop As String = "serialNumber"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPPropertyMulti(objuser, prop, userRH.serialNumber_serialNumber)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.serialNumber = If(userRH.serialNumber_serialNumber IsNot Nothing, userRH.serialNumber_serialNumber, Array.Empty(Of String)())
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""serialNumber"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "employeeNumber"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.employeeNumber_employeeNumber)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.employeeNumber = userRH.employeeNumber_employeeNumber
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""employeeNumber"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "manager"
+                    If changementsSet.Contains(prop) Then
+                        If userRH.login_samAccountName = ini.ReadValue("MODIFAUTO", "LoginDirecteur") Then
+                            Commun.SetADLDAPProperty(objuser, prop, "")
+                            Commun.AppliquerChangement(objuser)
+                            userAD.manager = ""
+                        Else
+                            Commun.SetADLDAPProperty(objuser, prop, userRH.DNNplus1)
+                            Commun.AppliquerChangement(objuser)
+                            userAD.manager = userRH.DNNplus1
+                        End If
+
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""manager"" : {ex.Message}", True)
+                End Try
+                Try
+                    Dim prop As String = "memberOf"
+                    If changementsSet.Contains(prop) Then
+                        SynchroniserGroupesUtilisateur(userAD, userRH)
+
+                        userAD.memberOf_groupesGerables = If(userRH.memberOf_groupeRH, New String() {})
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""memberOf"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "displayName"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.displayName)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.displayName = userRH.displayName
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""displayName"" : {ex.Message}", True)
+                End Try
+
+                Try
+                    Dim prop As String = "displayNamePrintable"
+                    If changementsSet.Contains(prop) Then
+                        Commun.SetADLDAPProperty(objuser, prop, userRH.displayNamePrintable)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.displayNamePrintable = userRH.displayNamePrintable
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
+                    End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""displayNamePrintable"" : {ex.Message}", True)
+                End Try
+
+                If changementsSet.Contains("cn") Then
+                    Try
+                        modifAliasMail(objuser, userRH.prenom_givenName, userRH.nom_sn)
                     Catch ex As Exception
-                        Commun.Journal(vbTab & "ERREUR : Modification des attributs Unix de l'utilisateur : attribut " & err & " : " & userRH.samAccountName & " : " & ex.Message, True)
+                        Commun.Journal(vbTab & "ERREUR : Modification : Ajout d'Alias : " & userRH.login_samAccountName & " : " & ex.Message, True)
                     End Try
 
-
-                    'Chef d'équipe
                     Try
-
-                        'Cas du directeur, pour eviter les boucles dans l'organigramme
-                        If userRH.samAccountName = ini.ReadValue("MODIFAUTO", "LoginDirecteur") Then
-                            If objuser.Properties.Contains("Manager") Then
-                                Commun.SetADLDAPProperty(objuser, "Manager", "")
-                                Commun.AppliquerChangement(objuser)
-                            End If
-                        Else
-                            'Si le chef d'equipe n'est pas vide et qu'il est different de celui enregistré dans l'AD
-                            If userRH.DNNplus1 <> "" And objuser.Properties("Manager").Value <> userRH.DNNplus1 Then
-                                objuser.Properties("Manager").Value = userRH.DNNplus1
-                                Commun.AppliquerChangement(objuser)
-                                Commun.Journal(vbTab & "Modification de l'attribut ""Manager"" Réussi : " & userRH.samAccountName)
-                            End If
-                            'On Error GoTo 0
-                        End If
-                    Catch
-                        Commun.Journal(vbTab & "ERREUR : Chef d'equipe de l'utilisateur : " & userRH.samAccountName & " : " & userRH.DNNplus1, True)
-                    End Try
-
-                    'gestion des appartenance aux groupes de destinations (grp)
-                    CompararaisonAjoutRetraitDestinationsDepartement(objuser)
-
-                    'gestion des listes de diffusion phd et postdoc
-                    Try
-                        If userRH.listesDiffusions = "phd" Or userRH.listesDiffusions = "postdoc" Then
-                            If Commun.AppartientGroup(userRH.samAccountName, userRH.listesDiffusions) = False Then
-                                Commun.AddRemoveADGroup(userRH.samAccountName, userRH.listesDiffusions, "Add")
-                                Commun.Journal(vbTab & "Ajout liste de diffusions " & userRH.listesDiffusions & " : " & userRH.samAccountName)
-                            End If
-                            If userRH.listesDiffusions <> "phd" Then
-                                If Commun.AppartientGroup(userRH.samAccountName, "phd") = True Then
-                                    Commun.AddRemoveADGroup(userRH.samAccountName, "phd", "Remove")
-                                    Commun.Journal(vbTab & "Retrait liste de diffusions PHD : " & userRH.samAccountName)
-                                End If
-                            End If
-                            If userRH.listesDiffusions <> "postdoc" Then
-                                If Commun.AppartientGroup(userRH.samAccountName, "postdoc") = True Then
-                                    Commun.AddRemoveADGroup(userRH.samAccountName, "postdoc", "Remove")
-                                    Commun.Journal(vbTab & "Retrait liste de diffusions POSTDOC : " & userRH.samAccountName)
-                                End If
-                            End If
-                        Else
-                            If Commun.AppartientGroup(userRH.samAccountName, "phd") = True Then
-                                Commun.AddRemoveADGroup(userRH.samAccountName, "phd", "Remove")
-                                Commun.Journal(vbTab & "Retrait liste de diffusions PHD : " & userRH.samAccountName)
-                            End If
-                            If Commun.AppartientGroup(userRH.samAccountName, "postdoc") = True Then
-                                Commun.AddRemoveADGroup(userRH.samAccountName, "postdoc", "Remove")
-                                Commun.Journal(vbTab & "Retrait liste de diffusions POSTDOC : " & userRH.samAccountName)
-                            End If
-
-                        End If
-                    Catch e As Exception
-                        Commun.Journal(vbTab & "ERREUR : Ajout liste de diffusions PHD ou POSTDOC : " & e.Message & " : " & userRH.samAccountName & " : " & userRH.listesDiffusions, True)
-                    End Try
-
-                    'ajout et retrait du groupe ADMINISTRATIF en fonction de la nouvelle equipe
-                    Try
-
-                        Dim membreGroupADM As Boolean = Commun.AppartientGroup(objuser.Path, "G_ADMINISTRATIF_Users")
-                        Dim membreEquipeADM As Boolean = Commun.IsMembreEquipeAdministratif(objuser)
-
-                        If membreEquipeADM = True And membreGroupADM = False Then
-                            Commun.AddRemoveADGroup(objuser.Path, "G_ADMINISTRATIF_Users", "Add")
-                        End If
-                        If membreEquipeADM = False And membreGroupADM = True Then
-                            Commun.AddRemoveADGroup(objuser.Path, "G_ADMINISTRATIF_Users", "Remove")
-                        End If
-
-                    Catch
-                        Commun.Journal(vbTab & "ERREUR : Modification : Changer l'equipe de l'utilisateur : " & userRH.samAccountName, True)
-                    End Try
-
-
-                    'Modification du displayname
-                    Try
-                        If objuser.Properties("displayName").Value <> userRH.prenom & " " & userRH.nom Or objuser.Properties("displayNamePrintable").Value <> userRH.nom & " " & userRH.prenom Then
-                            objuser.Properties("displayName").Value = userRH.prenom & " " & userRH.nom
-                            Commun.SetADLDAPProperty(objuser, "displayNamePrintable", userRH.nom & " " & userRH.prenom)
-                            Commun.AppliquerChangement(objuser)
-                            Commun.Journal(vbTab & "Modification de l'attribut ""displayName"" Réussi : " & userRH.samAccountName)
-                        End If
+                        objuser.Rename("CN=" & userRH.cn)
+                        userAD.cn = userRH.cn
+                        Dim ch As ChangementAttributAD = changementsMap("cn")
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
                     Catch ex As Exception
-                        Commun.Journal(vbTab & "ERREUR : Modification : changement displayName : " & userRH.samAccountName & " : " & ex.Message, True)
+                        Commun.Journal(vbTab & "ERREUR : Modification : Renomer l'objet utilisateur : " & userRH.login_samAccountName & " : " & ex.Message, True)
                     End Try
+                End If
 
-                    'Controle si l'utilisateur a changé de nom
-                    If objuser.Properties("cn").Value <> objuser.Properties("displayName").Value Then
-                        'Modification des alias de mails
-                        Try
-                            modifAliasMail(objuser, userRH.prenom, userRH.nom)
-                        Catch ex As Exception
-                            Commun.Journal(vbTab & "ERREUR : Modification : Ajout d'Alias : " & userRH.samAccountName & " : " & ex.Message, True)
-                        End Try
-
-                        Try
-                            'Dim objDom As ActiveDs.IADsContainer = GetObject(objuser.Parent.Path)
-                            'objDom.MoveHere(objuser.Path, "cn=" & objuser.Properties("displayName").Value)
-                            'objDom = Nothing
-                            objuser.Rename("CN=" & objuser.Properties("displayName").Value)
-                        Catch ex As Exception
-                            Commun.Journal(vbTab & "ERREUR : Modification : Renomer l'objet utilisateur : " & userRH.samAccountName & " : " & ex.Message, True)
-                        End Try
+                Try
+                    Dim prop As String = "msExchExtensionAttribute16"
+                    If changementsSet.Contains(prop) Then
+                        Dim nouvelleValeur As String = MettreAJourMsExchExtensionAttribute16SansCommit(userRH)
+                        Commun.SetADLDAPProperty(objuser, prop, nouvelleValeur)
+                        Commun.AppliquerChangement(objuser)
+                        userAD.msExchExtensionAttribute16 = nouvelleValeur
+                        Dim ch As ChangementAttributAD = changementsMap(prop)
+                        Commun.Journal(vbTab & vbTab & vbTab & $"Modification de l'attribut ""{ch.Attribut}"" Réussi: {userRH.login_samAccountName} : [{ch.AncienneValeur}] -> [{ch.NouvelleValeur}]", False)
                     End If
+                Catch ex As Exception
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""msExchExtensionAttribute16"" : {ex.Message}", True)
+                End Try
+            End Using
+        Next
 
-                    'Controle et Modification de l'alias sur IGBMCSERVICES
-                    Dim aliasConstruit As String = LCase(userRH.prenom & "." & userRH.nom)
-                    aliasConstruit = Replace(aliasConstruit, " ", "-")
-                    aliasConstruit = Replace(aliasConstruit, "'", "")
-                    Dim aliasmailAD As String = aliasConstruit & "@igbmc.fr"
-                    If aliasmailAD <> userRH.aliasMailLong Then
-                        Try
-                            Dim aliasMailpourIGBMCSERVICES As String = Replace(aliasmailAD, "@igbmc.fr", "")
-                            Json.SendJson("login=" & objuser.Properties("SAMAccountName").Value & "&domain=%40igbmc.fr&alias=" & aliasMailpourIGBMCSERVICES, "persons/" & userRH.ID & "/email", "AD", "PUT")
-                            objuser.Properties("msExchExtensionAttribute16").Value = LCase(aliasmailAD)
-                            Commun.AppliquerChangement(objuser)
-                            Commun.Journal(vbTab & "Modification de l'alias Long Réussi : " & userRH.samAccountName & " : " & aliasmailAD)
-                        Catch ex As Exception
-                            Commun.Journal(vbTab & "ERREUR : Modification alias Mail sur IGBMCSERVICES : " & objuser.Properties("SAMAccountName").Value & " : " & ex.Message, True)
-                        End Try
-                    End If
-                End Using
-
-
-            Next n
-
-        End Using
-        If sendMailOO = True Then
-            If ctrlMailOOrienteurs = True Then
-                corpmailOOrienteurs += vbCrLf & "</body></html>"
-                Commun.SendEmail("administrateur@igbmc.fr", "officiersorienteurs@igbmc.fr", "Changement de Date de fin de contrat", corpmailOOrienteurs)
-                Commun.Journal(vbTab & "Envoi d'un mail aux Officiers orienteurs pour un changement de fin de contrat")
-            End If
-        End If
-
-        'Si un numero de badge a été modifié, force la synchronisation de papercut avec l'AD
-        If badgeNumberModified = True Then
-            Commun.Journal(vbTab & "Lancement de la synchronisation de PaperCut avec l'AD", False)
-            Pws.ForceSyncPeperCutAD("serv-printtools.igbmc.u-strasbg.fr")
+        If sendMailOO = True AndAlso ctrlMailOOrienteurs = True Then
+            corpmailOOrienteurs &= vbCrLf & "</body></html>"
+            Commun.SendEmail("administrateur@igbmc.fr", "officiersorienteurs@igbmc.fr", "Changement de Date de fin de contrat", corpmailOOrienteurs)
+            Commun.Journal(vbTab & "Envoi d'un mail aux Officiers orienteurs pour un changement de fin de contrat")
         End If
 
         Commun.Journal("Gestion des modifications utilisateurs réussie", False)
     End Sub
-    Function GetAllCredentialsTech01() As String(,)
-
-    End Function
-    Function GetIdMS(ByVal matricule As Integer) As String
-        'recuperation de l'id MS
-        Dim reqUser As String = "/users?fields=id&filter=matricule=" & matricule
-        Dim dataUser As String = jsonMS.MakeRequest("GET", reqUser)
-        Dim responseUser = New JavaScriptSerializer().Deserialize(Of Object)(dataUser)
-        Dim idMS As Integer = responseUser("data")(0)("id")
-        Return idMS
-    End Function
-    Sub SetMSEndValidity(ByVal idMS As String, ByVal finDeContrat As String)
-        If finDeContrat = "Aucune" Then finDeContrat = "01/01/2050"
-
-
-
-        Dim dateObj As DateTime
-
-        DateTime.TryParseExact(finDeContrat, "dd/MM/yyyy", Globalization.CultureInfo.InvariantCulture, Globalization.DateTimeStyles.None, dateObj)
-
-        Dim dateFormatee As String = dateObj.ToString("yyyy-MM-dd")
-
-        Dim data As String = "{""validityEndDate"":  """ & dateFormatee & """}"
-        Dim dataresponse As String = jsonMS.MakeRequest("PUT", "/users/" & idMS, data)
-    End Sub
-    Function GetMSAccreditation(ByVal idMS As String, ByVal finDeContrat As String) As String
-        GetMSAccreditation = ""
-        'https://serv-ca.igbmc.u-strasbg.fr/api/userClearances?fields=all&filter=user.id=7724
-        If finDeContrat = "Aucune" Then finDeContrat = "01/01/2050"
-        ' Construction de la requête pour récupérer les utilisateurs présents dans la zone
-
-        Dim dateFindeContrat As DateTime
-
-        DateTime.TryParseExact(finDeContrat, "dd/MM/yyyy", Globalization.CultureInfo.InvariantCulture, Globalization.DateTimeStyles.None, dateFindeContrat)
-
-        Dim dateFormatee As String = dateFindeContrat.ToString("yyyy-MM-dd")
-
-        '$"Contrôleur de domaine sélectionné : {SelectedDomainController}"
-        'Dim reqClearance As String = "/userClearances?fields=clearance[name,id],endDate&filter=user.matricule=" & usrID & ",endDate<=" & dateFormatee
-        Dim reqAccreditation As String = $"/users/{idMS}/accreditations?fields=accreditation.name,endDate&filter=endDate<{dateFormatee}&limit=100"
-        Dim dataAccreditation As String = jsonMS.MakeRequest("GET", reqAccreditation)
-
-        ' Vérification si la réponse est nulle (échec de la requête)
-        If dataAccreditation Is Nothing Or dataAccreditation = "" Then Exit Function
-
-
-        ' Désérialisation de la réponse JSON en un objet
-        Dim responseClearance = New JavaScriptSerializer().Deserialize(Of Object)(dataAccreditation)
-
-        ' Boucle sur les utilisateurs présents dans la zone
-        For Each accreditation In responseClearance("data")
-            Dim accreditationName As String = accreditation("accreditation")("name")
-            Dim endDateTxt As String = accreditation("endDate")
-            Dim endDate As Date
-            DateTime.TryParseExact(endDateTxt, "yyyy-MM-dd", Globalization.CultureInfo.InvariantCulture, Globalization.DateTimeStyles.None, endDate)
-
-            GetMSAccreditation += accreditationName & " (" & endDate.ToString("dd/MM/yyyy") & "), "
-        Next
-        If GetMSAccreditation <> "" Then
-            GetMSAccreditation = Left(GetMSAccreditation, GetMSAccreditation.Length - 2)
+    Private Sub PreparerUidNumber(userAD As UtilisateurADIndex, userRH As UtilisateurRH)
+        If userAD IsNot Nothing AndAlso String.IsNullOrWhiteSpace(userAD.uidNumber) Then
+            userRH.uidNumber_uidNumber = Commun.UIDNumberMini()
         End If
-        Return GetMSAccreditation
+    End Sub
+
+    Private Sub ChargerJpegPhotoDepuisTabPhoto(userRH As UtilisateurRH, tabPhoto(,) As String)
+        Dim rechPhoto As Integer = Commun.MultiIndexOf(tabPhoto, userRH.employeeID_id, 0)
+
+        If rechPhoto = -1 Then
+            'Commun.Journal("PHOTO RH ABSENTE : " & userRH.login_samAccountName & " | employeeID=" & userRH.employeeID_id, True)
+            userRH.jpegPhoto_jpegPhoto = Nothing
+            Exit Sub
+        End If
+
+        'Commun.Journal("PHOTO RH TROUVEE INDEX : " & userRH.login_samAccountName & " | employeeID=" & userRH.employeeID_id & " | url/id=" & tabPhoto(1, rechPhoto), False)
+
+        userRH.jpegPhoto_jpegPhoto = Json.LirePhotoDepuisMyIGBMC(tabPhoto(1, rechPhoto))
+
+        If userRH.jpegPhoto_jpegPhoto Is Nothing Then
+            'Commun.Journal("PHOTO RH LUE = Nothing : " & userRH.login_samAccountName & " | employeeID=" & userRH.employeeID_id & " | url/id=" & tabPhoto(1, rechPhoto), True)
+        Else
+            'Commun.Journal("PHOTO RH OK : " & userRH.login_samAccountName & " | bytes=" & userRH.jpegPhoto_jpegPhoto.Length, False)
+        End If
+    End Sub
+    Private Sub PreparerDatesDesactivationSuppression(userRH As UtilisateurRH)
+        Dim culture As System.Globalization.CultureInfo = System.Globalization.CultureInfo.InvariantCulture
+        Dim style As System.Globalization.DateTimeStyles = System.Globalization.DateTimeStyles.None
+
+        Dim dateContrat As Date
+        Dim dateException As Date
+        Dim dateBase As Date
+
+        Dim contratValide As Boolean =
+        Date.TryParseExact(userRH.extensionAttribute1_finDeContrat,
+                           "dd/MM/yyyy",
+                           culture,
+                           style,
+                           dateContrat)
+
+        If Not contratValide Then
+            userRH.accountDeactivationDT_finDeContrat = Nothing
+            userRH.accountDeletionDate_finDeContratPlus3Mois = ""
+            userRH.accountDeletionDT_finDeContratPlus3Mois = Nothing
+            Exit Sub
+        End If
+
+        dateBase = dateContrat
+
+        Dim finException As String = Gestion.exceptionUser(userRH.login_samAccountName)
+        If finException <> "False" Then
+            If Date.TryParseExact(finException,
+                              "dd/MM/yyyy",
+                              culture,
+                              style,
+                              dateException) Then
+                If dateException > dateContrat Then
+                    dateBase = dateException
+                End If
+            End If
+        End If
+
+        userRH.accountDeactivationDT_finDeContrat = dateBase.Date
+        userRH.accountDeletionDate_finDeContratPlus3Mois = dateBase.AddMonths(3).ToString("dd/MM/yyyy")
+        userRH.accountDeletionDT_finDeContratPlus3Mois = dateBase.AddMonths(3).Date
+    End Sub
+
+    Private Function TrouverDestinationsPourUtilisateur(userRH As UtilisateurRH) As List(Of DestinationInfo)
+        Dim resultat As New List(Of DestinationInfo)
+        Dim dejaAjoutees As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+
+        If userRH Is Nothing Then
+            Return resultat
+        End If
+
+        For Each destinationUser As String In If(userRH.destinationsRH, New String() {})
+            If String.IsNullOrWhiteSpace(destinationUser) Then
+                Continue For
+            End If
+
+            For Each destination As DestinationInfo In DicoDestinationsRH.Values
+                If destination Is Nothing Then
+                    Continue For
+                End If
+
+                If String.Equals(destination.nom_court_dest, destinationUser, StringComparison.OrdinalIgnoreCase) Then
+                    If Not dejaAjoutees.Contains(destination.id_dest) Then
+                        resultat.Add(destination)
+                        dejaAjoutees.Add(destination.id_dest)
+                    End If
+                End If
+            Next
+        Next
+
+        If resultat.Count = 0 AndAlso Not String.IsNullOrWhiteSpace(userRH.departmentNumber_destinationNomCourt) Then
+            For Each destination As DestinationInfo In DicoDestinationsRH.Values
+                If destination Is Nothing Then
+                    Continue For
+                End If
+
+                If String.Equals(destination.nom_court_dest, userRH.departmentNumber_destinationNomCourt, StringComparison.OrdinalIgnoreCase) Then
+                    If Not dejaAjoutees.Contains(destination.id_dest) Then
+                        resultat.Add(destination)
+                        dejaAjoutees.Add(destination.id_dest)
+                    End If
+                End If
+            Next
+        End If
+
+        Return resultat
     End Function
 
-    Public Function CreationFichiers()
+
+    Private Function ConstruireGroupesRH(userRH As UtilisateurRH) As String()
+        Dim groupes As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+
+        If userRH Is Nothing Then
+            Return groupes.ToArray()
+        End If
+
+        Dim destinations As List(Of DestinationInfo) = TrouverDestinationsPourUtilisateur(userRH)
+
+        For Each destination As DestinationInfo In destinations
+            If destination Is Nothing Then
+                Continue For
+            End If
+
+            If Not String.IsNullOrWhiteSpace(destination.dn_dest_ad) Then
+                groupes.Add(destination.dn_dest_ad)
+            End If
+
+            If Not String.IsNullOrWhiteSpace(destination.id_equipeinfo) AndAlso DicoEquipesInfoRefRH.ContainsKey(destination.id_equipeinfo) Then
+                Dim equipe As EquipeInfo = DicoEquipesInfoRefRH(destination.id_equipeinfo)
+                If equipe IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(equipe.dn_equipeinfo_eq_ad) Then
+                    groupes.Add(equipe.dn_equipeinfo_eq_ad)
+                End If
+            End If
+
+            If Not String.IsNullOrWhiteSpace(destination.id_dept) AndAlso DicoDepartementsRH.ContainsKey(destination.id_dept) Then
+                Dim departement As DepartementInfo = DicoDepartementsRH(destination.id_dept)
+                If departement IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(departement.dn_dept_ad) Then
+                    groupes.Add(departement.dn_dept_ad)
+                End If
+            End If
+        Next
+
+        Dim listeDiff As String = LCase(Trim(userRH.listesDiffusions))
+        If listeDiff <> "" AndAlso DicoGroupesDiffusionRH.ContainsKey(listeDiff) Then
+            groupes.Add(DicoGroupesDiffusionRH(listeDiff))
+        End If
+
+        Return groupes.ToArray()
+    End Function
+
+    Private Sub SynchroniserGroupesUtilisateur(userAD As UtilisateurADIndex, userRH As UtilisateurRH)
+        Dim groupesAD As String() = If(userAD.memberOf_groupesGerables, New String() {})
+        Dim groupesRH As String() = If(userRH.memberOf_groupeRH, New String() {})
+
+        Dim groupesADSet As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+        For Each groupeAD As String In groupesAD
+            If Not String.IsNullOrWhiteSpace(groupeAD) Then
+                groupesADSet.Add(groupeAD)
+            End If
+        Next
+
+        Dim groupesRHSet As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+        For Each groupeRH As String In groupesRH
+            If Not String.IsNullOrWhiteSpace(groupeRH) Then
+                groupesRHSet.Add(groupeRH)
+            End If
+        Next
+
+        For Each groupeRH As String In groupesRHSet
+            If Not groupesADSet.Contains(groupeRH) Then
+                Commun.AddRemoveADGroup(userAD.distinguishedName, groupeRH, "Add")
+                Commun.Journal(vbTab & vbTab & vbTab & "Ajout groupe : " & userRH.login_samAccountName & " => " & NomGroupeDepuisDn(groupeRH), False)
+            End If
+        Next
+
+        For Each groupeAD As String In groupesADSet
+            If Not groupesRHSet.Contains(groupeAD) Then
+                Commun.AddRemoveADGroup(userAD.distinguishedName, groupeAD, "Remove")
+                Commun.Journal(vbTab & vbTab & vbTab & "Retrait groupe : " & userRH.login_samAccountName & " => " & NomGroupeDepuisDn(groupeAD), False)
+            End If
+        Next
+    End Sub
+    Private Function NomGroupeDepuisDn(dnGroupe As String) As String
+        If String.IsNullOrWhiteSpace(dnGroupe) Then
+            Return ""
+        End If
+
+        If dnGroupe.StartsWith("CN=", StringComparison.OrdinalIgnoreCase) Then
+            Dim finCN As Integer = dnGroupe.IndexOf(","c)
+            If finCN > 3 Then
+                Return dnGroupe.Substring(3, finCN - 3)
+            End If
+
+            Return dnGroupe.Substring(3)
+        End If
+
+        Return dnGroupe
+    End Function
+    Private Function FiltrerGroupesGerables(groupes As String()) As String()
+        Dim groupesGerables As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+
+        For Each groupe As String In DicoGroupesDiffusionRH.Values
+            If Not String.IsNullOrWhiteSpace(groupe) Then
+                groupesGerables.Add(groupe)
+            End If
+        Next
+
+        For Each destination As DestinationInfo In DicoDestinationsRH.Values
+            If destination IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(destination.dn_dest_ad) Then
+                groupesGerables.Add(destination.dn_dest_ad)
+            End If
+        Next
+
+        For Each equipe As EquipeInfo In DicoEquipesInfoRefRH.Values
+            If equipe IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(equipe.dn_equipeinfo_eq_ad) Then
+                groupesGerables.Add(equipe.dn_equipeinfo_eq_ad)
+            End If
+        Next
+
+        For Each departement As DepartementInfo In DicoDepartementsRH.Values
+            If departement IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(departement.dn_dept_ad) Then
+                groupesGerables.Add(departement.dn_dept_ad)
+            End If
+        Next
+
+        Dim resultat As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+
+        For Each groupe As String In If(groupes, New String() {})
+            If Not String.IsNullOrWhiteSpace(groupe) AndAlso groupesGerables.Contains(groupe) Then
+                resultat.Add(groupe)
+            End If
+        Next
+
+        Return resultat.ToArray()
+    End Function
+    Private Sub EnvoyerMailAPSiNecessaire(
+    ByVal userRH As UtilisateurRH,
+    ByVal userAD As UtilisateurADIndex
+)
+        If userRH.extensionAttribute1_finDeContrat <> "" AndAlso If(userAD Is Nothing, "", userAD.extensionAttribute1) = "" Then
+            Exit Sub
+        End If
+
+        Dim ctrlEnvoiMailAP As Boolean = GetContractsLenght(userRH.employeeID_id, False)
+        If ctrlEnvoiMailAP = False Then
+            Exit Sub
+        End If
+
+        Dim corpmailAssistentsPrévention As String =
+        vbCrLf & "Nom : " & userRH.prenom_givenName & " " & userRH.nom_sn &
+        vbCrLf & "Identifiant GDPI : " & userRH.employeeID_id &
+        vbCrLf & "Service : " & userRH.department_destinationNomLong &
+        vbCrLf & "Unité : " & userRH.title_unité &
+        vbCrLf & "Mail : " & userRH.login_samAccountName & "@igbmc.fr" &
+        vbCrLf & "Date de fin de contrat : " & userRH.extensionAttribute1_finDeContrat
+
+        Commun.SendEmail("administrateur@igbmc.fr", "assistants-de-prevention@igbmc.fr;Bcc:steph@igbmc.fr", "(Mail automatique) Nouvel entrant", corpmailAssistentsPrévention)
+    End Sub
+
+
+    Public Function ChargerIndexUtilisateursAD() As Dictionary(Of String, UtilisateurADIndex)
+
+        Dim adUsersByEmployeeId As New Dictionary(Of String, UtilisateurADIndex)(StringComparer.OrdinalIgnoreCase)
+
+        Using ldap As New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateurs), Commun.admin, Commun.passwd, auth)
+            Using searcher As New DirectorySearcher(ldap)
+
+                searcher.Filter = "(&(objectClass=user)(employeeID=*))"
+                searcher.SearchScope = SearchScope.Subtree
+                searcher.PageSize = 1000
+                searcher.PropertiesToLoad.Clear()
+
+                searcher.PropertiesToLoad.Add("employeeID")
+                searcher.PropertiesToLoad.Add("distinguishedName")
+                searcher.PropertiesToLoad.Add("departmentNumber")
+                searcher.PropertiesToLoad.Add("sn")
+                searcher.PropertiesToLoad.Add("givenName")
+                searcher.PropertiesToLoad.Add("mail")
+                searcher.PropertiesToLoad.Add("mailNickname")
+                searcher.PropertiesToLoad.Add("physicalDeliveryOfficeName")
+                searcher.PropertiesToLoad.Add("telephoneNumber")
+                searcher.PropertiesToLoad.Add("mobile")
+                searcher.PropertiesToLoad.Add("manager")
+                searcher.PropertiesToLoad.Add("division")
+                searcher.PropertiesToLoad.Add("department")
+                searcher.PropertiesToLoad.Add("title")
+                searcher.PropertiesToLoad.Add("extensionAttribute1")
+                searcher.PropertiesToLoad.Add("extensionAttribute2")
+                searcher.PropertiesToLoad.Add("displayName")
+                searcher.PropertiesToLoad.Add("displayNamePrintable")
+                searcher.PropertiesToLoad.Add("company")
+                searcher.PropertiesToLoad.Add("otherTelephone")
+                searcher.PropertiesToLoad.Add("whenCreated")
+                searcher.PropertiesToLoad.Add("uidNumber")
+                searcher.PropertiesToLoad.Add("sAMAccountName")
+                searcher.PropertiesToLoad.Add("loginShell")
+                searcher.PropertiesToLoad.Add("uid")
+                searcher.PropertiesToLoad.Add("gidNumber")
+                searcher.PropertiesToLoad.Add("unixHomeDirectory")
+                searcher.PropertiesToLoad.Add("cn")
+                searcher.PropertiesToLoad.Add("msExchExtensionAttribute16")
+                searcher.PropertiesToLoad.Add("memberOf")
+                searcher.PropertiesToLoad.Add("employeeNumber")
+                searcher.PropertiesToLoad.Add("serialNumber")
+                searcher.PropertiesToLoad.Add("accountActivationDT")
+                searcher.PropertiesToLoad.Add("accountDeactivationDT")
+                searcher.PropertiesToLoad.Add("accountDeletionDT")
+                searcher.PropertiesToLoad.Add("accountDeletionDate")
+                searcher.PropertiesToLoad.Add("description")
+                searcher.PropertiesToLoad.Add("comment")
+                searcher.PropertiesToLoad.Add("jpegPhoto")
+                searcher.PropertiesToLoad.Add("memberOf")
+
+                Using results As SearchResultCollection = searcher.FindAll()
+                    For Each r As SearchResult In results
+
+                        Dim employeeId As String = LireProp(r, "employeeID")
+
+                        If employeeId = "" Then
+                            Continue For
+                        End If
+
+                        If Not adUsersByEmployeeId.ContainsKey(employeeId) Then
+                            Dim u As New UtilisateurADIndex()
+
+                            u.employeeID = employeeId
+                            u.distinguishedName = LireProp(r, "distinguishedName")
+                            u.departmentNumber = LireProp(r, "departmentNumber")
+                            u.sn = LireProp(r, "sn")
+                            u.givenName = LireProp(r, "givenName")
+                            u.mail = LireProp(r, "mail")
+                            u.mailNickname = LireProp(r, "mailNickname")
+                            u.physicalDeliveryOfficeName = LireProp(r, "physicalDeliveryOfficeName")
+                            u.telephoneNumber = LireProp(r, "telephoneNumber")
+                            u.mobile = LireProp(r, "mobile")
+                            u.manager = LireProp(r, "manager")
+                            u.division = LireProp(r, "division")
+                            u.department = LireProp(r, "department")
+                            u.title = LireProp(r, "title")
+                            u.extensionAttribute1 = LireProp(r, "extensionAttribute1")
+                            u.extensionAttribute2 = LireProp(r, "extensionAttribute2")
+                            u.displayName = LireProp(r, "displayName")
+                            u.displayNamePrintable = LireProp(r, "displayNamePrintable")
+                            u.company = LireProp(r, "company")
+                            u.otherTelephone = LirePropMulti(r, "otherTelephone")
+                            u.whenCreated = LirePropDate(r, "whenCreated")
+                            u.uidNumber = LireProp(r, "uidNumber")
+                            u.samAccountName = LireProp(r, "sAMAccountName")
+                            u.loginShell = LireProp(r, "loginShell")
+                            u.uid = LireProp(r, "uid")
+                            u.gidNumber = LireProp(r, "gidNumber")
+                            u.unixHomeDirectory = LireProp(r, "unixHomeDirectory")
+                            u.cn = LireProp(r, "cn")
+                            u.msExchExtensionAttribute16 = LireProp(r, "msExchExtensionAttribute16")
+                            u.memberOf = LirePropMulti(r, "memberOf")
+                            u.memberOf_groupesGerables = FiltrerGroupesGerables(u.memberOf)
+                            u.employeeNumber = LireProp(r, "employeeNumber")
+                            u.serialNumber = LirePropMulti(r, "serialNumber")
+                            u.accountActivationDT = LirePropDate(r, "accountActivationDT")
+                            u.accountDeactivationDT = LirePropDate(r, "accountDeactivationDT")
+                            u.accountDeletionDT = LirePropDate(r, "accountDeletionDT")
+                            u.accountDeletionDate = LireProp(r, "accountDeletionDate")
+                            u.description = LireProp(r, "description")
+                            u.comment = LireProp(r, "comment")
+                            u.jpegPhoto = LirePropByte(r, "jpegPhoto")
+
+                            adUsersByEmployeeId.Add(employeeId, u)
+                        End If
+
+                    Next
+                End Using
+
+            End Using
+        End Using
+
+        Return adUsersByEmployeeId
+
+    End Function
+
+    Private Function MettreAJourMsExchExtensionAttribute16SansCommit(userRH As UtilisateurRH) As String
+        Dim aliasmailAD As String = LCase(BuildAliasMail(userRH.prenom_givenName, userRH.nom_sn))
+        Dim aliasMailpourIGBMCSERVICES As String = Replace(aliasmailAD, "@igbmc.fr", "")
+
+        Json.SendJson("login=" & userRH.login_samAccountName &
+                  "&domain=%40igbmc.fr&alias=" & aliasMailpourIGBMCSERVICES,
+                  "persons/" & userRH.employeeID_id & "/email", "AD", "PUT")
+
+        Return aliasmailAD
+    End Function
+
+    Private Function LireProp(r As SearchResult, nomProp As String) As String
+        If r Is Nothing Then Return ""
+        If Not r.Properties.Contains(nomProp) Then Return ""
+        If r.Properties(nomProp).Count = 0 Then Return ""
+
+        Dim valeur As Object = r.Properties(nomProp)(0)
+        If valeur Is Nothing Then Return ""
+
+        Return CStr(valeur).Trim()
+    End Function
+    Private Function LirePropByte(r As SearchResult, prop As String) As Byte()
+        If r Is Nothing Then Return Nothing
+        If Not r.Properties.Contains(prop) Then Return Nothing
+        If r.Properties(prop).Count = 0 Then Return Nothing
+        If r.Properties(prop)(0) Is Nothing Then Return Nothing
+
+        Return DirectCast(r.Properties(prop)(0), Byte())
+    End Function
+
+    Private Function LirePropMulti(r As SearchResult, nomProp As String) As String()
+        If r Is Nothing Then Return New String() {}
+        If Not r.Properties.Contains(nomProp) Then Return New String() {}
+        If r.Properties(nomProp).Count = 0 Then Return New String() {}
+
+        Dim valeurs(r.Properties(nomProp).Count - 1) As String
+
+        For i As Integer = 0 To r.Properties(nomProp).Count - 1
+            If r.Properties(nomProp)(i) IsNot Nothing Then
+                valeurs(i) = CStr(r.Properties(nomProp)(i)).Trim()
+            Else
+                valeurs(i) = ""
+            End If
+        Next
+
+        Return valeurs
+    End Function
+
+    Private Function LirePropDate(r As SearchResult, nomProp As String) As Date?
+        If r Is Nothing Then Return Nothing
+        If Not r.Properties.Contains(nomProp) Then Return Nothing
+        If r.Properties(nomProp).Count = 0 Then Return Nothing
+
+        Dim valeur As Object = r.Properties(nomProp)(0)
+        If valeur Is Nothing Then Return Nothing
+
+        If TypeOf valeur Is Date Then
+            Return CType(valeur, Date)
+        End If
+
+        Dim s As String = CStr(valeur).Trim()
+        If s = "" Then Return Nothing
+
+        Dim dt As DateTime
+        If DateTime.TryParseExact(
+        s,
+        "yyyyMMddHHmmss'.0Z'",
+        Globalization.CultureInfo.InvariantCulture,
+        Globalization.DateTimeStyles.AssumeUniversal Or Globalization.DateTimeStyles.AdjustToUniversal,
+        dt) Then
+
+            Return dt
+        End If
+
+        Return Nothing
+    End Function
+    ''' <summary>
+    ''' Construit l'alias mail long attendu au format prénom.nom@igbmc.fr.
+    ''' </summary>
+    ''' <param name="prenom">
+    ''' Prénom de l'utilisateur.
+    ''' </param>
+    ''' <param name="nom">
+    ''' Nom de l'utilisateur.
+    ''' </param>
+    ''' <returns>
+    ''' Retourne l'alias mail long normalisé.
+    ''' </returns>
+    Private Function BuildAliasMail(prenom As String, nom As String) As String
+        Dim aliasConstruit As String = LCase(prenom & "." & nom)
+        aliasConstruit = Replace(aliasConstruit, " ", "-")
+        aliasConstruit = Replace(aliasConstruit, "'", "")
+        Return aliasConstruit & "@igbmc.fr"
+    End Function
+
+    ''' <summary>
+    ''' Compare les attributs métier entre l'utilisateur AD indexé et l'utilisateur RH normalisé.
+    ''' </summary>
+    ''' <param name="adUser">
+    ''' Utilisateur lu depuis l'index AD.
+    ''' </param>
+    ''' <param name="userRH">
+    ''' Utilisateur RH normalisé, contenant les valeurs attendues côté métier.
+    ''' </param>
+    ''' <returns>
+    ''' Retourne une chaîne contenant la liste des attributs différents, séparés par des virgules.
+    ''' Retourne une chaîne vide si aucune différence n'est détectée.
+    ''' Retourne <c>ADUserMissing</c> si l'utilisateur n'existe pas dans l'index AD.
+    ''' </returns>
+    ''' <remarks>
+    ''' Cette fonction sert de point central de comparaison métier entre l'état attendu
+    ''' (<c>UtilisateurRH</c>) et l'état connu dans l'AD (<c>UtilisateurADIndex</c>).
+    ''' Elle ne doit comparer que des attributs métier simples, et non relire directement
+    ''' les propriétés live de <c>DirectoryEntry</c>.
+    ''' </remarks>
+
+    Private Function UtilisateurADDiffereDeRH(adUser As UtilisateurADIndex, userRH As UtilisateurRH, changementPhotoAFaire As Boolean) As List(Of ChangementAttributAD)
+        Dim changements As New List(Of ChangementAttributAD)
+
+        If adUser Is Nothing Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "ADUserMissing",
+            .AncienneValeur = "",
+            .NouvelleValeur = userRH.employeeID_id
+        })
+            Return changements
+        End If
+
+        If adUser.employeeID <> userRH.employeeID_id Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "employeeID",
+            .AncienneValeur = adUser.employeeID,
+            .NouvelleValeur = userRH.employeeID_id
+        })
+        End If
+
+        If adUser.departmentNumber <> userRH.departmentNumber_destinationNomCourt Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "departmentNumber",
+            .AncienneValeur = adUser.departmentNumber,
+            .NouvelleValeur = userRH.departmentNumber_destinationNomCourt
+        })
+        End If
+
+        If adUser.sn <> userRH.nom_sn Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "sn",
+            .AncienneValeur = adUser.sn,
+            .NouvelleValeur = userRH.nom_sn
+        })
+        End If
+
+        If adUser.givenName <> userRH.prenom_givenName Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "givenName",
+            .AncienneValeur = adUser.givenName,
+            .NouvelleValeur = userRH.prenom_givenName
+        })
+        End If
+
+        If adUser.mail <> userRH.mail_mailPrincipal Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "mail",
+            .AncienneValeur = adUser.mail,
+            .NouvelleValeur = userRH.mail_mailPrincipal
+        })
+        End If
+
+        If adUser.mailNickname <> userRH.login_samAccountName Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "mailNickname",
+            .AncienneValeur = adUser.mailNickname,
+            .NouvelleValeur = userRH.login_samAccountName
+        })
+        End If
+
+        If adUser.physicalDeliveryOfficeName <> userRH.physicalDeliveryOfficeName_bureaux Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "physicalDeliveryOfficeName",
+            .AncienneValeur = adUser.physicalDeliveryOfficeName,
+            .NouvelleValeur = userRH.physicalDeliveryOfficeName_bureaux
+        })
+        End If
+
+        If adUser.telephoneNumber <> userRH.telephoneNumber_telPrincipal Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "telephoneNumber",
+            .AncienneValeur = adUser.telephoneNumber,
+            .NouvelleValeur = userRH.telephoneNumber_telPrincipal
+        })
+        End If
+
+        If Join(TrierTableau(adUser.otherTelephone), ";") <> Join(TrierTableau(userRH.otherTelephone_telSecondaire), ";") Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "otherTelephone",
+            .AncienneValeur = Join(If(adUser.otherTelephone, New String() {}), ";"),
+            .NouvelleValeur = Join(If(userRH.otherTelephone_telSecondaire, New String() {}), ";")
+        })
+        End If
+
+        If adUser.mobile <> userRH.mobile_telPortable Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "mobile",
+            .AncienneValeur = adUser.mobile,
+            .NouvelleValeur = userRH.mobile_telPortable
+        })
+        End If
+
+        If adUser.manager <> userRH.DNNplus1 Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "manager",
+            .AncienneValeur = adUser.manager,
+            .NouvelleValeur = userRH.DNNplus1
+        })
+        End If
+
+        If adUser.division <> userRH.division_organism Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "division",
+            .AncienneValeur = adUser.division,
+            .NouvelleValeur = userRH.division_organism
+        })
+        End If
+
+        If adUser.department <> userRH.department_destinationNomLong Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "department",
+            .AncienneValeur = adUser.department,
+            .NouvelleValeur = userRH.department_destinationNomLong
+        })
+        End If
+
+        If adUser.title <> userRH.title_unité Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "title",
+            .AncienneValeur = adUser.title,
+            .NouvelleValeur = userRH.title_unité
+        })
+        End If
+
+        If adUser.extensionAttribute1 <> userRH.extensionAttribute1_finDeContrat Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "extensionAttribute1",
+            .AncienneValeur = adUser.extensionAttribute1,
+            .NouvelleValeur = userRH.extensionAttribute1_finDeContrat
+        })
+        End If
+
+        If adUser.extensionAttribute2 <> userRH.extensionAttribute2_genre Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "extensionAttribute2",
+            .AncienneValeur = adUser.extensionAttribute2,
+            .NouvelleValeur = userRH.extensionAttribute2_genre
+        })
+        End If
+
+        If adUser.displayName <> userRH.displayName Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "displayName",
+            .AncienneValeur = adUser.displayName,
+            .NouvelleValeur = userRH.displayName
+        })
+        End If
+
+        If adUser.displayNamePrintable <> userRH.displayNamePrintable Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "displayNamePrintable",
+            .AncienneValeur = adUser.displayNamePrintable,
+            .NouvelleValeur = userRH.displayNamePrintable
+        })
+        End If
+
+        If adUser.company <> "IGBMC" Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "company",
+            .AncienneValeur = adUser.company,
+            .NouvelleValeur = "IGBMC"
+        })
+        End If
+
+        If adUser.samAccountName <> userRH.login_samAccountName Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "sAMAccountName",
+            .AncienneValeur = adUser.samAccountName,
+            .NouvelleValeur = userRH.login_samAccountName
+        })
+        End If
+
+        If adUser.cn <> userRH.cn Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "cn",
+            .AncienneValeur = adUser.cn,
+            .NouvelleValeur = userRH.cn
+        })
+        End If
+
+        If adUser.msExchExtensionAttribute16 <> LCase(BuildAliasMail(userRH.prenom_givenName, userRH.nom_sn)) Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "msExchExtensionAttribute16",
+            .AncienneValeur = adUser.msExchExtensionAttribute16,
+            .NouvelleValeur = LCase(BuildAliasMail(userRH.prenom_givenName, userRH.nom_sn))
+        })
+        End If
+
+        If Join(TrierTableau(adUser.memberOf_groupesGerables), ";") <> Join(TrierTableau(userRH.memberOf_groupeRH), ";") Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "memberOf",
+            .AncienneValeur = Join(If(adUser.memberOf_groupesGerables, New String() {}), ";"),
+            .NouvelleValeur = Join(If(userRH.memberOf_groupeRH, New String() {}), ";")
+        })
+        End If
+
+        If adUser.uid <> userRH.uid_uid Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "uid",
+            .AncienneValeur = adUser.uid,
+            .NouvelleValeur = userRH.uid_uid
+        })
+        End If
+
+        If adUser.gidNumber <> userRH.gidNumberAD_gidNumber Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "gidNumber",
+            .AncienneValeur = adUser.gidNumber,
+            .NouvelleValeur = userRH.gidNumberAD_gidNumber
+        })
+        End If
+
+        If adUser.unixHomeDirectory <> userRH.unixHomeDirectoryAD_unixHomeDirectoryAD Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "unixHomeDirectory",
+            .AncienneValeur = adUser.unixHomeDirectory,
+            .NouvelleValeur = userRH.unixHomeDirectoryAD_unixHomeDirectoryAD
+        })
+        End If
+
+        If String.IsNullOrWhiteSpace(adUser.loginShell) Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "loginShell",
+            .AncienneValeur = adUser.loginShell,
+            .NouvelleValeur = "/bin/bash"
+        })
+        End If
+
+        If adUser.employeeNumber <> userRH.employeeNumber_employeeNumber Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "employeeNumber",
+            .AncienneValeur = adUser.employeeNumber,
+            .NouvelleValeur = userRH.employeeNumber_employeeNumber
+        })
+        End If
+
+        If Join(TrierTableau(adUser.serialNumber), ";") <> Join(TrierTableau(userRH.serialNumber_serialNumber), ";") Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "serialNumber",
+            .AncienneValeur = Join(If(adUser.serialNumber, New String() {}), ";"),
+            .NouvelleValeur = Join(If(userRH.serialNumber_serialNumber, New String() {}), ";")
+        })
+        End If
+
+        If String.IsNullOrWhiteSpace(adUser.uidNumber) Then
+            userRH.uidNumber_uidNumber = Commun.UIDNumberMini()
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "uidNumber",
+            .AncienneValeur = adUser.uidNumber,
+            .NouvelleValeur = userRH.uidNumber_uidNumber
+        })
+        End If
+
+        If changementPhotoAFaire AndAlso Not PhotosSontEgales(adUser.jpegPhoto, userRH.jpegPhoto_jpegPhoto) Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "jpegPhoto",
+            .AncienneValeur = If(adUser.jpegPhoto Is Nothing, "", "[photo AD]"),
+            .NouvelleValeur = If(userRH.jpegPhoto_jpegPhoto Is Nothing, "", "[photo RH]")
+        })
+        End If
+
+        If DatesDifferentes(adUser.accountDeactivationDT, userRH.accountDeactivationDT_finDeContrat) Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "accountDeactivationDT",
+            .AncienneValeur = If(adUser.accountDeactivationDT.HasValue, adUser.accountDeactivationDT.Value.ToString("dd/MM/yyyy"), ""),
+            .NouvelleValeur = If(userRH.accountDeactivationDT_finDeContrat.HasValue, userRH.accountDeactivationDT_finDeContrat.Value.ToString("dd/MM/yyyy"), "")
+        })
+        End If
+
+        If DatesDifferentes(adUser.accountDeletionDT, userRH.accountDeletionDT_finDeContratPlus3Mois) Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "accountDeletionDT",
+            .AncienneValeur = If(adUser.accountDeletionDT.HasValue, adUser.accountDeletionDT.Value.ToString("dd/MM/yyyy"), ""),
+            .NouvelleValeur = If(userRH.accountDeletionDT_finDeContratPlus3Mois.HasValue, userRH.accountDeletionDT_finDeContratPlus3Mois.Value.ToString("dd/MM/yyyy"), "")
+        })
+        End If
+
+        If adUser.accountDeletionDate <> userRH.accountDeletionDate_finDeContratPlus3Mois Then
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "accountDeletionDate",
+            .AncienneValeur = adUser.accountDeletionDate,
+            .NouvelleValeur = userRH.accountDeletionDate_finDeContratPlus3Mois
+        })
+        End If
+
+        Return changements
+    End Function
+    Private Function DatesDifferentes(date1 As Date?, date2 As Date?) As Boolean
+        If date1.HasValue <> date2.HasValue Then
+            Return True
+        End If
+
+        If Not date1.HasValue Then
+            Return False
+        End If
+
+        Return date1.Value.Date <> date2.Value.Date
+    End Function
+
+    Private Function PhotosSontEgales(photo1 As Byte(), photo2 As Byte()) As Boolean
+        If photo1 Is Nothing AndAlso photo2 Is Nothing Then Return True
+        If photo1 Is Nothing OrElse photo2 Is Nothing Then Return False
+        If photo1.Length <> photo2.Length Then Return False
+
+        For i As Integer = 0 To photo1.Length - 1
+            If photo1(i) <> photo2(i) Then Return False
+        Next
+
+        Return True
+    End Function
+
+    Public Function TrierTableau(valeurs As String()) As String()
+        If valeurs Is Nothing Then
+            Return New String() {}
+        End If
+
+        Dim copie As String() = CType(valeurs.Clone(), String())
+
+        Array.Sort(copie, StringComparer.OrdinalIgnoreCase)
+
+        Return copie
+    End Function
+    ''' <summary>
+    ''' Construit les données téléphoniques métier à partir d'un utilisateur RH brut.
+    ''' </summary>
+    ''' <param name="userRaw">
+    ''' Utilisateur RH brut.
+    ''' </param>
+    ''' <param name="userRH">
+    ''' Utilisateur RH normalisé à compléter.
+    ''' </param>
+    Private Sub ConstruireDonneesTelephoniques(userRaw As UserRaw, userRH As UtilisateurRH)
+        Dim telephonesNormalises As String = NormalizePhoneNumbers(userRaw.TelUser)
+
+        userRH.mobile_telPortable = GetMobileTelephone(telephonesNormalises)
+        userRH.telephoneNumber_telPrincipal = GetTelephonePrincipalHorsMobile(telephonesNormalises)
+        userRH.otherTelephone_telSecondaire = GetOtherTelephonesHorsMobile(telephonesNormalises)
+    End Sub
+    Private Function NormaliserTelephonePourComparaison(numero As String) As String
+        If String.IsNullOrWhiteSpace(numero) Then Return ""
+
+        Dim n As String = numero.Trim()
+
+        n = n.Replace(" ", "")
+        n = n.Replace(".", "")
+        n = n.Replace("-", "")
+        n = n.Replace("(", "")
+        n = n.Replace(")", "")
+
+        Return n
+    End Function
+    Private Function EstTelephoneMobile(numero As String) As Boolean
+        If String.IsNullOrWhiteSpace(numero) Then Return False
+
+        Dim n As String = NormaliserTelephonePourComparaison(numero)
+
+        Return n.StartsWith("06") _
+        OrElse n.StartsWith("07") _
+        OrElse n.StartsWith("+336") _
+        OrElse n.StartsWith("+337") _
+        OrElse n.StartsWith("+33 6") _
+        OrElse n.StartsWith("+33 7")
+    End Function
+    Private Function DecouperTelephones(telephonesNormalises As String) As List(Of String)
+        Dim resultat As New List(Of String)
+
+        If String.IsNullOrWhiteSpace(telephonesNormalises) Then
+            Return resultat
+        End If
+
+        For Each tel As String In telephonesNormalises.Split(";"c)
+            Dim valeur As String = tel.Trim()
+
+            If valeur <> "" Then
+                resultat.Add(valeur)
+            End If
+        Next
+
+        Return resultat
+    End Function
+    Private Function GetMobileTelephone(telephonesNormalises As String) As String
+        Dim telephones As List(Of String) = DecouperTelephones(telephonesNormalises)
+
+        For Each tel As String In telephones
+            If EstTelephoneMobile(tel) Then
+                Return tel
+            End If
+        Next
+
+        Return ""
+    End Function
+    Private Function GetOtherTelephonesHorsMobile(telephonesNormalises As String) As String()
+        Dim telephones As List(Of String) = DecouperTelephones(telephonesNormalises)
+        Dim resultat As New List(Of String)
+        Dim telephonePrincipalTrouve As Boolean = False
+
+        For Each tel As String In telephones
+            If Not EstTelephoneMobile(tel) Then
+                If Not telephonePrincipalTrouve Then
+                    telephonePrincipalTrouve = True
+                Else
+                    resultat.Add(tel)
+                End If
+            End If
+        Next
+
+        Return resultat.ToArray()
+    End Function
+    '''' <summary>
+    '''' Extrait les téléphones secondaires depuis la chaîne normalisée des téléphones.
+    '''' </summary>
+    '''' <param name="telephones">
+    '''' Chaîne des téléphones séparés par des point-virgules.
+    '''' </param>
+    '''' <returns>
+    '''' Retourne les numéros secondaires sous forme de tableau.
+    '''' </returns>
+    'Private Function GetOtherTelephones(telephones As String) As String()
+    '    If String.IsNullOrWhiteSpace(telephones) Then Return New String() {}
+
+    '    Dim tabPhoneFichier As String() = Split(telephones, ";")
+    '    If tabPhoneFichier Is Nothing OrElse tabPhoneFichier.Length <= 1 Then
+    '        Return New String() {}
+    '    End If
+
+    '    Dim result As New List(Of String)
+
+    '    For i As Integer = 1 To UBound(tabPhoneFichier)
+    '        If String.IsNullOrWhiteSpace(tabPhoneFichier(i)) Then
+    '            Continue For
+    '        End If
+
+    '        If InStr(tabPhoneFichier(i), "/") > 0 Then
+    '            Dim tmpTab As String() = Split(tabPhoneFichier(i), "/")
+    '            For Each tel As String In tmpTab
+    '                If Not String.IsNullOrWhiteSpace(tel) Then
+    '                    result.Add(tel.Trim())
+    '                End If
+    '            Next
+    '        Else
+    '            result.Add(tabPhoneFichier(i).Trim())
+    '        End If
+    '    Next
+
+    '    Return result.ToArray()
+    'End Function
+
+    Private Function GetTelephonePrincipalHorsMobile(telephonesNormalises As String) As String
+        Dim telephones As List(Of String) = DecouperTelephones(telephonesNormalises)
+
+        For Each tel As String In telephones
+            If Not EstTelephoneMobile(tel) Then
+                Return tel
+            End If
+        Next
+
+        Return ""
+    End Function
+    ''' <summary>
+    ''' Applique la règle spécifique Xivo sur la valeur métier de l'attribut ipPhone.
+    ''' </summary>
+    ''' <param name="userRH">
+    ''' Utilisateur RH normalisé.
+    ''' </param>
+    ''' <param name="listExtensionsXivo">
+    ''' Contenu brut retourné par l'API Xivo pour les lignes SIP.
+    ''' </param>
+    ''' <returns>
+    ''' Retourne la valeur finale attendue pour l'attribut <c>ipPhone</c>.
+    ''' </returns>
+    ''' <remarks>
+    ''' La valeur de base d'ipPhone doit déjà avoir été construite dans <c>UtilisateurRH.ipPhone</c>.
+    ''' Cette fonction n'applique que la règle spécifique dépendante de Xivo.
+    ''' </remarks>
+    'Private Function BuildIpPhoneValueAvecXivo(userRH As UtilisateurRH, listExtensionsXivo As String) As String
+    '    Dim ipPhone As String = userRH.ipPhone
+
+    '    If String.IsNullOrWhiteSpace(ipPhone) Then
+    '        Return ""
+    '    End If
+
+    '    If String.IsNullOrWhiteSpace(listExtensionsXivo) Then
+    '        Return ipPhone
+    '    End If
+
+    '    If Len(ipPhone) <> 4 Then
+    '        Return ipPhone
+    '    End If
+
+    '    Try
+    '        Dim root As JObject = JObject.Parse(listExtensionsXivo)
+    '        Dim items As JToken = root("items")
+
+    '        If items Is Nothing OrElse items.Type <> JTokenType.Array Then
+    '            Return ipPhone
+    '        End If
+
+    '        Dim nomComplet As String = LCase(userRH.prenom_givenName & " " & userRH.nom_sn)
+
+    '        For Each item As JToken In items
+    '            Dim callerid As String = item("callerid")?.ToString()
+
+    '            If String.IsNullOrWhiteSpace(callerid) Then
+    '                Continue For
+    '            End If
+
+    '            If LCase(callerid).Contains("""" & nomComplet & """") Then
+    '                Return ""
+    '            End If
+    '        Next
+
+    '    Catch ex As Exception
+    '        Throw New Exception("Erreur lors de l'analyse du JSON Xivo : " & ex.Message)
+    '    End Try
+
+    '    Return ipPhone
+    'End Function
+
+    ''' <summary>
+    ''' Convertit un <see cref="UserRaw"/> en <c>UtilisateurRH</c> pour rester compatible
+    ''' avec le reste du code métier qui manipule encore cette classe historique.
+    ''' </summary>
+    ''' <param name="user">
+    ''' Utilisateur brut issu du dictionnaire chargé depuis le fichier RH.
+    ''' </param>
+    ''' <returns>
+    ''' Retourne une instance de <c>UtilisateurRH</c> alimentée à partir de <see cref="UserRaw"/>.
+    ''' </returns>
+    ''' <remarks>
+    ''' Cette méthode sert de pont entre le nouveau modèle <see cref="UserRaw"/> et l'ancien code
+    ''' qui attend encore un objet <c>UtilisateurRH</c>.
+    ''' </remarks>
+    Private Function ConvertToUtilisateurRH(user As UserRaw, dnParEmployeeId As Dictionary(Of String, String), badgesParEmployeeId As Dictionary(Of String, String())) As UtilisateurRH
+        Dim userRH As New UtilisateurRH()
+
+        userRH.nom_sn = user.lastname
+        userRH.prenom_givenName = user.firstname
+        userRH.login_samAccountName = user.login
+        userRH.departmentNumber_destinationNomCourt = user.Dest_short_name
+        userRH.department_destinationNomLong = user.dest_name
+        userRH.tempsTravail = user.time_rate
+        userRH.physicalDeliveryOfficeName_bureaux = user.BatimentUser
+
+        ConstruireDonneesTelephoniques(user, userRH)
+
+        userRH.equipeInfo = user.equipeUser
+
+        Dim idEquipeInfo As String = ObtenirIdEquipeInfoDepuisNomCourt(userRH.equipeInfo)
+
+        If idEquipeInfo <> "" AndAlso DicoEquipesInfoRefRH.ContainsKey(idEquipeInfo) Then
+            userRH.equipeInfoDico = DicoEquipesInfoRefRH(idEquipeInfo)
+        Else
+            userRH.equipeInfoDico = Nothing
+        End If
+
+        userRH.manager_IDNplus1 = user.Nplus1ID
+
+        If user.Nplus1ID <> "" AndAlso dnParEmployeeId.ContainsKey(user.Nplus1ID) Then
+            userRH.DNNplus1 = dnParEmployeeId(user.Nplus1ID)
+        Else
+            userRH.DNNplus1 = ""
+        End If
+        userRH.employeeID_id = user.IDuser
+        userRH.msExchExtensionAttribute16_aliasMailLong = user.aliasMail
+        userRH.listesDiffusions = user.ld
+        userRH.division_organism = user.organism
+        userRH.extensionAttribute1_finDeContrat = user.finContrat
+        userRH.extensionAttribute2_genre = user.genre
+        userRH.title_unité = user.uniteName
+
+        Dim badges As String() = Nothing
+
+        If badgesParEmployeeId IsNot Nothing AndAlso badgesParEmployeeId.ContainsKey(userRH.employeeID_id) Then
+            badges = badgesParEmployeeId(userRH.employeeID_id)
+        End If
+
+        userRH.serialNumber_serialNumber = TrierTableau(badges)
+
+        If userRH.serialNumber_serialNumber IsNot Nothing AndAlso userRH.serialNumber_serialNumber.Length = 1 Then
+            userRH.employeeNumber_employeeNumber = userRH.serialNumber_serialNumber(0)
+        Else
+            userRH.employeeNumber_employeeNumber = ""
+        End If
+
+        userRH.memberOf_groupeRH = ConstruireGroupesRH(userRH)
+        userRH.destinationsRH = If(user.destinationsRH, New String() {})
+        userRH.memberOf_groupeRH = ConstruireGroupesRH(userRH)
+
+        Return userRH
+    End Function
+
+    '''' <summary>
+    '''' Construit la valeur attendue pour l'attribut AD <c>ipPhone</c>.
+    '''' </summary>
+    '''' <param name="telephones">
+    '''' Chaîne des téléphones séparés par des point-virgules.
+    '''' </param>
+    '''' <returns>
+    '''' Retourne la valeur calculée pour <c>ipPhone</c>.
+    '''' </returns>
+    'Private Function BuildIpPhoneValue(telephones As String) As String
+    '    Dim ipPhone As String = GetTelephonePrincipal(telephones)
+
+    '    ipPhone = Replace(ipPhone, "(+3336948) ", "")
+    '    ipPhone = Replace(ipPhone, "(+3338865) ", "")
+    '    ipPhone = Replace(ipPhone, ")", "")
+    '    ipPhone = Replace(ipPhone, "+33 ", "0")
+
+    '    Return ipPhone
+    'End Function
+    Private Function ChargerIndexDnParEmployeeId() As Dictionary(Of String, String)
+        Dim result As New Dictionary(Of String, String)(StringComparer.OrdinalIgnoreCase)
+
+        Using ldap As New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
+            Using searcher As New DirectorySearcher(ldap)
+                searcher.Filter = "(&(objectClass=user)(employeeID=*))"
+                searcher.SearchScope = SearchScope.Subtree
+                searcher.PageSize = 1000
+                searcher.PropertiesToLoad.Clear()
+                searcher.PropertiesToLoad.Add("employeeID")
+                searcher.PropertiesToLoad.Add("distinguishedName")
+
+                Using results As SearchResultCollection = searcher.FindAll()
+                    For Each r As SearchResult In results
+                        Dim employeeId As String = LireProp(r, "employeeID")
+                        Dim dn As String = LireProp(r, "distinguishedName")
+
+                        If employeeId <> "" AndAlso Not result.ContainsKey(employeeId) Then
+                            result.Add(employeeId, dn)
+                        End If
+                    Next
+                End Using
+            End Using
+        End Using
+
+        Return result
+    End Function
+
+    ''' <summary>
+    ''' Prépare les fichiers de travail, charge la liste des utilisateurs,
+    ''' fusionne les doublons multi-équipe et génère le fichier final mono-équipe.
+    ''' </summary>
+    ''' <returns>
+    ''' Retourne <c>True</c> si le traitement s'est terminé correctement ; sinon <c>False</c>.
+    ''' </returns>
+    ''' <remarks>
+    ''' Le comportement dépend de la variable globale <c>withJson</c>.
+    ''' En mode <c>json</c>, les données sont régénérées depuis igbmcservices.
+    ''' En mode <c>debug</c>, des fichiers de référence sont copiés dans <c>c:\temp</c>.
+    ''' </remarks>
+    Public Function CreationFichiers() As Boolean
         Dim result As Boolean = False
+
+        ' Première étape : selon le mode choisi, on prépare les fichiers source.
         If withJson = "json" Then
             Commun.Journal("Debut de recuperation des données de igbmcservices")
+
+            ' Appel HTTP vers igbmcservices pour récupérer les destinations de type équipe.
             Dim dataJsonDestinationTrue As String = Json.SendJson("", "destinations?is_team=true", "AD", "GET")
-            If dataJsonDestinationTrue = Nothing Then End
+            If dataJsonDestinationTrue Is Nothing Then End
+
             Dim tabDestinationsJsonIsTrue = Json.DeserializeJson(dataJsonDestinationTrue, "destinations")
+
+            ' Cette méthode existante génère ensuite les fichiers texte exploités par le reste du traitement.
             creationFichierParJson(tabDestinationsJsonIsTrue)
+
         ElseIf withJson = "debug" Then
             Commun.Journal("Mode DEBUG : recuperation des fichiers de données")
+
+            ' En mode debug, on recopie simplement des fichiers de référence dans c:\temp.
             File.Copy(ini.ReadValue("MODIFAUTO", "CheminPartage") & "\todo\eq.txt", "c:\temp\eq.txt", True)
             File.Copy(ini.ReadValue("MODIFAUTO", "CheminPartage") & "\todo\listepersoJson.txt", "c:\temp\listepersoJson.txt", True)
+
         ElseIf withJson = "temp" Then
+            ' Rien à faire ici pour l'instant.
 
         Else
             End
         End If
 
         Try
-            'DETERMINER L'EQUIPE PRINCIPALE
+            ' Charge tous les utilisateurs depuis le fichier source.
+            ' Le dictionnaire est indexé par IDuser pour fusionner automatiquement les doublons.
+            Dim users As Dictionary(Of String, UserRaw) = LoadUsersFromFile("c:\temp\listepersoJson.txt")
+            Dim referentielDestinationsDepartements As ReferentielDestinationsDepartements = LoadReferentielDestinationsDepartementsFromFile("c:\temp\eq.txt")
 
-            FileOpen(1, "c:\temp\listepersoJson.txt", OpenMode.Input) 'fichier du personnel sans accent multi equipe
+            If referentielDestinationsDepartements Is Nothing Then
+                Throw New Exception("Referentiel destinations/departements non chargé")
+            End If
 
-            Dim ligneP As String
-            Dim lignePerso As String()
-            Dim champE As String()
-            Dim ligneE As String
-            Dim j As Integer
+            If referentielDestinationsDepartements.Destinations Is Nothing OrElse referentielDestinationsDepartements.Destinations.Count = 0 Then
+                Throw New Exception("Aucune destination chargée")
+            End If
 
-            Dim g As Integer = 0
-            While Not EOF(1)
+            If referentielDestinationsDepartements.Departements Is Nothing OrElse referentielDestinationsDepartements.Departements.Count = 0 Then
+                Throw New Exception("Aucun departement chargé")
+            End If
 
-                ligneP = LineInput(1)
-                lignePerso = Split(ligneP, ",")
-                'evite les lignes vides
-                If lignePerso.Length > 1 Then
-                    ReDim Preserve tabPersoMonoEquipe(17, g)
-                    tabPersoMonoEquipe(0, g) = lignePerso(0)
-                    tabPersoMonoEquipe(1, g) = lignePerso(1)
-                    tabPersoMonoEquipe(2, g) = lignePerso(2)
-                    tabPersoMonoEquipe(3, g) = lignePerso(3)
-                    tabPersoMonoEquipe(4, g) = lignePerso(4)
-                    tabPersoMonoEquipe(5, g) = lignePerso(5)
-                    tabPersoMonoEquipe(6, g) = lignePerso(6)
-                    tabPersoMonoEquipe(7, g) = lignePerso(7)
-                    tabPersoMonoEquipe(8, g) = lignePerso(8)
-                    tabPersoMonoEquipe(9, g) = lignePerso(9)
-                    tabPersoMonoEquipe(10, g) = lignePerso(10)
-                    tabPersoMonoEquipe(11, g) = lignePerso(11)
-                    tabPersoMonoEquipe(12, g) = lignePerso(12)
-                    tabPersoMonoEquipe(13, g) = lignePerso(13)
-                    tabPersoMonoEquipe(14, g) = lignePerso(14)
-                    tabPersoMonoEquipe(15, g) = lignePerso(15)
-                    tabPersoMonoEquipe(16, g) = lignePerso(16)
-                    tabPersoMonoEquipe(17, g) = lignePerso(17)
-                    lignePerso = Nothing
+            ViderDictionnaires()
 
-                    If tabPersoMonoEquipe Is Nothing Then Throw New Exception("tabPerso est vide")
+            DicoDestinationsRH = referentielDestinationsDepartements.Destinations
+            DicoDepartementsRH = referentielDestinationsDepartements.Departements
+            DicoEquipesInfoRefRH = referentielDestinationsDepartements.EquipesInfo
 
-                    If g <> 0 Then
-                        'comparaison de 2 lignes du meme utilisateur (dans le cas d'equipe multiple) 
-                        If tabPersoMonoEquipe(10, g) = tabPersoMonoEquipe(10, g - 1) Then
+            DicoGroupesDiffusionRH("phd") = Commun.TransformeSAMACCOUNTenCN("phd")
+            DicoGroupesDiffusionRH("postdoc") = Commun.TransformeSAMACCOUNTenCN("postdoc")
 
-                            'Si le temps de travail dans une equipe, pour le meme utilisateur, est superieur a la ligne precedente, on reecrit le debut de la ligne precedente
-                            If tabPersoMonoEquipe(5, g) > tabPersoMonoEquipe(5, g - 1) Then
-                                tabPersoMonoEquipe(0, g - 1) = tabPersoMonoEquipe(0, g)
-                                tabPersoMonoEquipe(1, g - 1) = tabPersoMonoEquipe(1, g)
-                                tabPersoMonoEquipe(2, g - 1) = tabPersoMonoEquipe(2, g)
-                                tabPersoMonoEquipe(3, g - 1) = tabPersoMonoEquipe(3, g)
-                                tabPersoMonoEquipe(4, g - 1) = tabPersoMonoEquipe(4, g)
-                                tabPersoMonoEquipe(5, g - 1) = tabPersoMonoEquipe(5, g)
-                                tabPersoMonoEquipe(8, g - 1) = tabPersoMonoEquipe(8, g)
-                                'Cas (Gilles Duval) faisant parti de 2 équipes, et etant chef de celle ou il travaille le plus => aucun chef ne resortait (bug igbmcservices)
-                                If tabPersoMonoEquipe(9, g) <> "" Then
-                                    tabPersoMonoEquipe(9, g - 1) = tabPersoMonoEquipe(9, g)
-                                End If
-                                tabPersoMonoEquipe(13, g - 1) = tabPersoMonoEquipe(13, g)
-                                tabPersoMonoEquipe(14, g - 1) = tabPersoMonoEquipe(14, g)
-                                g = g - 1
-                            Else
-                                If tabPersoMonoEquipe(9, g - 1) = "" Then
-                                    tabPersoMonoEquipe(9, g - 1) = tabPersoMonoEquipe(9, g)
-                                End If
-                                g = g - 1
-                            End If
-                        End If
-                    End If
-                    g = g + 1
-                End If
-            End While
+            If users Is Nothing OrElse users.Count = 0 Then
+                Throw New Exception("Aucun utilisateur chargé")
+            End If
 
-            FileClose(1)
+            ' Écrit le fichier final mono-équipe, après normalisation des bâtiments et téléphones.
+            SaveUsersToFile("c:\temp\listep.txt", users)
 
-            FileOpen(1, "c:\temp\listep.txt", OpenMode.Output) 'fichier du personnel sans accent mono equipe
-
-            For i = 0 To g - 1
-                tabPersoMonoEquipe(6, i) = Replace(tabPersoMonoEquipe(6, i), "BATIMENT ICS", "ICS")
-                tabPersoMonoEquipe(6, i) = Replace(tabPersoMonoEquipe(6, i), "C.E.B.G.S", "CEBGS")
-                tabPersoMonoEquipe(6, i) = Replace(tabPersoMonoEquipe(6, i), "E.S.B.S.", "ESBS")
-
-                Dim tabTelTemp = Split(tabPersoMonoEquipe(7, i), ";")
-                Dim telTemp As String = ""
-                For j = 0 To UBound(tabTelTemp)
-                    If tabTelTemp(j) <> "----" Then
-
-                        If Len(tabTelTemp(j)) = 4 Then
-                            Dim prefixTel As String = ""
-
-                            If Strings.Left(tabTelTemp(j), 2) = "32" Or Strings.Left(tabTelTemp(j), 2) = "33" Or Strings.Left(tabTelTemp(j), 2) = "34" Or Strings.Left(tabTelTemp(j), 2) = "35" Or Strings.Left(tabTelTemp(j), 2) = "56" Or Strings.Left(tabTelTemp(j), 2) = "57" Then
-                                prefixTel = "(+3338865) "
-                            End If
-
-                            If Strings.Left(tabTelTemp(j), 2) = "50" Or Strings.Left(tabTelTemp(j), 2) = "51" Or Strings.Left(tabTelTemp(j), 2) = "52" Then
-                                prefixTel = "(+3336948) "
-                            End If
-
-
-                            telTemp = telTemp & ";" & prefixTel & tabTelTemp(j)
-                        ElseIf Len(tabTelTemp(j)) = 10 And Strings.Left(tabTelTemp(j), 1) = "0" Then
-                            'Remplacement uniquement du premier "0"
-                            telTemp = telTemp & ";" & Replace(tabTelTemp(j), "0", "+33 ", 1, 1)
-                        Else
-                            telTemp = telTemp & ";" & tabTelTemp(j)
-                        End If
-                    Else
-                        telTemp = telTemp & ";"
-                    End If
-                Next j
-                telTemp = Strings.Right(telTemp, Len(telTemp) - 1)
-                tabPersoMonoEquipe(7, i) = telTemp
-                PrintLine(1, tabPersoMonoEquipe(0, i) & "," & tabPersoMonoEquipe(1, i) & "," & tabPersoMonoEquipe(2, i) & "," & tabPersoMonoEquipe(3, i) & "," & tabPersoMonoEquipe(4, i) & "," & tabPersoMonoEquipe(5, i) & "," & tabPersoMonoEquipe(6, i) & "," & tabPersoMonoEquipe(7, i) & "," & tabPersoMonoEquipe(8, i) & "," & tabPersoMonoEquipe(9, i) & "," & tabPersoMonoEquipe(10, i) & "," & tabPersoMonoEquipe(11, i))
-            Next i
-            FileClose(1)
-
-
-            'CREATION DE LA LISTE DES DESTINATIONS
             result = True
+
         Catch ex As Exception
             Commun.Journal("ERREUR : Creation des fichiers et des tableaux : " & ex.Message, True)
             Commun.SendEmail(AdminScriptLogin & "@igbmc.fr", "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
             Return result
-            Exit Function
         End Try
+
         Return result
     End Function
+
+    Private Function LoadReferentielDestinationsDepartementsFromFile(path As String) As ReferentielDestinationsDepartements
+        Dim destinations As New Dictionary(Of String, DestinationInfo)
+        Dim departements As New Dictionary(Of String, DepartementInfo)
+        Dim equipesInfo As New Dictionary(Of String, EquipeInfo)
+
+        FileOpen(1, path, OpenMode.Input)
+        Try
+            While Not EOF(1)
+                Dim ligne As String = LineInput(1)
+
+                If String.IsNullOrWhiteSpace(ligne) OrElse InStr(ligne, ",") = 0 Then
+                    Continue While
+                End If
+
+                Dim temp() As String = Split(ligne, ",")
+                If temp.Length < 7 Then
+                    Continue While
+                End If
+
+                Dim nomCourtDest As String = temp(0).Trim()
+                Dim nomLongDest As String = temp(1).Trim()
+                Dim idDest As String = temp(2).Trim()
+                Dim loginResponsable As String = temp(3).Trim()
+                Dim nomCourtDept As String = temp(4).Trim()
+                Dim nomLongDept As String = temp(5).Trim()
+                Dim idDept As String = temp(6).Trim()
+
+                Dim equipeInfoNomCourt As String = ""
+                Dim equipeInfoNomLong As String = ""
+                Dim idEquipeInfo As String = ""
+                Dim dnDestAd As String = ""
+                Dim dnEquipeInfoEqAd As String = ""
+
+                ModEquipeDestinationDepartement.ChargerInfosEquipeDepuisDestinationNomCourt(nomCourtDest,
+                                                            equipeInfoNomCourt,
+                                                            equipeInfoNomLong,
+                                                            idEquipeInfo,
+                                                            dnDestAd,
+                                                            dnEquipeInfoEqAd)
+
+                If String.IsNullOrWhiteSpace(idEquipeInfo) Then
+                    idEquipeInfo = "externe"
+                End If
+
+                If Not destinations.ContainsKey(idDest) Then
+                    destinations.Add(idDest, New DestinationInfo With {
+                        .id_dest = idDest,
+                        .nom_court_dest = nomCourtDest,
+                        .nom_long_dest = nomLongDest,
+                        .id_equipeinfo = idEquipeInfo,
+                        .id_dept = idDept,
+                        .login_responsable_dest = loginResponsable,
+                        .dn_dest_ad = dnDestAd
+                    })
+                End If
+
+                If Not departements.ContainsKey(idDept) Then
+                    departements.Add(idDept, New DepartementInfo With {
+                        .id_dept = idDept,
+                        .nom_court_dept = nomCourtDept,
+                        .nom_long_dept = nomLongDept,
+                        .dn_dept_ad = ""
+                    })
+                End If
+
+                If Not String.IsNullOrWhiteSpace(idEquipeInfo) Then
+                    If Not equipesInfo.ContainsKey(idEquipeInfo) Then
+                        equipesInfo.Add(idEquipeInfo, New EquipeInfo With {
+                            .id_equipeinfo = idEquipeInfo,
+                            .nom_court_equipeinfo = equipeInfoNomCourt,
+                            .nom_long_equipeinfo = equipeInfoNomLong,
+                            .dn_equipeinfo_eq_ad = dnEquipeInfoEqAd
+                        })
+                    End If
+                End If
+            End While
+        Finally
+            FileClose(1)
+        End Try
+
+        Dim dicoDnDepartementsAd As Dictionary(Of String, String) = ModEquipeDestinationDepartement.ChargerDnDepartementsDepuisAd()
+
+        For Each kvp As KeyValuePair(Of String, DepartementInfo) In departements
+            Dim idDept As String = kvp.Key
+            If dicoDnDepartementsAd.ContainsKey(idDept) Then
+                kvp.Value.dn_dept_ad = dicoDnDepartementsAd(idDept)
+            End If
+        Next
+
+        Return New ReferentielDestinationsDepartements With {
+            .Destinations = destinations,
+            .Departements = departements,
+            .EquipesInfo = equipesInfo
+        }
+    End Function
+
+
+    ''' <summary>
+    ''' Lit le fichier source des utilisateurs et construit un dictionnaire indexé par identifiant utilisateur.
+    ''' </summary>
+    ''' <param name="filePath">
+    ''' Chemin complet du fichier source à lire.
+    ''' </param>
+    ''' <returns>
+    ''' Retourne un dictionnaire contenant un seul <see cref="UserRaw"/> par <c>IDuser</c>.
+    ''' </returns>
+    ''' <remarks>
+    ''' Si un même utilisateur apparaît plusieurs fois, les lignes sont fusionnées via <c>MergeUser</c>
+    ''' pour conserver l'équipe principale.
+    ''' </remarks>
+    Private Function LoadUsersFromFile(filePath As String) As Dictionary(Of String, UserRaw)
+        ' Le dictionnaire contient un seul enregistrement final par ID utilisateur.
+        ' StringComparer.OrdinalIgnoreCase évite qu'un même ID avec une casse différente soit vu comme 2 utilisateurs.
+        Dim users As New Dictionary(Of String, UserRaw)(StringComparer.OrdinalIgnoreCase)
+
+        FileOpen(1, filePath, OpenMode.Input)
+
+        Try
+            While Not EOF(1)
+                Dim ligneP As String = LineInput(1)
+
+                ' Transforme la ligne CSV en objet UserRaw.
+                Dim user As UserRaw = ParseUserRaw(ligneP)
+                'If user Is Nothing Then
+                '    Commun.Journal("ParseUserRaw = Nothing | ligne = " & ligneP, True)
+                '    Continue While
+                'End If
+                ' Si la ligne est invalide ou incomplète, on l'ignore.
+                If user Is Nothing Then
+                    Continue While
+                End If
+
+                ' Sans IDuser, on ne peut pas identifier ni fusionner l'utilisateur.
+                If String.IsNullOrWhiteSpace(user.IDuser) Then
+                    Continue While
+                End If
+
+                ' Si l'utilisateur existe déjà, cela signifie qu'il apparaît sur plusieurs équipes.
+                ' On applique alors la règle métier de fusion pour conserver l'équipe principale.
+                If users.ContainsKey(user.IDuser) Then
+                    users(user.IDuser) = MergeUser(users(user.IDuser), user)
+                Else
+                    ' Premier passage pour cet utilisateur : on l'ajoute tel quel.
+                    users.Add(user.IDuser, user)
+                End If
+            End While
+        Finally
+            FileClose(1)
+        End Try
+
+        Return users
+    End Function
+
+    ''' <summary>
+    ''' Convertit une ligne texte du fichier source en objet <see cref="UserRaw"/>.
+    ''' </summary>
+    ''' <param name="ligneP">
+    ''' Ligne brute issue du fichier <c>listepersoJson.txt</c>.
+    ''' </param>
+    ''' <returns>
+    ''' Retourne un objet <see cref="UserRaw"/> si la ligne contient au moins 18 colonnes ; sinon <c>Nothing</c>.
+    ''' </returns>
+    ''' <remarks>
+    ''' Cette implémentation repose sur un simple <c>Split</c> sur la virgule.
+    ''' Elle reste donc sensible aux champs qui contiendraient eux-mêmes des virgules.
+    ''' </remarks>
+    Private Function ParseUserRaw(ligneP As String) As UserRaw
+        If String.IsNullOrWhiteSpace(ligneP) Then
+            Return Nothing
+        End If
+
+        Dim tabP As String() = Split(ligneP, ","c)
+
+        If tabP Is Nothing OrElse tabP.Length < 18 Then
+            Return Nothing
+        End If
+
+        Dim user As New UserRaw
+
+        user.lastname = Trim(tabP(0))
+        user.firstname = Trim(tabP(1))
+        user.login = LCase(Trim(tabP(2)))
+        user.Dest_short_name = Trim(tabP(3))
+        user.dest_name = Trim(tabP(4))
+
+        Dim tr As Integer = 0
+        If Not String.IsNullOrWhiteSpace(tabP(5)) Then
+            Integer.TryParse(Split(tabP(5), "."c)(0), tr)
+        End If
+        user.time_rate = tr
+
+        user.BatimentUser = Trim(tabP(6))
+        user.TelUser = Trim(tabP(7))
+        user.equipeUser = Trim(tabP(8))
+        user.Nplus1ID = Trim(tabP(9))
+        user.IDuser = Trim(tabP(10))
+        user.aliasMail = Trim(tabP(11))
+        user.ld = LCase(Trim(tabP(12)))
+        user.organism = Trim(tabP(13))
+        user.finContrat = Trim(tabP(14))
+        user.genre = Trim(tabP(15))
+        user.diffusionPhotoInterne = Trim(tabP(16))
+        user.uniteName = Trim(tabP(17))
+
+        If String.IsNullOrWhiteSpace(user.Dest_short_name) Then
+            user.destinationsRH = New String() {}
+        Else
+            user.destinationsRH = New String() {user.Dest_short_name}
+        End If
+
+        Return user
+    End Function
+
+    ''' <summary>
+    ''' Fusionne deux occurrences d'un même utilisateur afin de conserver la ligne métier la plus pertinente.
+    ''' </summary>
+    ''' <param name="existingUser">
+    ''' Utilisateur déjà présent dans le dictionnaire.
+    ''' </param>
+    ''' <param name="newUser">
+    ''' Nouvelle occurrence du même utilisateur lue dans le fichier source.
+    ''' </param>
+    ''' <returns>
+    ''' Retourne l'utilisateur fusionné à conserver dans le dictionnaire.
+    ''' </returns>
+    ''' <remarks>
+    ''' La règle principale consiste à garder la ligne avec le plus grand <c>time_rate</c>.
+    ''' Si la ligne prioritaire ne contient pas de <c>Nplus1ID</c>, l'ancien chef est conservé.
+    ''' </remarks>
+    Private Function MergeUser(existingUser As UserRaw, newUser As UserRaw) As UserRaw
+        ' Fusion des destinations avant toute chose, pour ne rien perdre.
+        Dim destinations As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+
+        For Each d As String In If(existingUser.destinationsRH, New String() {})
+            If Not String.IsNullOrWhiteSpace(d) Then
+                destinations.Add(d.Trim())
+            End If
+        Next
+
+        For Each d As String In If(newUser.destinationsRH, New String() {})
+            If Not String.IsNullOrWhiteSpace(d) Then
+                destinations.Add(d.Trim())
+            End If
+        Next
+
+        If Not String.IsNullOrWhiteSpace(existingUser.Dest_short_name) Then
+            destinations.Add(existingUser.Dest_short_name.Trim())
+        End If
+
+        If Not String.IsNullOrWhiteSpace(newUser.Dest_short_name) Then
+            destinations.Add(newUser.Dest_short_name.Trim())
+        End If
+
+        ' Règle principale : on conserve la ligne avec le plus grand time_rate.
+        If newUser.time_rate > existingUser.time_rate Then
+            Dim oldManager As String = existingUser.Nplus1ID
+
+            existingUser.lastname = newUser.lastname
+            existingUser.firstname = newUser.firstname
+            existingUser.login = newUser.login
+            existingUser.Dest_short_name = newUser.Dest_short_name
+            existingUser.dest_name = newUser.dest_name
+            existingUser.time_rate = newUser.time_rate
+            existingUser.BatimentUser = newUser.BatimentUser
+            existingUser.TelUser = newUser.TelUser
+            existingUser.equipeUser = newUser.equipeUser
+            existingUser.IDuser = newUser.IDuser
+            existingUser.aliasMail = newUser.aliasMail
+            existingUser.ld = newUser.ld
+            existingUser.organism = newUser.organism
+            existingUser.finContrat = newUser.finContrat
+            existingUser.genre = newUser.genre
+            existingUser.diffusionPhotoInterne = newUser.diffusionPhotoInterne
+            existingUser.uniteName = newUser.uniteName
+
+            If newUser.Nplus1ID <> "" Then
+                existingUser.Nplus1ID = newUser.Nplus1ID
+            Else
+                existingUser.Nplus1ID = oldManager
+            End If
+        Else
+            If existingUser.Nplus1ID = "" AndAlso newUser.Nplus1ID <> "" Then
+                existingUser.Nplus1ID = newUser.Nplus1ID
+            End If
+        End If
+
+        ' On réinjecte les destinations fusionnées à la fin.
+        existingUser.destinationsRH = destinations.ToArray()
+
+        Return existingUser
+    End Function
+
+    ''' <summary>
+    ''' Écrit le fichier final mono-équipe à partir du dictionnaire d'utilisateurs fusionnés.
+    ''' </summary>
+    ''' <param name="filePath">
+    ''' Chemin complet du fichier de sortie à générer.
+    ''' </param>
+    ''' <param name="users">
+    ''' Dictionnaire des utilisateurs à écrire.
+    ''' </param>
+    ''' <remarks>
+    ''' Avant écriture, certains champs sont normalisés, notamment le bâtiment et les numéros de téléphone.
+    ''' Le format de sortie reste compatible avec le format historique attendu par le reste de l'application.
+    ''' </remarks>
+    Private Sub SaveUsersToFile(filePath As String, users As Dictionary(Of String, UserRaw))
+        FileOpen(1, filePath, OpenMode.Output)
+
+        Try
+            For Each kvp As KeyValuePair(Of String, UserRaw) In users
+                Dim user As UserRaw = kvp.Value
+
+                ' Normalise certaines valeurs avant écriture dans le fichier final.
+                user.BatimentUser = NormalizeBuilding(user.BatimentUser)
+                user.TelUser = NormalizePhoneNumbers(user.TelUser)
+
+                ' On conserve ici le format historique du fichier de sortie.
+                PrintLine(1,
+                    user.lastname & "," &
+                    user.firstname & "," &
+                    user.login & "," &
+                    user.Dest_short_name & "," &
+                    user.dest_name & "," &
+                    user.time_rate & "," &
+                    user.BatimentUser & "," &
+                    user.TelUser & "," &
+                    user.equipeUser & "," &
+                    user.Nplus1ID & "," &
+                    user.IDuser & "," &
+                    user.aliasMail)
+            Next
+        Finally
+            FileClose(1)
+        End Try
+    End Sub
+
+    ''' <summary>
+    ''' Remplace certains libellés de bâtiments par une version courte et homogène.
+    ''' </summary>
+    ''' <param name="building">
+    ''' Libellé du bâtiment à normaliser.
+    ''' </param>
+    ''' <returns>
+    ''' Retourne le libellé normalisé.
+    ''' </returns>
+    ''' <remarks>
+    ''' Cette méthode applique uniquement des remplacements textuels simples.
+    ''' </remarks>
+    Private Function NormalizeBuilding(building As String) As String
+        ' Uniformise certains noms de bâtiments pour garder un libellé court et cohérent.
+        building = Replace(building, "BATIMENT ICS", "ICS")
+        building = Replace(building, "C.E.B.G.S", "CEBGS")
+        building = Replace(building, "E.S.B.S.", "ESBS")
+        Return building
+    End Function
+
+    ''' <summary>
+    ''' Normalise une liste de numéros de téléphone séparés par des point-virgules.
+    ''' </summary>
+    ''' <param name="phoneRaw">
+    ''' Chaîne brute contenant zéro, un ou plusieurs numéros de téléphone.
+    ''' </param>
+    ''' <returns>
+    ''' Retourne la chaîne des numéros après normalisation.
+    ''' </returns>
+    ''' <remarks>
+    ''' Les numéros internes sur 4 chiffres sont complétés avec un préfixe externe.
+    ''' Les numéros français sur 10 chiffres commençant par 0 sont convertis en format <c>+33</c>.
+    ''' Le marqueur <c>----</c> est converti en valeur vide.
+    ''' </remarks>
+    Private Function NormalizePhoneNumbers(phoneRaw As String) As String
+        ' Le fichier peut contenir plusieurs téléphones séparés par des ';'.
+        Dim tabTelTemp = Split(phoneRaw, ";")
+        Dim result As New List(Of String)
+
+        For Each tel As String In tabTelTemp
+            If tel <> "----" Then
+                ' Cas d'un numéro interne sur 4 chiffres.
+                If Len(tel) = 4 Then
+                    Dim prefixTel As String = ""
+
+                    ' Selon le préfixe interne, on reconstitue le numéro externe correspondant.
+                    If Strings.Left(tel, 2) = "32" OrElse Strings.Left(tel, 2) = "33" OrElse Strings.Left(tel, 2) = "34" OrElse Strings.Left(tel, 2) = "35" OrElse Strings.Left(tel, 2) = "56" OrElse Strings.Left(tel, 2) = "57" Then
+                        prefixTel = "(+3338865) "
+                    End If
+
+                    If Strings.Left(tel, 2) = "50" OrElse Strings.Left(tel, 2) = "51" OrElse Strings.Left(tel, 2) = "52" Then
+                        prefixTel = "(+3336948) "
+                    End If
+
+                    result.Add(prefixTel & tel)
+
+                    ' Cas d'un numéro français sur 10 chiffres commençant par 0.
+                ElseIf Len(tel) = 10 AndAlso Strings.Left(tel, 1) = "0" Then
+                    ' On remplace le 0 initial par l'indicatif +33.
+                    result.Add("+33 " & tel.Substring(1))
+                Else
+                    ' Sinon on laisse la valeur telle quelle.
+                    result.Add(tel)
+                End If
+            Else
+                ' Le marqueur ---- est transformé en champ vide dans le fichier final.
+                result.Add("")
+            End If
+        Next
+
+        ' Recompose la liste des numéros dans le même format que l'entrée.
+        Return String.Join(";", result)
+    End Function
+
+
     Public Sub GestionComptesExternes()
         Commun.Journal("Debut de la gestion des comptes Externes", False)
 
@@ -1122,15 +2457,15 @@ Module Module1
             Using searcher As DirectorySearcher = New DirectorySearcher(objADExt)
                 searcher.SearchScope = SearchScope.OneLevel
                 'searcher.Filter = "(&(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)(!(msExchRecipientTypeDetails=1))))"
-                searcher.Filter = "(&((&(objectClass=user)((!(msExchRecipientTypeDetails=1)))))(!(SAMAccountName=gardiens)))"
+                searcher.Filter = "(&((&(objectClass=user)((!(msExchRecipientTypeDetails=1)))))(!(sAMAccountName=gardiens)))"
                 results = searcher.FindAll
             End Using
             For Each result As SearchResult In results
-                Dim login1 As String = result.Properties("SAMAccountName")(0)
+                Dim login1 As String = result.Properties("sAMAccountName")(0)
                 Try
 
                     Using userExt As DirectoryEntry = result.GetDirectoryEntry
-                        Dim login As String = userExt.Properties("SAMAccountName").Value
+                        Dim login As String = userExt.Properties("sAMAccountName").Value
                         Commun.AddRemoveADGroup(login, "G_Externes", "Add")
 
                         ''ignorer les utilisateurs dont le contrat a expiré
@@ -1147,12 +2482,12 @@ Module Module1
                         End If
 
                         'si une des 2 propriétés n'est pas definie pour l'utilisateur
-                        If (Not userExt.Properties.Contains("Mail") Or Not userExt.Properties.Contains("proxyaddresses")) Then 'Or Not userExt.Properties.Contains("homeMDB") Then
-                            'Si la propriété "Mail" est presente, on lance la commande Powershell pour definir l'utilisateur comme "utilisateur avec Messagerie" dans Exchange
-                            If userExt.Properties.Contains("Mail") Then
-                                Dim mail As String = userExt.Properties("Mail").Value
+                        If (Not userExt.Properties.Contains("mail") Or Not userExt.Properties.Contains("proxyaddresses")) Then 'Or Not userExt.Properties.Contains("homeMDB") Then
+                            'Si la propriété "mail" est presente, on lance la commande Powershell pour definir l'utilisateur comme "utilisateur avec Messagerie" dans Exchange
+                            If userExt.Properties.Contains("mail") Then
+                                Dim mail As String = userExt.Properties("mail").Value
                                 If Strings.InStr(mail, "@igbmc.fr") = 0 Then
-                                    If commandePWSMailUser(userExt.Properties("samAccountName").Value, mail) = True Then
+                                    If Pws.commandePWSMailUser(userExt.Properties("samAccountName").Value, mail) = True Then
                                         userExt.Properties("description").Clear()
                                         Commun.AppliquerChangement(userExt)
                                         Commun.ReactiveDesactiveCompte(userExt, "active")
@@ -1182,7 +2517,7 @@ Module Module1
                                             Dim result1 As SearchResult = searcherMail.FindOne
                                             If result1 Is Nothing Then
                                                 userExt.Properties("description").Value = "Compte externe lié a un utilisateur interne parti"
-                                                userExt.Properties("Mail").Value = Nothing
+                                                userExt.Properties("mail").Value = Nothing
                                                 Commun.AppliquerChangement(userExt)
                                                 Commun.ReactiveDesactiveCompte(userExt, "desactive")
                                                 Commun.Journal("GestionComptesExternes : User Externe : Compte externe désacivé lié a une adresse interne inexistante : " & login)
@@ -1190,7 +2525,7 @@ Module Module1
                                         End Using
                                     End Using
                                 End If
-                                'si la propiété "proxyaddresses" est definie, on recupere l'adresse principale pour definir la propriété "Mail"
+                                'si la propiété "proxyaddresses" est definie, on recupere l'adresse principale pour definir la propriété "mail"
                             ElseIf userExt.Properties.Contains("proxyAddresses") Then
                                 Dim currentAddresses = userExt.Properties("proxyAddresses").Value
                                 'Dim adress As New List(Of String)
@@ -1201,7 +2536,7 @@ Module Module1
                                         Exit For
                                     End If
                                 Next value
-                                userExt.Properties("Mail").Value = addresseMailIdentifie
+                                userExt.Properties("mail").Value = addresseMailIdentifie
                                 userExt.Properties("description").Clear()
                                 Commun.AppliquerChangement(userExt)
                                 Commun.ReactiveDesactiveCompte(userExt, "active")
@@ -1209,7 +2544,7 @@ Module Module1
                             Else
                                 'MsgBox(userExt.Properties("displayname").Value)
                                 If Commun.AccountIsDisabled(userExt) = False Then
-                                    userExt.Properties("description").Value = "Desactivé le " & Strings.Left(CStr(Now), 10) & " : Aucune Adresse Mail de contact"
+                                    userExt.Properties("description").Value = "Desactivé le " & Strings.Left(CStr(Now), 10) & " : Aucune Adresse mail de contact"
                                     Commun.AppliquerChangement(userExt)
                                     Commun.ReactiveDesactiveCompte(userExt, "desactive")
                                     Commun.Journal("GestionComptesExternes : User Externe : Compte externe désacivé aucune adresse mail de contact : " & login)
@@ -1223,8 +2558,8 @@ Module Module1
                         End If
 
                         'si l'attribut mail est different de TargetAddress
-                        If "SMTP:" & userExt.Properties("Mail").Value <> userExt.Properties("TargetAddress").Value Then
-                            Dim newMail As String = "SMTP:" & userExt.Properties("Mail").Value
+                        If "SMTP:" & userExt.Properties("mail").Value <> userExt.Properties("TargetAddress").Value Then
+                            Dim newMail As String = "SMTP:" & userExt.Properties("mail").Value
                             Dim oldMail As String = userExt.Properties("TargetAddress").Value
                             Dim currentAddresses = userExt.Properties("proxyAddresses").Value
 
@@ -1234,7 +2569,7 @@ Module Module1
                             userExt.Properties("proxyAddresses").Value = currentAddresses
                             userExt.Properties("TargetAddress").Value = newMail
 
-                            userExt.CommitChanges()
+                            Commun.AppliquerChangement(userExt)
 
                         End If
 fermerUsing:
@@ -1248,70 +2583,10 @@ fermerUsing:
 
         Commun.Journal("Fin de la gestion des comptes externes")
     End Sub
-    Public Function commandePWSMailUser(ByVal aliasMail As String, ByVal externalEmail As String) As Boolean
-        Dim result As Boolean = False
-        Dim ctrlDomain As String = "serv-ad1"
-        Try
-            Dim pCredential As PSCredential
-            Dim pConnectionInfo As WSManConnectionInfo
-            Dim pRunspace As Runspace
-            Dim pShell As PowerShell
-            Dim pCommand As PSCommand
-            Dim pCommand1 As PSCommand
-            Dim pResult As Collection(Of PSObject)
-            Dim pResult1 As Collection(Of PSObject)
-
-            '-- set credentials      
-            pCredential = DirectCast(Nothing, PSCredential) 'New PSCredential("igbmc\steph", CreateSecurePasswordString("aaaaaa"))
-
-            '-- set connection info
-            pConnectionInfo = New WSManConnectionInfo(New Uri("http://serv-mbx12.igbmc.u-strasbg.fr/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
-            pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
-            '-- create remote runspace
-            pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
-            pRunspace.Open()
-
-            '-- create powershell
-            pShell = PowerShell.Create
-            pShell.Runspace = pRunspace
-
-            '-- create command
-            pCommand = New PSCommand
-            With pCommand
-                .AddCommand("Enable-MailUser")
-                .AddParameter("identity", aliasMail)
-                .AddParameter("alias", aliasMail)
-                .AddParameter("ExternalEmailAddress", externalEmail)
-                .AddParameter("DomainController", ctrlDomain)
-            End With
-
-            '-- add command to powershell
-            pShell.Commands = pCommand
-
-            '-- invoke the powershell
-            pResult = pShell.Invoke
-            If pResult.Count = 1 Then result = True
-            pRunspace.Close()
-            pRunspace.Dispose()
-
-        Catch e As Exception
-
-        End Try
-        Return result
-    End Function
 
 
 
-    Public Function MailCloture(ByVal prenom As String, ByVal dateDeSuppressionPrevue As String) As String
-        Return "Bonjour " & prenom & ", " & vbCrLf & vbCrLf & "Votre compte (mail, acces informatique, zone labo, profil,...) à l'IGBMC va etre definitivement supprimé le " _
-            & dateDeSuppressionPrevue & "." & vbCrLf & "Les données de votre zone Labo ont été mises à la disposition de votre chef d'equipe. Pour les récupérer, veuillez le contacter." _
-            & vbCrLf & "Veuillez récuperer les éléments de votre boite mail que vous souhaitez conserver, avant cette date." _
-            & vbCrLf & "Apres cette date, plus aucune récuperation, ne sera possible, elles seront definitivement detruites." _
-            & vbCrLf & vbCrLf & "En cas de besoin d'assistance, vous pouvez envoyer un mail à helpdesk@igbmc.fr" _
-            & vbCrLf & vbCrLf & "Le service Informatique."
-    End Function
-
-    Public Function MailCloture1(ByVal prenom As String, ByVal dateDeSuppressionPrevue As String, dateFindeContrat As String) As String
+    Public Function MailCloture(ByVal prenom As String, ByVal dateDeSuppressionPrevue As String, dateFindeContrat As String) As String
 
         Dim nbrJourRestant As Integer = DateDiff("d", Now, Convert.ToDateTime(dateDeSuppressionPrevue))
 
@@ -1365,7 +2640,7 @@ fermerUsing:
         Dim Entry As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
         Dim Searcher As New DirectorySearcher(Entry)
         Searcher.SearchScope = DirectoryServices.SearchScope.Subtree
-        'Searcher.Filter = "(&(objectcategory=user)(SAMAccountName=" & username & "))"
+        'Searcher.Filter = "(&(objectcategory=user)(sAMAccountName=" & username & "))"
         Searcher.Filter = "(&(objectcategory=group)(member=" & Commun.TransformeSAMACCOUNTenCN(username) & ")(name=* grp))"
         Dim res As SearchResultCollection = Searcher.FindAll
         For Each grp As SearchResult In res
@@ -1449,7 +2724,7 @@ fermerUsing:
         End Try
     End Function
     Public Sub CompararaisonAjoutRetraitDestinationsDepartement(ByVal usrDir As DirectoryEntry)
-        Dim login As String = usrDir.Properties("SAMAccountName").Value
+        Dim login As String = usrDir.Properties("sAMAccountName").Value
         Dim EquipeUserAD As String() = UserMembreDeDestination(login)
         Dim EquipeUserFichier As String() = EquipeComptableFichierUser(login)
         Dim DepartementUserAdSR As SearchResultCollection = Commun.SearchFilterAll(New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth), "(&(objectcategory=group)(member=" & Commun.TransformeSAMACCOUNTenCN(login) & ")(name=Dpt_*)(!(name=Dpt_PI*)))", SearchScope.Subtree, "name")
@@ -1544,7 +2819,6 @@ fermerUsing:
 
             For Each value In currentAddresses
                 Dim tempValue = Strings.Left(value, 5) & LCase(Strings.Right(value, Len(value) - 5))
-                tempValue = tempValue
                 adress.Add(tempValue)
             Next value
             'Definit tous les format d'adresse possible avec le nouveau nom
@@ -1567,13 +2841,11 @@ fermerUsing:
 
             'Si il y a eu des changements, enregistrement de l'alias mail dans l'historique
             If ctrlChangement = True Then
-                Commun.ajoutAliasFichierHisto(aliasMail, objuser.Properties("EmployeeID").Value)
-                objuser.Properties("msExchExtensionAttribute16").Value = aliasMail & "@igbmc.fr"
-                Commun.AppliquerChangement(objuser)
+                Commun.ajoutAliasFichierHisto(aliasMail, objuser.Properties("employeeID").Value)
             End If
 
         Catch ex As Exception
-            Commun.Journal("ERREUR : Modification alias Mail sur AD : " & objuser.Properties("SAMAccountName").Value & " : " & ex.Message, True)
+            Commun.Journal("ERREUR : Modification alias mail sur AD : " & objuser.Properties("sAMAccountName").Value & " : " & ex.Message, True)
         End Try
 
     End Sub
@@ -1654,7 +2926,7 @@ fermerUsing:
         'Mise en place de la strategie UAC, pour les postes par groupe
         Using groupePoste As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN("PostesAvecAdmin")), Commun.admin, Commun.passwd, auth)
             groupePoste.Properties("member").Value = tabPoste
-            groupePoste.CommitChanges()
+            Commun.AppliquerChangement(groupePoste)
         End Using
 
 
@@ -1670,12 +2942,12 @@ fermerUsing:
             Dim Val As Integer = user.Properties("userAccountControl").Value
             'Defini le flag ADS_UF_DONT_EXPIRE_PASSWD sur "non coché"
             user.Properties("userAccountControl").Value = Val And Not NON_EXPIRE_FLAG
-            user.CommitChanges()
+            Commun.AppliquerChangement(user)
             'Defini le dernier changement de mot de passe a aujourd'hui
             user.Properties("pwdLastSet").Value = 0
-            user.CommitChanges()
+            Commun.AppliquerChangement(user)
             user.Properties("pwdLastSet").Value = -1
-            user.CommitChanges()
+            Commun.AppliquerChangement(user)
         End Using
     End Sub
 
@@ -1703,7 +2975,7 @@ fermerUsing:
         Dim samaccountname As String
         Try
 
-            Using OUAdmins As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("/DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
+            Using OUAdmins As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
                 Using OUAdminsearcher As DirectorySearcher = New DirectorySearcher(OUAdmins)
                     'OUAdminsearcher.Filter = "(&(objectClass=user)(|((memberof=" & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_Admins") & ")(memberof=" & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_Users-Admins") & "))))"
                     OUAdminsearcher.Filter = "(&(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=2)" _
@@ -1714,7 +2986,7 @@ fermerUsing:
                     OUAdminsearcher.PropertiesToLoad.Add("pwdLastSet")
                     OUAdminsearcher.PropertiesToLoad.Add("userPrincipalName")
                     OUAdminsearcher.PropertiesToLoad.Add("Description")
-                    OUAdminsearcher.PropertiesToLoad.Add("Mail")
+                    OUAdminsearcher.PropertiesToLoad.Add("mail")
                     OUAdminsearcher.PropertiesToLoad.Add("wWWHomePage")
                     Dim results As SearchResultCollection = OUAdminsearcher.FindAll()
                     For Each resultUser As SearchResult In results
@@ -1796,7 +3068,7 @@ fermerUsing:
                         ElseIf type = "Compte de service" Then
                             Email = resultUser.Properties("wWWHomePage")(0)
                         Else
-                            Email = resultUser.Properties("Mail")(0)
+                            Email = resultUser.Properties("mail")(0)
                         End If
 
 
@@ -2000,6 +3272,7 @@ sortie:
                 Dim depart_ID As String = departmentsJson.id
 
                 PrintLine(2, Dest_short_name & "," & dest_name & "," & IDdest & "," & leaderLoginDest & "," & depart_Short_name & "," & depart_name & "," & depart_ID)
+
             End If
 
             For p = 0 To UBound(persons)
@@ -2233,62 +3506,6 @@ sortie:
         Return result
 
     End Function
-    Public Function RecupJsonExterne(ByVal tabResultjson As String()) As String()
-
-        Dim data As String = Json.SendJson("", "persons?extern=true&present=true", "AD", "GET")
-
-        Dim lineJson As String = ""
-
-        Dim persons = Json.DeserializeJson(data, "persons")
-        For p = 0 To UBound(persons)
-
-            Dim lastname As String = persons(p).lastname
-            Dim firstname As String = persons(p).firstname
-            Dim login As String = persons(p).login
-            Dim aliasMail As String = persons(p).email_alias
-            'si l'utilisateur n'a pas de login alors on passe au suivant
-            If login = "" Then Continue For
-            Dim IDuser As String = persons(p).ID
-            Dim dataContract As String = Json.SendJson("", "persons/" & IDuser & "/contracts?current_contract=true", "AD", "GET")
-
-            Dim contracts = Json.DeserializeJson(data, "contracts")
-            Dim contractRunning As Boolean = ContratEnCours(contracts)
-
-            If contractRunning = True Then
-                Dim locations As JArray = persons(p).locations
-
-                Dim loc_phoneT(locations.Count - 1) As String
-                Dim loc_building_roomT(locations.Count - 1) As String
-                For l = 0 To locations.Count - 1
-                    Dim location As Json.locationC = JsonConvert.DeserializeObject(Of Json.locationC)(locations(l).ToString)
-                    loc_building_roomT(l) = location.building & " " & Strings.Left(location.room, InStr(location.room, " ") - 1)
-                    loc_phoneT(l) = location.phone
-                    If loc_building_roomT(l) = "" Then loc_building_roomT(l) = "----"
-                    If loc_phoneT(l) = "" Then loc_phoneT(l) = "----"
-                Next l
-                Dim BatimentUser As String = Join(loc_building_roomT, " ; ")
-                Dim TelUser As String = Join(loc_phoneT, " ; ")
-                Erase loc_phoneT, loc_building_roomT
-
-                data = Json.SendJson("", "persons/" & IDuser & "/destinations?is_current_destinations=true&is_team=true", "AD", "GET")
-                Dim destinations = Json.DeserializeJson(data, "destinations")
-
-
-                lineJson = lastname & "," & firstname & "," & login & ",EXTERNE,EXTERNE,100," & BatimentUser & "," & TelUser & ",externe,guiseith," & IDuser & "," & aliasMail
-
-                If tabResultjson Is Nothing Then
-                    ReDim Preserve tabResultjson(0)
-                Else
-                    ReDim Preserve tabResultjson(UBound(tabResultjson) + 1)
-                End If
-
-                tabResultjson(UBound(tabResultjson)) = lineJson
-            End If
-        Next p
-        Return tabResultjson
-
-
-    End Function
 
     Public Sub ChangePasswordAccountPrestaImagerie()
         Try
@@ -2311,37 +3528,7 @@ sortie:
             Commun.Journal("ERREUR : ChangePasswordAccountPrestaImagerie : " & ex.Message, True)
         End Try
     End Sub
-    Public Function TrouverMailPrincipal(ByVal login As String, ByVal courtOuLong As String)
-        Try
-            Dim mail As String = ""
-            Dim objusr As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN(login)), Commun.admin, Commun.passwd, auth)
-            Dim currentAddresses = objusr.Properties("proxyAddresses").Value
-            Dim adress As New List(Of String)
 
-            If courtOuLong = "court" Then
-                For Each value In currentAddresses
-                    If Strings.Left(value, 5) = "SMTP:" Then
-                        mail = Replace(value, "SMTP:", "")
-                        Exit For
-                    End If
-                Next value
-            End If
-
-            If courtOuLong = "long" Then
-                For Each value In currentAddresses
-                    If Strings.Left(value, 5) = "smtp:" And Strings.Right(value, 8) = "igbmc.fr" Then
-                        mail = Replace(value, "smtp:", "")
-                        Exit For
-                    End If
-                Next value
-            End If
-
-            If mail = "" Then Throw New Exception("L'utilisateur n'a pas d'adresse mail principale (chercher dans l'attribut ""proxyAddresses"" une valeur commencant par ""SMTP:""")
-            Return mail
-        Catch ex As Exception
-            Commun.Journal("ERREUR : TrouverMailPrincipal : " & login & ":" & ex.Message, True)
-        End Try
-    End Function
     Public Sub EnvoiMailCompteExpireXjour(ByVal j As Integer)
 
         j += 1
@@ -2364,9 +3551,9 @@ sortie:
                             adresseMail = userAD.Properties("mail")(0)
                             Dim prenom As String = userAD.Properties("givenName")(0)
                             Dim dateDefinDeContrat As String = userAD.Properties("extensionAttribute1").Value
-                            Dim mail = MailCloture1(prenom, dateDeSuppressionPrevueTxt, dateDefinDeContrat)
+                            Dim mail = MailCloture(prenom, dateDeSuppressionPrevueTxt, dateDefinDeContrat)
 
-                            Commun.SendEmail("noreply@igbmc.fr", adresseMail & ";Cci:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail)
+                            Commun.SendEmail("noreply@igbmc.fr", adresseMail & ";Bcc:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail)
                             Commun.Journal("Mail de fermeture de compte envoyé (-" & j - 1 & ") : " & adresseMail)
                             ctrlMailEnvoye = True
                         End Using
@@ -2471,51 +3658,14 @@ sortie:
                 result = dateSelected.ToString("dd/MM/yyyy")
             End If
         Catch ex As Exception
-            Commun.Journal("ERREUR : DateDeFinDeContract : EmployeeID : " & id & " : " & ex.Message, True)
+            Commun.Journal("ERREUR : DateDeFinDeContract : employeeID : " & id & " : " & ex.Message, True)
         End Try
 
 
         Return result
 
     End Function
-    Public Sub controlDoublonUIDNumber()
-        Using Ldap As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
-            Using searcher As DirectorySearcher = New DirectorySearcher(Ldap)
-                searcher.Filter = "(&(objectClass=posixAccount)(uidNumber=*))"
-                searcher.PropertiesToLoad.Add("uidNumber")
-                searcher.PropertiesToLoad.Add("SAMAccountName")
-                Dim resultSearcher As SearchResultCollection = searcher.FindAll()
-                Dim tmp As String()
-                Dim i = -1
-                For Each result As SearchResult In resultSearcher
-                    i += 1
-                    Dim uid As String = result.Properties("uidNumber")(0).ToString
-                    If i <> 0 Then
-                        If Array.IndexOf(tmp, uid) = -1 Then
 
-                            tmp.Add(uid)
-                        Else
-                            If i <> Array.IndexOf(tmp, uid) Then
-                                Using results2 As SearchResultCollection = Commun.SearchFilterAll(Ldap, "(&(objectClass=posixAccount)(uidNumber=" & uid & "))", SearchScope.Subtree, "cn")
-                                    Dim tmp2 As String()
-                                    For Each result2 In results2
-                                        tmp2.Add(result2.properties("cn")(0))
-
-
-                                    Next
-                                    'MsgBox(Join(tmp2, " , ") & " : " & uid & vbCrLf & Commun.UIDNumberMini)
-                                    Erase tmp2
-                                End Using
-                            End If
-                        End If
-                    Else
-                        tmp.Add(uid)
-                    End If
-                Next
-
-            End Using
-        End Using
-    End Sub
     Public Sub UpdateFichierHistoAlias()
 
         Commun.Journal("Mise a jour du fichier d'historique des alias", False)
@@ -2525,7 +3675,7 @@ sortie:
 
         Using objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
             Using searcher As DirectorySearcher = New DirectorySearcher(objAD)
-                searcher.Filter = "(&(proxyAddresses=*)(EmployeeID=*))"
+                searcher.Filter = "(&(proxyAddresses=*)(employeeID=*))"
                 searcher.PageSize = 2000
                 Dim results As SearchResultCollection = searcher.FindAll
                 For Each result As SearchResult In results
@@ -2540,8 +3690,8 @@ sortie:
                             'Pour toutes les adresses contenue dans l'attribut "proxyAddresses"
                             Dim userID As String = ""
 
-                            If objADwithSMTPAddresses.Properties.Contains("EmployeeID") Then
-                                userID = objADwithSMTPAddresses.Properties("EmployeeID").Value
+                            If objADwithSMTPAddresses.Properties.Contains("employeeID") Then
+                                userID = objADwithSMTPAddresses.Properties("employeeID").Value
                             Else
                                 userID = 0
                             End If
@@ -2606,17 +3756,17 @@ sortie:
         Dim tabLogin(,) As String = Commun.CreateTabHistoAliasLogin("login")
         Using objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"))
             Using searcher As DirectorySearcher = New DirectorySearcher(objAD)
-                searcher.Filter = "(&(SAMAccountName=*)(!(SAMAccountName=*$*)))"
+                searcher.Filter = "(&(sAMAccountName=*)(!(sAMAccountName=*$*)))"
                 searcher.PageSize = 2000
                 Dim results As SearchResultCollection = searcher.FindAll
                 For Each result As SearchResult In results
                     'si l'objet est dans l'OU NAP on continue avec l'objet suivant
                     If InStr(result.Path, "OU=Nap,DC=igbmc,DC=u-strasbg,DC=fr") <> 0 Then Continue For
                     Using objADSAMAccount As DirectoryEntry = result.GetDirectoryEntry
-                        Dim login As String = objADSAMAccount.Properties("SAMAccountName").Value
+                        Dim login As String = objADSAMAccount.Properties("sAMAccountName").Value
                         Dim userID As String = ""
-                        If objADSAMAccount.Properties.Contains("EmployeeID") Then
-                            userID = objADSAMAccount.Properties("EmployeeID").Value
+                        If objADSAMAccount.Properties.Contains("employeeID") Then
+                            userID = objADSAMAccount.Properties("employeeID").Value
                         Else
                             userID = 0
                         End If
@@ -2702,57 +3852,32 @@ sortie:
         Return ld
     End Function
 
-    Public Function PWSDisableMailbox(ByVal aliasMail As String) As Boolean
-        Dim result As Boolean = False
-        Dim ctrlDomain As String = "serv-ad1"
-        Try
-            Dim pCredential As PSCredential
-            Dim pConnectionInfo As WSManConnectionInfo
-            Dim pRunspace As Runspace
-            Dim pShell As PowerShell
-            Dim pCommand As PSCommand
-            Dim pCommand1 As PSCommand
-            Dim pResult As Collection(Of PSObject)
-            Dim pResult1 As Collection(Of PSObject)
 
-            '-- set credentials      
-            pCredential = DirectCast(Nothing, PSCredential)
-            'pCredential = New PSCredential("igbmc\steph", CreateSecurePasswordString("aaaaaa"))
 
-            '-- set connection info
-            pConnectionInfo = New WSManConnectionInfo(New Uri("http://serv-mbx12.igbmc.u-strasbg.fr/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
-            pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
-            '-- create remote runspace
-            pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
-            pRunspace.Open()
-
-            '-- create powershell
-            pShell = PowerShell.Create
-            pShell.Runspace = pRunspace
-
-            '-- create command
-            pCommand = New PSCommand
-            With pCommand
-                .AddCommand("Disable-Mailbox")
-                .AddParameter("identity", aliasMail)
-                .AddParameter("confirm", False)
-            End With
-
-            '-- add command to powershell
-            pShell.Commands = pCommand
-
-            '-- invoke the powershell
-            pResult = pShell.Invoke
-            If pResult.Count = 1 Then result = True
-            pRunspace.Close()
-            pRunspace.Dispose()
-
-        Catch e As Exception
-
-        End Try
-        Return result
-    End Function
-    Function GetContractsLenght(ByVal id As String, Optional ByVal createUser As Boolean = False) As Boolean
+    ''' <summary>
+    ''' Détermine si un mail doit être envoyé aux assistants de prévention
+    ''' en fonction de la durée cumulée des contrats d'une personne.
+    ''' </summary>
+    ''' <param name="id">Identifiant de la personne dans IGBMCSERVICES / GDPI.</param>
+    ''' <param name="createdUser">
+    ''' Indique le contexte du contrôle.
+    ''' <c>True</c> pour une création d'utilisateur ;
+    ''' <c>False</c> pour une mise à jour d'un utilisateur existant.
+    ''' </param>
+    ''' <returns>
+    ''' <c>True</c> si un mail doit être envoyé aux assistants de prévention ;
+    ''' sinon <c>False</c>.
+    ''' </returns>
+    ''' <remarks>
+    ''' La durée des contrats est calculée en jours à partir des contrats récupérés via l'API.
+    ''' Les contrats avec le statut <c>running</c> alimentent la durée courante ;
+    ''' les autres alimentent la durée passée.
+    ''' En création, un mail est envoyé si la durée du contrat courant est au moins égale à 90 jours.
+    ''' En modification, un mail est envoyé si la durée cumulée franchit le seuil de 90 jours,
+    ''' alors que la durée passée seule était inférieure à ce seuil.
+    ''' En cas d'erreur, l'exception est journalisée.
+    ''' </remarks>
+    Function GetContractsLenght(ByVal id As String, Optional ByVal createdUser As Boolean = False) As Boolean
         Try
             Dim result As Boolean = False
             Dim dataContracts As String = Json.SendJson("", "persons/" & id & "/contracts", "AD", "GET")
@@ -2773,7 +3898,7 @@ sortie:
                     dureeCurrent += DateDiff(DateInterval.Day, startDate, endDate)
                 End If
             Next
-            If createUser = True Then
+            If createdUser = True Then
                 If dureeCurrent >= 90 Then
                     'Send Mail
                     result = True
@@ -2790,14 +3915,4 @@ sortie:
         End Try
 
     End Function
-    Sub SendMailAP(ByVal usrPrenom As String, ByVal usrNom As String, ByVal usrID As String, ByVal EqDescr As String, ByVal usrLogin As String, ByVal finContrat As String)
-        Dim corpmailAssistentsPrévention =
-                                                     vbCrLf & "Nom : " & usrPrenom & " " & usrNom &
-                                                     vbCrLf & "Identifiant GDPI : " & usrID &
-                                                     vbCrLf & "Service : " & EqDescr &
-                                                     vbCrLf & "Mail : " & usrLogin & "@igbmc.fr" &
-                                                     vbCrLf & "Date de fin de contrat : " & finContrat
-
-        Commun.SendEmail("administrateur@igbmc.fr", "assistants-de-prevention@igbmc.fr;Bcc:steph@igbmc.fr", "(Mail automatique) Nouvel entrant", corpmailAssistentsPrévention)
-    End Sub
 End Module

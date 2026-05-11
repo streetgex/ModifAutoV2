@@ -9,8 +9,8 @@
     <ProjectGuid>{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <StartupObject>Sub Main</StartupObject>
-    <RootNamespace>ModifAuto</RootNamespace>
-    <AssemblyName>ModifAuto</AssemblyName>
+    <RootNamespace>ModifAutoV2</RootNamespace>
+    <AssemblyName>ModifAutoV2</AssemblyName>
     <FileAlignment>512</FileAlignment>
     <MyType>Console</MyType>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
@@ -43,7 +43,7 @@
     <DefineDebug>true</DefineDebug>
     <DefineTrace>true</DefineTrace>
     <OutputPath>bin\Debug\</OutputPath>
-    <DocumentationFile>ModifAuto.xml</DocumentationFile>
+    <DocumentationFile>ModifAutoV2.xml</DocumentationFile>
     <NoWarn>41999,42016,42017,42018,42019,42020,42021,42022,42032,42036</NoWarn>
     <Prefer32Bit>false</Prefer32Bit>
     <WarningsAsErrors>
@@ -56,7 +56,7 @@
     <DefineTrace>true</DefineTrace>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DocumentationFile>ModifAuto.xml</DocumentationFile>
+    <DocumentationFile>ModifAutoV2.xml</DocumentationFile>
     <NoWarn>41999,42016,42017,42018,42019,42020,42021,42022,42032,42036</NoWarn>
     <DebugSymbols>true</DebugSymbols>
     <Prefer32Bit>false</Prefer32Bit>
@@ -94,7 +94,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DefineTrace>true</DefineTrace>
     <OutputPath>\\serv-ad1\c%24\Program Files\Script Steph\</OutputPath>
-    <DocumentationFile>ModifAuto.xml</DocumentationFile>
+    <DocumentationFile>ModifAutoV2.xml</DocumentationFile>
     <Optimize>true</Optimize>
     <NoWarn>41999,42016,42017,42018,42019,42020,42021,42022,42032,42036</NoWarn>
     <DebugType>Full</DebugType>
@@ -158,9 +158,6 @@
     <Compile Include="..\..\CLASS COMMUNES\Commun.vb">
       <Link>Commun.vb</Link>
     </Compile>
-    <Compile Include="..\..\CLASS COMMUNES\FTPP.vb">
-      <Link>FTPP.vb</Link>
-    </Compile>
     <Compile Include="..\..\CLASS COMMUNES\iniFile.vb">
       <Link>iniFile.vb</Link>
     </Compile>
@@ -174,6 +171,8 @@
     <Compile Include="ADConfig.vb" />
     <Compile Include="Creation.vb" />
     <Compile Include="ctrlMS.vb" />
+    <Compile Include="GestionMails.vb" />
+    <Compile Include="ModEquipeDestinationDepartement.vb" />
     <Compile Include="Gestion.vb" />
     <Compile Include="jsonMS.vb" />
     <Compile Include="PwShell.vb" />
@@ -217,7 +216,6 @@
     <None Include="app.config" />
     <None Include="ClassDiagram1.cd" />
     <None Include="ModifAuto.Net2010.exe.config" />
-    <None Include="ModifAuto.Net2010_TemporaryKey.pfx" />
     <None Include="My Project\app.manifest">
       <SubType>Designer</SubType>
     </None>
