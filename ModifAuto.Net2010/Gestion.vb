@@ -735,9 +735,12 @@ Public Class Gestion
             If String.IsNullOrWhiteSpace(userAD.samAccountName) Then Continue For
 
             Dim login As String = userAD.samAccountName
+            Dim employeeID As String = kvp.Key
+            If String.IsNullOrWhiteSpace(employeeID) Then employeeID = userAD.employeeID
+
             Dim dateTxtFinException As String = exceptionUser(login)
             Dim estEnException As Boolean = LCase(Trim(dateTxtFinException)) <> "false"
-            Dim estPresentRH As Boolean = PresenceBDP(login)
+            Dim estPresentRH As Boolean = PresenceBDP(employeeID)
 
             'L'utilisateur est present RH : il doit etre dans l'etat actif.
             'S'il n'est pas deja dans l'OU actifs, on devra le reactiver et le deplacer vers OUUtilisateursActifs.
@@ -1067,14 +1070,16 @@ Public Class Gestion
         Return resultat
 
     End Function
-    Shared Function PresenceBDP(ByVal login As String) As Boolean
-        If String.IsNullOrWhiteSpace(login) Then Return False
+    Shared Function PresenceBDP(ByVal employeeID As String) As Boolean
+        If String.IsNullOrWhiteSpace(employeeID) Then Return False
         If usersRH Is Nothing Then Return False
 
+        employeeID = employeeID.Trim()
+
         For Each userRH As UtilisateurRH In usersRH
-            'If userRH IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(userRH.login_samAccountName) AndAlso
-            'String.Equals(userRH.login_samAccountName.Trim(), login, StringComparison.OrdinalIgnoreCase) Then
-            If login = userRH.login_samAccountName Then
+            If userRH IsNot Nothing AndAlso
+            Not String.IsNullOrWhiteSpace(userRH.employeeID_id) AndAlso
+            String.Equals(userRH.employeeID_id.Trim(), employeeID, StringComparison.OrdinalIgnoreCase) Then
                 Return True
             End If
         Next
