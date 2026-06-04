@@ -4,6 +4,109 @@ Imports System.IO
 
 
 Public Class Gestion
+    Shared Sub CompleterDatesContratManquantesComptesDesactivesEtSortis()
+        Commun.Journal("Recherche des dates de fin de contrat manquantes dans les comptes desactives et sortis", False)
+
+        CompleterDatesContratManquantesDansOU(OUUtilisateursDesactives, "OU comptes desactives")
+        CompleterDatesContratManquantesDansOU(OUUtilisateursSortis, "OU comptes sortis")
+    End Sub
+
+    Private Shared Sub CompleterDatesContratManquantesDansOU(ByVal cheminOu As String, ByVal libelleOu As String)
+        Try
+            Using ouEntry As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(cheminOu), Commun.admin, Commun.passwd, auth)
+                Using searcher As DirectorySearcher = New DirectorySearcher(ouEntry)
+                    searcher.Filter = "(&(objectClass=user)(employeeID=*)(!(extensionAttribute1=*)))"
+                    searcher.SearchScope = SearchScope.OneLevel
+                    searcher.PageSize = 5000
+                    searcher.PropertiesToLoad.Add("employeeID")
+                    searcher.PropertiesToLoad.Add("sAMAccountName")
+                    searcher.PropertiesToLoad.Add("extensionAttribute1")
+
+                    Using results As SearchResultCollection = searcher.FindAll()
+                        For Each result As SearchResult In results
+                            Using userAD As DirectoryEntry = result.GetDirectoryEntry()
+                                Try
+                                    If userAD.Properties.Contains("extensionAttribute1") AndAlso
+                                    userAD.Properties("extensionAttribute1").Value IsNot Nothing AndAlso
+                                    userAD.Properties("extensionAttribute1").Value.ToString().Trim() <> "" Then
+                                        Continue For
+                                    End If
+
+                                    Dim employeeID As String = ""
+                                    If userAD.Properties.Contains("employeeID") AndAlso userAD.Properties("employeeID").Value IsNot Nothing Then
+                                        employeeID = userAD.Properties("employeeID").Value.ToString().Trim()
+                                    End If
+
+                                    If employeeID = "" Then Continue For
+
+                                    Dim login As String = ""
+                                    If userAD.Properties.Contains("sAMAccountName") AndAlso userAD.Properties("sAMAccountName").Value IsNot Nothing Then
+                                        login = userAD.Properties("sAMAccountName").Value.ToString()
+                                    End If
+
+                                    Dim datacontract As String = Json.SendJson("", "persons/" & employeeID & "/contracts?current_contract=true", "AD", "GET", False)
+                                    If String.IsNullOrWhiteSpace(datacontract) Then
+                                        Commun.Journal(vbTab & "ATTENTION : " & libelleOu & " : recuperation contrats impossible, utilisateur ignore : " & login & " : employeeID : " & employeeID, True)
+                                        Continue For
+                                    End If
+
+                                    Dim contracts = Json.DeserializeJson(datacontract, "contracts")
+                                    Dim dateFinContratTxt As String = DateDeFinDeContract(contracts, employeeID, True)
+                                    Dim dateFinContrat As Date = Now.Date
+                                    Dim renseignerDateOfficielle As Boolean = True
+
+                                    If String.IsNullOrWhiteSpace(dateFinContratTxt) Then
+                                        Commun.Journal(vbTab & "ATTENTION : " & libelleOu & " : date de fin de contrat introuvable, utilisation de la date du jour pour les attributs techniques : " & login & " : employeeID : " & employeeID, False)
+                                        renseignerDateOfficielle = False
+                                    ElseIf Not DateTime.TryParseExact(
+                                    dateFinContratTxt,
+                                    "dd/MM/yyyy",
+                                    System.Globalization.CultureInfo.InvariantCulture,
+                                    System.Globalization.DateTimeStyles.None,
+                                    dateFinContrat
+                                ) Then
+                                        Commun.Journal(vbTab & "ATTENTION : " & libelleOu & " : date de fin de contrat invalide, utilisation de la date du jour pour les attributs techniques : " & login & " : employeeID : " & employeeID & " : " & dateFinContratTxt, False)
+                                        dateFinContrat = Now.Date
+                                        renseignerDateOfficielle = False
+                                    ElseIf dateFinContrat <= #1/1/1900# Then
+                                        Commun.Journal(vbTab & "ATTENTION : " & libelleOu & " : aucune date de fin de contrat exploitable, utilisation de la date du jour pour les attributs techniques : " & login & " : employeeID : " & employeeID, False)
+                                        dateFinContrat = Now.Date
+                                        renseignerDateOfficielle = False
+                                    End If
+
+                                    AppliquerDateFinContratRetrouvee(userAD, dateFinContratTxt, dateFinContrat, renseignerDateOfficielle)
+                                    If renseignerDateOfficielle Then
+                                        Commun.Journal(vbTab & libelleOu & " : date de fin de contrat completee : " & login & " : " & dateFinContratTxt, False)
+                                    Else
+                                        Commun.Journal(vbTab & libelleOu & " : attributs techniques completes avec la date du jour : " & login & " : employeeID : " & employeeID, False)
+                                    End If
+                                Catch exUser As Exception
+                                    Commun.Journal(vbTab & "ERREUR : " & libelleOu & " : completion date de fin de contrat : " & userAD.Name & " : " & exUser.Message, True)
+                                End Try
+                            End Using
+                        Next
+                    End Using
+                End Using
+            End Using
+        Catch ex As Exception
+            Commun.Journal("ERREUR : CompleterDatesContratManquantesDansOU : " & libelleOu & " : " & ex.Message, True)
+        End Try
+    End Sub
+
+    Private Shared Sub AppliquerDateFinContratRetrouvee(ByVal userAD As DirectoryEntry, ByVal dateFinContratTxt As String, ByVal dateFinContrat As Date, Optional ByVal renseignerDateOfficielle As Boolean = True)
+        Dim dateSuppression As Date = dateFinContrat.Date.AddMonths(3)
+        Dim dateFinContratUtc As Date = dateFinContrat.Date.ToUniversalTime()
+        Dim dateSuppressionUtc As Date = dateSuppression.ToUniversalTime()
+
+        If renseignerDateOfficielle Then
+            Commun.SetADLDAPProperty(userAD, "extensionAttribute1", dateFinContratTxt)
+        End If
+        Commun.SetADLDAPProperty(userAD, "accountDeletionDate", dateSuppression.ToString("dd/MM/yyyy"))
+        userAD.Properties("accountDeactivationDT").Value = dateFinContratUtc.ToString("yyyyMMddHHmmss") & ".0Z"
+        userAD.Properties("accountDeletionDT").Value = dateSuppressionUtc.ToString("yyyyMMddHHmmss") & ".0Z"
+        Commun.AppliquerChangement(userAD)
+    End Sub
+
     Shared Sub GestionAttributsDT()
 
         Commun.Journal("Activation/desactivation des comptes par accountDeletionDT et accountDeactivationDT", False)
@@ -741,6 +844,12 @@ Public Class Gestion
             Dim dateTxtFinException As String = exceptionUser(login)
             Dim estEnException As Boolean = LCase(Trim(dateTxtFinException)) <> "false"
             Dim estPresentRH As Boolean = PresenceBDP(employeeID)
+            Dim dateFinException As Date = Date.MinValue
+            Dim dateExceptionValide As Boolean = False
+
+            If estEnException Then
+                dateExceptionValide = TryLireDateException(dateTxtFinException, dateFinException)
+            End If
 
             'L'utilisateur est present RH : il doit etre dans l'etat actif.
             'S'il n'est pas deja dans l'OU actifs, on devra le reactiver et le deplacer vers OUUtilisateursActifs.
@@ -767,16 +876,12 @@ Public Class Gestion
             userAD.description <> descriptionExceptionAttendue
 
             'L'utilisateur n'est plus present RH, a une exception valide,
-            'et possede encore des dates de desactivation/suppression a nettoyer.
-            Dim doitNettoyerDatesDesactivation As Boolean =
+            'et ses dates techniques doivent correspondre a la fin de l'exception.
+            Dim doitMettreAJourDatesException As Boolean =
             Not estPresentRH AndAlso
             estEnException AndAlso
-            (
-                userAD.accountActivationDT.HasValue OrElse
-                userAD.accountDeactivationDT.HasValue OrElse
-                userAD.accountDeletionDT.HasValue OrElse
-                Not String.IsNullOrWhiteSpace(userAD.accountDeletionDate)
-            )
+            dateExceptionValide AndAlso
+            DatesTechniquesExceptionDifferentes(userAD, dateFinException)
 
             'L'utilisateur n'est plus present RH, n'a pas d'exception valide,
             'et n'est ni deja desactive, ni deja sorti : il devra passer dans OUUtilisateursDesactives.
@@ -791,7 +896,7 @@ Public Class Gestion
             doitPasserActif OrElse
             doitPasserException OrElse
             doitMettreAJourException OrElse
-            doitNettoyerDatesDesactivation OrElse
+            doitMettreAJourDatesException OrElse
             doitPasserDesactive
 
             If Not actionNecessaire Then
@@ -810,12 +915,10 @@ Public Class Gestion
                         Commun.SetADLDAPProperty(dirEntry, "description", "")
                         Commun.SetADLDAPProperty(dirEntry, "Comment", "Réactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf, True)
                         ClearAttributDeactivationDeletionDate(dirEntry, userAD)
-                        Commun.SetADLDAPProperty(dirEntry, "extensionAttribute1", "")
                         Commun.AppliquerChangement(dirEntry)
 
                         userAD.description = ""
                         userAD.comment = "Réactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf
-                        userAD.extensionAttribute1 = ""
 
                         Commun.ReactiveDesactiveCompte(login, "Active")
                     Catch ex As Exception
@@ -835,8 +938,8 @@ Public Class Gestion
 
                 'Si l'utilisateur n'est plus present RH mais a une exception valide,
                 'on corrige uniquement ce qui est necessaire : description d'exception,
-                'nettoyage des dates de desactivation/suppression, ou deplacement vers OUUtilisateursExceptions.
-                If doitPasserException OrElse doitMettreAJourException OrElse doitNettoyerDatesDesactivation Then
+                'dates de fin d'exception, ou deplacement vers OUUtilisateursExceptions.
+                If doitPasserException OrElse doitMettreAJourException OrElse doitMettreAJourDatesException Then
                     Try
                         Dim commentaireException As String = "Exception le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf
 
@@ -847,11 +950,11 @@ Public Class Gestion
                             userAD.comment = commentaireException
                         End If
 
-                        If doitNettoyerDatesDesactivation Then
-                            ClearAttributDeactivationDeletionDate(dirEntry, userAD)
+                        If doitMettreAJourDatesException Then
+                            AppliquerDatesException(dirEntry, userAD, dateFinException)
                         End If
 
-                        If doitMettreAJourException OrElse doitNettoyerDatesDesactivation Then
+                        If doitMettreAJourException OrElse doitMettreAJourDatesException Then
                             Commun.AppliquerChangement(dirEntry)
                         End If
                     Catch ex As Exception
@@ -895,22 +998,32 @@ Public Class Gestion
                             Dim contracts = Json.DeserializeJson(datacontract, "contracts")
                             dateDefinDeContrat = DateDeFinDeContract(contracts, id)
 
-                            If dateDefinDeContrat = "" Then
-                                Commun.Journal(vbTab & "ERREUR : GestionReactiveDesactiveCompte : Determination de la date de fin de contrat : " & dirEntry.Name & " : employeeID : " & id, True)
-                            End If
+                        End If
+
+                        If String.IsNullOrWhiteSpace(dateDefinDeContrat) AndAlso Not String.IsNullOrWhiteSpace(userAD.extensionAttribute1) Then
+                            dateDefinDeContrat = userAD.extensionAttribute1.Trim()
                         End If
 
                         Dim dateReferenceDesactivation As Date = Now.Date
+                        Dim dateFinContratValide As Boolean = False
+
                         If dateDefinDeContrat <> "" Then
-                            Try
-                                dateReferenceDesactivation = DateTime.ParseExact(
-                                dateDefinDeContrat,
-                                "dd/MM/yyyy",
-                                System.Globalization.CultureInfo.InvariantCulture
-                            ).Date
-                            Catch exDate As Exception
-                                Commun.Journal(vbTab & "ERREUR : GestionReactiveDesactiveCompte : conversion de la date de fin de contrat : " & dirEntry.Name & " : " & dateDefinDeContrat, True)
-                            End Try
+                            Dim dateFinContrat As Date
+                            If DateTime.TryParseExact(
+                                 dateDefinDeContrat,
+                                 "dd/MM/yyyy",
+                                 System.Globalization.CultureInfo.InvariantCulture,
+                                 System.Globalization.DateTimeStyles.None,
+                                 dateFinContrat
+                             ) Then
+                                dateReferenceDesactivation = dateFinContrat.Date
+                                dateFinContratValide = True
+                            Else
+                                Commun.Journal(vbTab & "ERREUR : GestionReactiveDesactiveCompte : conversion de la date de fin de contrat : " & dirEntry.Name & " : " & dateDefinDeContrat & " : utilisation de la date du jour pour les attributs techniques", True)
+                                dateDefinDeContrat = ""
+                            End If
+                        Else
+                            Commun.Journal(vbTab & "ATTENTION : GestionReactiveDesactiveCompte : date de fin de contrat absente, utilisation de la date du jour pour les attributs techniques : " & dirEntry.Name & " : employeeID : " & id, True)
                         End If
 
                         Dim dateSortiePrevue As Date = dateReferenceDesactivation.AddMonths(3)
@@ -938,7 +1051,7 @@ Public Class Gestion
                         userAD.accountDeletionDT = dateSortiePrevueUtc
                         userAD.accountDeletionDate = dateSortiePrevue.ToString("dd/MM/yyyy")
 
-                        If id <> "" Then
+                        If dateFinContratValide Then
                             Commun.SetADLDAPProperty(dirEntry, "extensionAttribute1", dateDefinDeContrat)
                             userAD.extensionAttribute1 = dateDefinDeContrat
                         End If
@@ -987,8 +1100,61 @@ Public Class Gestion
 
         Commun.Journal("Gestion de l'activation/desactivation des comptes réussie", False)
     End Sub
+    Private Shared Function TryLireDateException(ByVal dateTxtFinException As String, ByRef dateFinException As Date) As Boolean
+        If String.IsNullOrWhiteSpace(dateTxtFinException) Then Return False
+
+        Return Date.TryParseExact(
+        dateTxtFinException.Trim(),
+        "dd/MM/yyyy",
+        System.Globalization.CultureInfo.InvariantCulture,
+        System.Globalization.DateTimeStyles.None,
+        dateFinException
+    )
+    End Function
+    Private Shared Function DatesTechniquesExceptionDifferentes(ByVal userAD As UtilisateurADIndex, ByVal dateFinException As Date) As Boolean
+        If userAD Is Nothing Then Return True
+
+        Dim dateSuppressionException As Date = dateFinException.Date.AddMonths(3)
+        Dim dateFinExceptionUtc As Date = dateFinException.Date.ToUniversalTime()
+        Dim dateSuppressionExceptionUtc As Date = dateSuppressionException.ToUniversalTime()
+        Dim accountDeletionDateAttendue As String = dateSuppressionException.ToString("dd/MM/yyyy")
+
+        Return Not userAD.accountDeactivationDT.HasValue OrElse
+        userAD.accountDeactivationDT.Value.Date <> dateFinExceptionUtc.Date OrElse
+        Not userAD.accountDeletionDT.HasValue OrElse
+        userAD.accountDeletionDT.Value.Date <> dateSuppressionExceptionUtc.Date OrElse
+        userAD.accountDeletionDate <> accountDeletionDateAttendue
+    End Function
+    Private Shared Sub AppliquerDatesException(ByVal dirEntry As DirectoryEntry, ByVal userAD As UtilisateurADIndex, ByVal dateFinException As Date)
+        Dim dateSuppressionException As Date = dateFinException.Date.AddMonths(3)
+        Dim dateFinExceptionUtc As Date = dateFinException.Date.ToUniversalTime()
+        Dim dateSuppressionExceptionUtc As Date = dateSuppressionException.ToUniversalTime()
+        Dim accountDeletionDate As String = dateSuppressionException.ToString("dd/MM/yyyy")
+
+        Commun.SetADLDAPProperty(dirEntry, "accountDeletionDate", accountDeletionDate)
+        dirEntry.Properties("accountDeactivationDT").Value = dateFinExceptionUtc.ToString("yyyyMMddHHmmss") & ".0Z"
+        dirEntry.Properties("accountDeletionDT").Value = dateSuppressionExceptionUtc.ToString("yyyyMMddHHmmss") & ".0Z"
+
+        If userAD IsNot Nothing Then
+            userAD.accountDeactivationDT = dateFinExceptionUtc
+            userAD.accountDeletionDT = dateSuppressionExceptionUtc
+            userAD.accountDeletionDate = accountDeletionDate
+        End If
+    End Sub
     Shared Sub ClearAttributDeactivationDeletionDate(ByVal dirEntry As DirectoryEntry, ByVal userAD As UtilisateurADIndex)
         Try
+            Dim extensionAttribute1 As String = ""
+
+            If dirEntry.Properties.Contains("extensionAttribute1") AndAlso
+            dirEntry.Properties("extensionAttribute1").Value IsNot Nothing Then
+                extensionAttribute1 = dirEntry.Properties("extensionAttribute1").Value.ToString().Trim()
+            End If
+
+            If extensionAttribute1 <> "" Then
+                Commun.Journal("Dates de desactivation/suppression conservees car extensionAttribute1 est renseigne : " & dirEntry.Properties("sAMAccountName").Value, False)
+                Exit Sub
+            End If
+
             dirEntry.Properties("accountDeletionDate").Clear()
             dirEntry.Properties("accountDeletionDT").Clear()
             dirEntry.Properties("accountDeactivationDT").Clear()
