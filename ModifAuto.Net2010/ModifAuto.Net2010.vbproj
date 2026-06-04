@@ -122,6 +122,12 @@
     <OutputPath>bin\x64\Publier\</OutputPath>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'onServer|x86'">
+    <OutputPath>bin\x86\onServer\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'onServer|x64'">
+    <OutputPath>bin\x64\onServer\</OutputPath>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -259,6 +265,24 @@
     <Content Include="Newtonsoft.Json.dll" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>echo Configuration=$(ConfigurationName) &gt; "$(ProjectDir)postbuild.log"
+
+echo TargetPath=$(TargetPath) &gt;&gt; "$(ProjectDir)postbuild.log"
+
+echo TargetFileName=$(TargetFileName) &gt;&gt; "$(ProjectDir)postbuild.log"
+
+
+set "DESTDIR=\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto"
+
+set "DESTFILE=%25DESTDIR%25\$(TargetFileName)"
+
+
+if "$(ConfigurationName)"=="onServer" (
+if exist "%25DESTFILE%25" copy /Y "%25DESTFILE%25" "%25DESTDIR%25\$(TargetFileName).bak"
+    copy /Y "$(TargetPath)" "%25DESTFILE%25"
+)</PostBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

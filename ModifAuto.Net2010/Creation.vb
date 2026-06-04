@@ -105,9 +105,18 @@ Public Class Creation
                     objUser.MoveTo(objOUUtilisateurs)
                     Commun.AppliquerChangement(objUser)
 
-                    Commun.SetADLDAPProperty(objUser, "accountDeletionDate", "")
-                    objUser.Properties("accountDeletionDT").Clear()
-                    objUser.Properties("accountDeactivationDT").Clear()
+                    Dim extensionAttribute1Existant As String = ""
+                    If objUser.Properties.Contains("extensionAttribute1") AndAlso
+                    objUser.Properties("extensionAttribute1").Value IsNot Nothing Then
+                        extensionAttribute1Existant = objUser.Properties("extensionAttribute1").Value.ToString().Trim()
+                    End If
+
+                    If String.IsNullOrWhiteSpace(extensionAttribute1Existant) AndAlso String.IsNullOrWhiteSpace(finContrat) Then
+                        Commun.SetADLDAPProperty(objUser, "accountDeletionDate", "")
+                        objUser.Properties("accountDeletionDT").Clear()
+                        objUser.Properties("accountDeactivationDT").Clear()
+                    End If
+
                     objUser.Properties("description").Clear()
                     objUser.Properties("sAMAccountName").Value = usrLogin
                     objUser.Properties("userPrincipalName").Value = usrLogin & "@igbmc.fr"

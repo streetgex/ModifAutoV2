@@ -57,12 +57,24 @@ Public Class Supprime
                 'Suppression du compte ADM
                 Dim cheminLdapCompteAdm As String = Commun.TransformeSAMACCOUNTenCN(login & "adm")
                 If cheminLdapCompteAdm <> "" Then
-                    Using userAdm As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(cheminLdapCompteAdm), Commun.admin, Commun.passwd, auth)
+                    removeAllGroup(login & "adm")
+                    Dim ldapPathCompteAdm As String = "LDAP://" & Commun.LdapPath(cheminLdapCompteAdm)
+                    Using userAdm As DirectoryEntry = New DirectoryEntry(ldapPathCompteAdm, Commun.admin, Commun.passwd, auth)
                         Try
                             userAdm.DeleteTree()
                             Commun.Journal("SupprimCompte : Suppression Compte AD Adm : " & login)
                         Catch ex As Exception
-                            Commun.Journal("ERREUR : SupprimCompte : Suppression Compte AD Adm : " & login & " : " & ex.Message, True)
+                            Dim adminCountCompteAdm As String = ""
+                            Dim erreurLectureInfosCompteAdm As String = ""
+                            Try
+                                userAdm.RefreshCache(New String() {"adminCount"})
+                                If userAdm.Properties.Contains("adminCount") AndAlso userAdm.Properties("adminCount").Value IsNot Nothing Then
+                                    adminCountCompteAdm = userAdm.Properties("adminCount").Value.ToString()
+                                End If
+                            Catch exInfo As Exception
+                                erreurLectureInfosCompteAdm = " : erreur lecture adminCount=" & exInfo.Message
+                            End Try
+                            Commun.Journal("ERREUR : SupprimCompte : Suppression Compte AD Adm : " & login & " : DC=" & Commun.DCName & " : LDAP=" & ldapPathCompteAdm & " : adminCount=" & adminCountCompteAdm & erreurLectureInfosCompteAdm & " : " & ex.Message, True)
                         End Try
                     End Using
                 End If
@@ -204,8 +216,9 @@ Public Class Supprime
 
 
     Shared Sub CompteSorti(ByVal DirEntry As DirectoryEntry)
+        Dim login As String = ""
         Try
-            Dim login As String = DirEntry.Properties("sAMAccountName").Value
+            login = DirEntry.Properties("sAMAccountName").Value.ToString()
 
             Commun.SetADLDAPProperty(DirEntry, "Description", "Supprimé le: " & Strings.Left(CStr(Now), 10), False)
 
@@ -228,7 +241,7 @@ Public Class Supprime
                 DirEntry.MoveTo(ouOut)
             End Using
         Catch ex As Exception
-
+            Commun.Journal("ERREUR : CompteSorti : " & login & " : " & ex.Message, True)
         End Try
     End Sub
 
@@ -267,7 +280,7 @@ Public Class Supprime
 
             gestion.removeAdopte(SamAccount)
         Catch ex As Exception
-
+            Commun.Journal("ERREUR : removeAllGroup : " & SamAccount & " : " & ex.Message, True)
         End Try
     End Sub
 End Class

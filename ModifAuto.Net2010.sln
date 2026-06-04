@@ -11,18 +11,22 @@ Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
 		Debug|x86 = Debug|x86
+		onServer|x64 = onServer|x64
+		onServer|x86 = onServer|x86
 		Publier|x64 = Publier|x64
 		Publier|x86 = Publier|x86
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
-		tes|x64 = tes|x64
-		tes|x86 = tes|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.Debug|x64.ActiveCfg = Debug|x64
 		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.Debug|x64.Build.0 = Debug|x64
 		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.Debug|x86.ActiveCfg = Debug|x86
 		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.Debug|x86.Build.0 = Debug|x86
+		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.onServer|x64.ActiveCfg = onServer|x64
+		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.onServer|x64.Build.0 = onServer|x64
+		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.onServer|x86.ActiveCfg = onServer|x86
+		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.onServer|x86.Build.0 = onServer|x86
 		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.Publier|x64.ActiveCfg = Publier|x64
 		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.Publier|x64.Build.0 = Publier|x64
 		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.Publier|x86.ActiveCfg = Publier|x86
@@ -31,8 +35,6 @@ Global
 		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.Release|x64.Build.0 = Release|x64
 		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.Release|x86.ActiveCfg = Release|x86
 		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.Release|x86.Build.0 = Release|x86
-		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.tes|x64.ActiveCfg = Release|x64
-		{C50810A4-CD11-4F75-A46D-1D57A32CC8FD}.tes|x86.ActiveCfg = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

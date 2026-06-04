@@ -49,7 +49,7 @@ Module Module1
         'pour affichage correct de la barre de progression
         Console.OutputEncoding = System.Text.Encoding.UTF8
 
-        Commun.fichierLog = "c:\temp\Log" & application.productname & ".log"
+        Commun.fichierLog = "c:\temp\Log" & application.productname & "_" & Now.ToString("yyyy") & ".log"
         Sleep(3000)
         'Commun.Journal(New String("_"c, Math.Max(1, Console.WindowWidth - 1)), False)
         Commun.Journal("Debut de traitement")
@@ -59,7 +59,7 @@ Module Module1
 
         Dim listExtensionsXivo As String = ""
         If Environment.MachineName <> "SERV-AD1" Then
-            Gestion.GestionGroupeUserActive(New DirectoryEntry("LDAP://serv-ad2.igbmc.u-strasbg.fr/CN=Pietro GIRAUDO,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr", AdminScriptLogin, AdminScriptPassword, auth))
+            'Gestion.GestionGroupeUserActive(New DirectoryEntry("LDAP://serv-ad2.igbmc.u-strasbg.fr/CN=Pietro GIRAUDO,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr", AdminScriptLogin, AdminScriptPassword, auth))
             'Dim dateNowU  = Now.ToUniversalTime.Date.ToString("yyyyMMddHHmmss.sZ")
             'ModEquipeDestinationDepartement.ChargerEquipeDestinationDepartement()
             'Dim a As New Creation
@@ -132,10 +132,12 @@ Module Module1
 
         GestionComptesExternes()
 
-        'La gestion des AttributsDT doit imperativement intervenir apres GestionReactiveDesactiveComptesInterne
-        gestion.GestionAttributsDT()
+        Gestion.CompleterDatesContratManquantesComptesDesactivesEtSortis()
 
-        gestion.GestionSuppressionProfilsItinerantsEtDossiersRedirigés()
+        'La gestion des AttributsDT doit imperativement intervenir apres GestionReactiveDesactiveComptesInterne
+        Gestion.GestionAttributsDT()
+
+        Gestion.GestionSuppressionProfilsItinerantsEtDossiersRedirigés()
 
         AttributionStrategieMDP()
         gestion.CtrlGroupAdmins()
@@ -197,7 +199,7 @@ Module Module1
 
         Commun.Journal("Fin de traitement en : " & dureeScript)
         'Commun.Journal("____________________________________________________________________________________________________")
-        'CreationAuto.start()
+
         ini.WriteValue("MODIFAUTO", "lastExec", Now.ToString("dd/MM/yyyy HH:mm:ss"))
     End Sub
     Public Sub sendJournalError()
@@ -1015,36 +1017,19 @@ Module Module1
         Return dnGroupe
     End Function
     Private Function FiltrerGroupesGerables(groupes As String()) As String()
-        Dim groupesGerables As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
-
-        For Each groupe As String In DicoGroupesDiffusionRH.Values
-            If Not String.IsNullOrWhiteSpace(groupe) Then
-                groupesGerables.Add(groupe)
-            End If
-        Next
-
-        For Each destination As DestinationInfo In DicoDestinationsRH.Values
-            If destination IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(destination.dn_dest_ad) Then
-                groupesGerables.Add(destination.dn_dest_ad)
-            End If
-        Next
-
-        For Each equipe As EquipeInfo In DicoEquipesInfoRefRH.Values
-            If equipe IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(equipe.dn_equipeinfo_eq_ad) Then
-                groupesGerables.Add(equipe.dn_equipeinfo_eq_ad)
-            End If
-        Next
-
-        For Each departement As DepartementInfo In DicoDepartementsRH.Values
-            If departement IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(departement.dn_dept_ad) Then
-                groupesGerables.Add(departement.dn_dept_ad)
-            End If
-        Next
-
         Dim resultat As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
 
         For Each groupe As String In If(groupes, New String() {})
-            If Not String.IsNullOrWhiteSpace(groupe) AndAlso groupesGerables.Contains(groupe) Then
+            If String.IsNullOrWhiteSpace(groupe) Then
+                Continue For
+            End If
+
+            Dim nomGroupe As String = NomGroupeDepuisDn(groupe)
+            If nomGroupe.EndsWith(" grp", StringComparison.OrdinalIgnoreCase) _
+            OrElse nomGroupe.EndsWith("_eq", StringComparison.OrdinalIgnoreCase) _
+            OrElse (nomGroupe.StartsWith("Dpt_", StringComparison.OrdinalIgnoreCase) AndAlso Not nomGroupe.StartsWith("Dpt_PI", StringComparison.OrdinalIgnoreCase)) _
+            OrElse String.Equals(nomGroupe, "phd", StringComparison.OrdinalIgnoreCase) _
+            OrElse String.Equals(nomGroupe, "postdoc", StringComparison.OrdinalIgnoreCase) Then
                 resultat.Add(groupe)
             End If
         Next
@@ -1572,28 +1557,38 @@ Module Module1
         })
         End If
 
+        Dim extensionAttribute1Renseigne As Boolean =
+        Not String.IsNullOrWhiteSpace(adUser.extensionAttribute1) OrElse
+        Not String.IsNullOrWhiteSpace(userRH.extensionAttribute1_finDeContrat)
+
         If DatesDifferentes(adUser.accountDeactivationDT, userRH.accountDeactivationDT_finDeContrat) Then
-            changements.Add(New ChangementAttributAD With {
-            .Attribut = "accountDeactivationDT",
-            .AncienneValeur = If(adUser.accountDeactivationDT.HasValue, adUser.accountDeactivationDT.Value.ToString("dd/MM/yyyy"), ""),
-            .NouvelleValeur = If(userRH.accountDeactivationDT_finDeContrat.HasValue, userRH.accountDeactivationDT_finDeContrat.Value.ToString("dd/MM/yyyy"), "")
-        })
+            If userRH.accountDeactivationDT_finDeContrat.HasValue OrElse Not extensionAttribute1Renseigne Then
+                changements.Add(New ChangementAttributAD With {
+                .Attribut = "accountDeactivationDT",
+                .AncienneValeur = If(adUser.accountDeactivationDT.HasValue, adUser.accountDeactivationDT.Value.ToString("dd/MM/yyyy"), ""),
+                .NouvelleValeur = If(userRH.accountDeactivationDT_finDeContrat.HasValue, userRH.accountDeactivationDT_finDeContrat.Value.ToString("dd/MM/yyyy"), "")
+            })
+            End If
         End If
 
         If DatesDifferentes(adUser.accountDeletionDT, userRH.accountDeletionDT_finDeContratPlus3Mois) Then
-            changements.Add(New ChangementAttributAD With {
-            .Attribut = "accountDeletionDT",
-            .AncienneValeur = If(adUser.accountDeletionDT.HasValue, adUser.accountDeletionDT.Value.ToString("dd/MM/yyyy"), ""),
-            .NouvelleValeur = If(userRH.accountDeletionDT_finDeContratPlus3Mois.HasValue, userRH.accountDeletionDT_finDeContratPlus3Mois.Value.ToString("dd/MM/yyyy"), "")
-        })
+            If userRH.accountDeletionDT_finDeContratPlus3Mois.HasValue OrElse Not extensionAttribute1Renseigne Then
+                changements.Add(New ChangementAttributAD With {
+                .Attribut = "accountDeletionDT",
+                .AncienneValeur = If(adUser.accountDeletionDT.HasValue, adUser.accountDeletionDT.Value.ToString("dd/MM/yyyy"), ""),
+                .NouvelleValeur = If(userRH.accountDeletionDT_finDeContratPlus3Mois.HasValue, userRH.accountDeletionDT_finDeContratPlus3Mois.Value.ToString("dd/MM/yyyy"), "")
+            })
+            End If
         End If
 
         If adUser.accountDeletionDate <> userRH.accountDeletionDate_finDeContratPlus3Mois Then
-            changements.Add(New ChangementAttributAD With {
-            .Attribut = "accountDeletionDate",
-            .AncienneValeur = adUser.accountDeletionDate,
-            .NouvelleValeur = userRH.accountDeletionDate_finDeContratPlus3Mois
-        })
+            If Not String.IsNullOrWhiteSpace(userRH.accountDeletionDate_finDeContratPlus3Mois) OrElse Not extensionAttribute1Renseigne Then
+                changements.Add(New ChangementAttributAD With {
+                .Attribut = "accountDeletionDate",
+                .AncienneValeur = adUser.accountDeletionDate,
+                .NouvelleValeur = userRH.accountDeletionDate_finDeContratPlus3Mois
+            })
+            End If
         End If
 
         Return changements
@@ -3612,7 +3607,7 @@ sortie:
         Return result
     End Function
 
-    Public Function DateDeFinDeContract(contracts, id) As String
+    Public Function DateDeFinDeContract(ByVal contracts As Object, ByVal id As String, Optional ByVal accepterContratFutur As Boolean = False) As String
 
         Dim result As String = ""
         Try
@@ -3631,6 +3626,7 @@ sortie:
                 Dim dateEnd As Date = #1/1/1900#
                 Dim dateStart As Date = #1/1/1900#
                 Dim dateSelected As Date = #1/1/1900#
+                Dim dateFutureSelected As Date = #1/1/1900#
 
                 For c = 0 To UBound(contracts)
                     Dim dateEndTxt As String = Strings.Left(ResponseData("contracts")(c)("end_date"), 10)
@@ -3650,10 +3646,18 @@ sortie:
                         Exit Function
                     End If
 
-                    If dateEnd > dateSelected And dateStart <= Now Then
-                        dateSelected = dateEnd
+                    If dateStart <= Now Then
+                        If dateEnd > dateSelected Then
+                            dateSelected = dateEnd
+                        End If
+                    ElseIf accepterContratFutur AndAlso dateEnd > dateFutureSelected Then
+                        dateFutureSelected = dateEnd
                     End If
                 Next c
+
+                If dateSelected <= #1/1/1900# AndAlso accepterContratFutur Then
+                    dateSelected = dateFutureSelected
+                End If
 
                 result = dateSelected.ToString("dd/MM/yyyy")
             End If
