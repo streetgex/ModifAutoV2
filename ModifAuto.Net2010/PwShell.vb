@@ -82,7 +82,7 @@ Public Class Pws
                     End With
                     TryInvokeExchangeCommand(pRunspace, pCommand3, "Set-MailboxRegionalConfiguration", ctrlDomain)
                 Else
-                    Commun.Journal("ATTENTION : mailbox creee mais configuration calendrier/regionale differee : " & login, True)
+                    Commun.Journal("ATTENTION : mailbox creee mais configuration calendrier/regionale differee : " & login & vbCrLf & CommandesConfigurationMailboxDifferee(login, ctrlDomain), True)
                 End If
             End Using
 
@@ -93,8 +93,6 @@ Public Class Pws
         End Try
     End Sub
     Private Shared Function TryWaitMailboxCalendarReady(pRunspace As Runspace, login As String, ctrlDomain As String) As Boolean
-        Dim lastError As String = ""
-
         For tentative As Integer = 1 To 24
             Try
                 Dim pTest As New PSCommand()
@@ -108,12 +106,11 @@ Public Class Pws
                 Return True
 
             Catch ex As Exception
-                lastError = ex.Message
                 System.Threading.Thread.Sleep(5000)
             End Try
         Next
 
-        Commun.Journal("ATTENTION : mailbox non prete pour configuration calendrier : " & login & " : " & lastError, True)
+        Commun.Journal("ATTENTION : mailbox non prete pour configuration calendrier : " & login & vbCrLf & CommandesConfigurationMailboxDifferee(login, ctrlDomain), True)
         Return False
     End Function
     Private Shared Function TryInvokeExchangeCommand(

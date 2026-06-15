@@ -266,21 +266,15 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <PropertyGroup>
-    <PostBuildEvent>echo Configuration=$(ConfigurationName) &gt; "$(ProjectDir)postbuild.log"
+    <PostBuildEvent>if "$(ConfigurationName)"=="onServer" (
 
-echo TargetPath=$(TargetPath) &gt;&gt; "$(ProjectDir)postbuild.log"
+    if exist "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName)" (
 
-echo TargetFileName=$(TargetFileName) &gt;&gt; "$(ProjectDir)postbuild.log"
+        copy /Y "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName)" "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName).%25date:~6,4%25%25date:~3,2%25%25date:~0,2%25_%25time:~0,2%25%25time:~3,2%25%25time:~6,2%25.bak"
 
+    )
 
-set "DESTDIR=\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto"
-
-set "DESTFILE=%25DESTDIR%25\$(TargetFileName)"
-
-
-if "$(ConfigurationName)"=="onServer" (
-if exist "%25DESTFILE%25" copy /Y "%25DESTFILE%25" "%25DESTDIR%25\$(TargetFileName).bak"
-    copy /Y "$(TargetPath)" "%25DESTFILE%25"
+    copy /Y "$(TargetPath)" "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName)"
 )</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
