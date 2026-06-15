@@ -3218,6 +3218,7 @@ sortie:
         'Dim data As String = Json.SendJson("", "destinations?is_team=true", "AD", "GET")
         Dim tabResultJson As String()
         Dim lineJson As String = ""
+        Dim usersDesactivations As System.Collections.Generic.HashSet(Of String) = ChargerUsersDesactivations()
 
         Dim max As Integer = UBound(DestinationsJsonIsTrue)
         For d = 0 To max
@@ -3276,6 +3277,10 @@ sortie:
                 Dim login As String = persons(p).login
                 Dim aliasMail As String = persons(p).email_alias
                 Dim IDuser As String = persons(p).ID
+                If usersDesactivations.Contains(IDuser.Trim()) Then
+                    Continue For
+                End If
+
                 Dim dateEntree As Date = persons(p).entrance_date
                 Dim dataContract As String = Json.SendJson("", "persons/" & IDuser & "/contracts?current_contract=true", "AD", "GET")
 
@@ -3429,6 +3434,34 @@ sortie:
 
 
     End Sub
+    Private Function ChargerUsersDesactivations() As System.Collections.Generic.HashSet(Of String)
+        Dim resultat As New System.Collections.Generic.HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+        Dim cheminFichier As String = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\UsersDesactivations.txt"
+
+        Try
+            If Not File.Exists(cheminFichier) Then
+                Commun.Journal("ATTENTION : fichier UsersDesactivations.txt introuvable : " & cheminFichier, True)
+                Return resultat
+            End If
+
+            Using reader As New StreamReader(cheminFichier, System.Text.Encoding.Default)
+                Do While Not reader.EndOfStream
+                    Dim ligne As String = reader.ReadLine()
+                    If ligne Is Nothing Then Continue Do
+
+                    ligne = ligne.Trim()
+                    If ligne = "" OrElse ligne.StartsWith("#") OrElse ligne.StartsWith(";") Then Continue Do
+
+                    resultat.Add(ligne)
+                Loop
+            End Using
+
+        Catch ex As Exception
+            Commun.Journal("ERREUR : lecture UsersDesactivations.txt : " & ex.Message, True)
+        End Try
+
+        Return resultat
+    End Function
     Public Sub exceptionCreationCompte()
         Dim lines() As String = IO.File.ReadAllLines("\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ForceCreationDeCompte.txt")
         For Each line As String In lines

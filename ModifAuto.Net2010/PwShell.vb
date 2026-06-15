@@ -113,6 +113,33 @@ Public Class Pws
         Commun.Journal("ATTENTION : mailbox non prete pour configuration calendrier : " & login & vbCrLf & CommandesConfigurationMailboxDifferee(login, ctrlDomain), True)
         Return False
     End Function
+    Private Shared Function CommandesConfigurationMailboxDifferee(ByVal login As String, ByVal ctrlDomain As String) As String
+        Dim pCommandCalendar As New PSCommand()
+        With pCommandCalendar
+            .AddCommand("Set-MailboxCalendarConfiguration")
+            .AddParameter("Identity", login)
+            .AddParameter("FirstWeekOfYear", "FirstFourDayWeek")
+            If Not String.IsNullOrWhiteSpace(ctrlDomain) Then
+                .AddParameter("DomainController", ctrlDomain)
+            End If
+        End With
+
+        Dim pCommandRegional As New PSCommand()
+        With pCommandRegional
+            .AddCommand("Set-MailboxRegionalConfiguration")
+            .AddParameter("Identity", login)
+            .AddParameter("TimeZone", "Romance Standard Time")
+            .AddParameter("Language", "fr-FR")
+            .AddParameter("LocalizeDefaultFolderName", True)
+            If Not String.IsNullOrWhiteSpace(ctrlDomain) Then
+                .AddParameter("DomainController", ctrlDomain)
+            End If
+        End With
+
+        Return "Commandes a rejouer :" & vbCrLf &
+        DescribeExchangeCommand(pCommandCalendar) & vbCrLf &
+        DescribeExchangeCommand(pCommandRegional)
+    End Function
     Private Shared Function TryInvokeExchangeCommand(
     ByVal runspace As Runspace,
     ByVal pCommand As PSCommand,
