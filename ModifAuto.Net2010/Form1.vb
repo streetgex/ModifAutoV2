@@ -2596,8 +2596,8 @@ fermerUsing:
              vbCrLf & vbCrLf & "Bonjour " & prenom & ", <BR><BR>" &
              vbCrLf & vbCrLf & "Votre contrat de travail vous liant à l’IGBMC s’est terminé le " & dateFindeContrat & " à minuit.<BR><BR>" &
              vbCrLf & vbCrLf & "En conformité avec la Politique de Sécurité des Systèmes d’Information de l’IGBMC, <B>votre compte informatique à l’IGBMC a été automatiquement désactivé.</B><BR>" &
-             vbCrLf & "Si un nouveau contrat est enregistré dans un délai de " & nbrJourRestant & " jours, votre compte sera automatiquement réactivé.<BR><BR>" &
-             vbCrLf & vbCrLf & "Votre boite mail restera accessible pendant une période de " & nbrJourRestant & " jours à compter d’aujourd’hui avant d'être définitivement supprimée.<BR>" &
+             vbCrLf & "Si un nouveau contrat est enregistré dans un délai de " & nbrJourRestant & " jour(s), votre compte sera automatiquement réactivé.<BR><BR>" &
+             vbCrLf & vbCrLf & "Votre boite mail restera accessible pendant une période de " & nbrJourRestant & " jour(s) à compter d’aujourd’hui avant d'être définitivement supprimée.<BR>" &
              vbCrLf & "Vous pouvez notamment vous y connecter au travers du webmail de l’IGBMC : <a href=""https://igbmcmail.igbmc.fr"">https://igbmcmail.igbmc.fr</a><BR>" &
              vbCrLf & "Vous pouvez demander une archive complète de votre boite mail avant sa suppression définitive en envoyant un email à hepldesk@igbmc.fr.<BR><BR>" &
              vbCrLf & vbCrLf & "Vous n'avez à présent plus accès aux ressources informatiques de l’IGBMC (espaces de stockage, ressources de calcul, postes de travail, etc.).<BR>" &
