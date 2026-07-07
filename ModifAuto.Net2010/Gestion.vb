@@ -1058,8 +1058,10 @@ Public Class Gestion
 
                         Commun.SetADLDAPProperty(dirEntry, "serialNumber", Nothing)
                         Commun.SetADLDAPProperty(dirEntry, "employeeNumber", Nothing)
+                        Commun.SetADLDAPProperty(dirEntry, "title", "")
                         Commun.AppliquerChangement(dirEntry)
 
+                        userAD.title = ""
                         userAD.serialNumber = Nothing
                         userAD.employeeNumber = Nothing
                     Catch ex As Exception
