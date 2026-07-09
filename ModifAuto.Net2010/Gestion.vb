@@ -1200,26 +1200,41 @@ Public Class Gestion
         Dim resultat As String = "False"
         Try
             If tabExcepUser Is Nothing Then
-                Dim monStreamReader As StreamReader = New StreamReader("\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\UsersExceptions.txt")
-                Dim ligne As String
-                Dim i As Integer = -1
-                Do
-                    ligne = monStreamReader.ReadLine()
-                    If Not ligne Is Nothing Then
-                        Dim tabLigneExceptUser As String() = Split(ligne, ",")
-                        Dim dateExpire As DateTime = Convert.ToDateTime(tabLigneExceptUser(1))
-                        If dateExpire >= Now Then
-                            i += 1
-                            ReDim Preserve tabExcepUser(1, i)
-                            tabExcepUser(0, i) = tabLigneExceptUser(0)
-                            tabExcepUser(1, i) = tabLigneExceptUser(1)
+                Using monStreamReader As StreamReader = New StreamReader("\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\UsersExceptions.txt")
+                    Dim ligne As String
+                    Dim i As Integer = -1
+
+                    Do
+                        ligne = monStreamReader.ReadLine()
+                        If ligne Is Nothing Then Exit Do
+                        If String.IsNullOrWhiteSpace(ligne) Then Continue Do
+
+                        Dim tabLigneExceptUser As String() = Split(ligne, ","c)
+                        If tabLigneExceptUser.Length < 2 Then
+                            Commun.Journal("ERREUR : exceptionUser : ligne invalide dans UsersExceptions.txt : " & ligne, True)
+                            Continue Do
                         End If
 
-                        tabLigneExceptUser = Nothing
-                    End If
-                Loop Until ligne Is Nothing
-                monStreamReader.Close()
-                'monStreamReader.Dispose()
+                        Dim dateExpire As DateTime
+                        If Not DateTime.TryParseExact(
+                  tabLigneExceptUser(1).Trim(),
+                  "dd/MM/yyyy",
+                  System.Globalization.CultureInfo.InvariantCulture,
+                  System.Globalization.DateTimeStyles.None,
+                  dateExpire
+              ) Then
+                            Commun.Journal("ERREUR : exceptionUser : date invalide dans UsersExceptions.txt : " & ligne, True)
+                            Continue Do
+                        End If
+
+                        If dateExpire >= Now.Date Then
+                            i += 1
+                            ReDim Preserve tabExcepUser(1, i)
+                            tabExcepUser(0, i) = tabLigneExceptUser(0).Trim()
+                            tabExcepUser(1, i) = tabLigneExceptUser(1).Trim()
+                        End If
+                    Loop
+                End Using
             End If
 
             If Not tabExcepUser Is Nothing Then
