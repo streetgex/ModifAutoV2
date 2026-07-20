@@ -56,6 +56,10 @@ Public Class Gestion
                                     Dim renseignerDateOfficielle As Boolean = True
 
                                     If String.IsNullOrWhiteSpace(dateFinContratTxt) Then
+                                        If AttributsTechniquesDejaRenseignes(userAD) Then
+                                            Continue For
+                                        End If
+
                                         Commun.Journal(vbTab & "ATTENTION : " & libelleOu & " : date de fin de contrat introuvable, utilisation de la date du jour pour les attributs techniques : " & login & " : employeeID : " & employeeID, False)
                                         renseignerDateOfficielle = False
                                     ElseIf Not DateTime.TryParseExact(
@@ -65,10 +69,18 @@ Public Class Gestion
                                     System.Globalization.DateTimeStyles.None,
                                     dateFinContrat
                                 ) Then
+                                        If AttributsTechniquesDejaRenseignes(userAD) Then
+                                            Continue For
+                                        End If
+
                                         Commun.Journal(vbTab & "ATTENTION : " & libelleOu & " : date de fin de contrat invalide, utilisation de la date du jour pour les attributs techniques : " & login & " : employeeID : " & employeeID & " : " & dateFinContratTxt, False)
                                         dateFinContrat = Now.Date
                                         renseignerDateOfficielle = False
                                     ElseIf dateFinContrat <= #1/1/1900# Then
+                                        If AttributsTechniquesDejaRenseignes(userAD) Then
+                                            Continue For
+                                        End If
+
                                         Commun.Journal(vbTab & "ATTENTION : " & libelleOu & " : aucune date de fin de contrat exploitable, utilisation de la date du jour pour les attributs techniques : " & login & " : employeeID : " & employeeID, False)
                                         dateFinContrat = Now.Date
                                         renseignerDateOfficielle = False
@@ -107,6 +119,22 @@ Public Class Gestion
         Commun.AppliquerChangement(userAD)
     End Sub
 
+    Private Shared Function AttributsTechniquesDejaRenseignes(ByVal userAD As DirectoryEntry) As Boolean
+        Dim accountDeletionDate As Boolean =
+            userAD.Properties.Contains("accountDeletionDate") AndAlso
+            userAD.Properties("accountDeletionDate").Value IsNot Nothing AndAlso
+            userAD.Properties("accountDeletionDate").Value.ToString().Trim() <> ""
+
+        Dim accountDeactivationDT As Boolean =
+            userAD.Properties.Contains("accountDeactivationDT") AndAlso
+            userAD.Properties("accountDeactivationDT").Value IsNot Nothing
+
+        Dim accountDeletionDT As Boolean =
+            userAD.Properties.Contains("accountDeletionDT") AndAlso
+            userAD.Properties("accountDeletionDT").Value IsNot Nothing
+
+        Return accountDeletionDate OrElse accountDeactivationDT OrElse accountDeletionDT
+    End Function
     Shared Sub GestionAttributsDT()
 
         Commun.Journal("Activation/desactivation des comptes par accountDeletionDT et accountDeactivationDT", False)
