@@ -570,7 +570,7 @@ Module Module1
                         End If
                     End If
                 Catch ex As Exception
-                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""extensionAttribute1"" : {ex.Message}", True)
+                    Commun.Journal(vbTab & vbTab & $"ERREUR : Modification de l'attribut : ""extensionAttribute1"" : {userRH.login_samAccountName} : {ex.Message}", True)
                 End Try
 
                 Try
