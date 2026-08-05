@@ -59,6 +59,7 @@ Module Module1
 
         Dim listExtensionsXivo As String = ""
         If Environment.MachineName <> "SERV-AD1" Then
+            ExpirationMDP()
             'Gestion.GestionGroupeUserActive(New DirectoryEntry("LDAP://serv-ad2.igbmc.u-strasbg.fr/CN=Pietro GIRAUDO,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr", AdminScriptLogin, AdminScriptPassword, auth))
             'Dim dateNowU  = Now.ToUniversalTime.Date.ToString("yyyyMMddHHmmss.sZ")
             'ModEquipeDestinationDepartement.ChargerEquipeDestinationDepartement()
@@ -1059,7 +1060,6 @@ Module Module1
 
         Commun.SendEmail("administrateur@igbmc.fr", "assistants-de-prevention@igbmc.fr;Bcc:steph@igbmc.fr", "(Mail automatique) Nouvel entrant", corpmailAssistentsPrévention)
     End Sub
-
 
     Public Function ChargerIndexUtilisateursAD() As Dictionary(Of String, UtilisateurADIndex)
 
@@ -3041,7 +3041,7 @@ fermerUsing:
 
                         Using userADM As DirectoryEntry = resultUser.GetDirectoryEntry
                             Dim expirationPWDDateTxt As String = expirationPWDDate.ToString("dd/MM/yyy")
-                            If type = "usersAdm" Or type = "adminInfo" Then
+                            If type = "usersAdm" Or type = "adminInfo" Or type = "Compte de service" Then
                                 If userADM.Properties("physicalDeliveryOfficeName").Value <> "Expire le : " & expirationPWDDateTxt And resultUser.Properties("pwdLastSet")(0) <> 0 Then
                                     userADM.Properties("physicalDeliveryOfficeName").Value = "Expire le : " & expirationPWDDateTxt
                                     Commun.AppliquerChangement(userADM)
