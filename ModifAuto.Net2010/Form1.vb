@@ -59,7 +59,6 @@ Module Module1
 
         Dim listExtensionsXivo As String = ""
         If Environment.MachineName <> "SERV-AD1" Then
-            'ExpirationMDP()
             'Gestion.GestionGroupeUserActive(New DirectoryEntry("LDAP://serv-ad2.igbmc.u-strasbg.fr/CN=Pietro GIRAUDO,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr", AdminScriptLogin, AdminScriptPassword, auth))
             'Dim dateNowU  = Now.ToUniversalTime.Date.ToString("yyyyMMddHHmmss.sZ")
             'ModEquipeDestinationDepartement.ChargerEquipeDestinationDepartement()
@@ -100,7 +99,7 @@ Module Module1
             Dim dureeCF As String = String.Format("{0:00}h {1:00}m {2:00}s", durationCF.Hours, durationCF.Minutes, durationCF.Seconds)
             Dim dureeTolerable As Integer = Convert.ToInt32(ini.ReadValue("MODIFAUTO", "DureeMaxJson"))
 
-            If DateDiff(DateInterval.Minute, DebutCreationFichier, finCreationFichier) > dureeTolerable Then
+            If DateDiff(DateInterval.Minute, debutCreationFichier, finCreationFichier) > dureeTolerable Then
                 Commun.SendEmail("administrateur@igbmc.fr", ini.ReadValue("MODIFAUTO", "mailDureeMaxJson"), "Duree de creation de fichier JSON superieure à " & dureeTolerable.ToString & " minutes", "La durée de creation du fichier JSON a travers IGBMC services a été anormalement longue: " & dureeCF)
             End If
 
@@ -212,7 +211,7 @@ Module Module1
         ' COPIE DES FICHIERS 
         Try
 
-            File.Copy("c:\temp\eq.txt", CheminPartage & "\todo\eq.txt", True)
+            File.Copy("c:\temp\eq.txt", cheminPartage & "\todo\eq.txt", True)
             File.Copy("c:\temp\listep.txt", cheminPartage & "\todo\listep.txt", True)
             If withJson = "json" Then
                 File.Copy("c:\temp\listepersoJson.txt", cheminPartage & "\todo\listepersoJson.txt", True)
@@ -2121,9 +2120,9 @@ Module Module1
         Next
 
         Return New ReferentielDestinationsDepartements With {
-            .Destinations = destinations,
-            .Departements = departements,
-            .EquipesInfo = equipesInfo
+            .destinations = destinations,
+            .departements = departements,
+            .equipesInfo = equipesInfo
         }
     End Function
 
