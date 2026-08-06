@@ -56,9 +56,11 @@ Module Module1
 
         'choix du DC
         ADHelper.InitialiserDC()
+        Pws.TraiterConfigurationsMailboxDifferees()
 
         Dim listExtensionsXivo As String = ""
         If Environment.MachineName <> "SERV-AD1" Then
+            'ExpirationMDP()
             'Gestion.GestionGroupeUserActive(New DirectoryEntry("LDAP://serv-ad2.igbmc.u-strasbg.fr/CN=Pietro GIRAUDO,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr", AdminScriptLogin, AdminScriptPassword, auth))
             'Dim dateNowU  = Now.ToUniversalTime.Date.ToString("yyyyMMddHHmmss.sZ")
             'ModEquipeDestinationDepartement.ChargerEquipeDestinationDepartement()

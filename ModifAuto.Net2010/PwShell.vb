@@ -1,9 +1,11 @@
 Imports System.Management.Automation
 Imports System.Management.Automation.Runspaces
 Imports System.Collections.ObjectModel
+Imports System.IO
 
 
 Public Class Pws
+    Private Const PendingMailboxConfigFilePath As String = "c:\temp\ModifAuto_PendingMailboxConfig.txt"
     Shared Sub commandePWSMailbox(ByVal login As String, ByVal db As String)
         Dim ctrlDomain As String = Commun.DCName
         Dim exchangeServer As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
@@ -63,27 +65,13 @@ Public Class Pws
                 End With
                 TryInvokeExchangeCommand(pRunspace, pCommand4, "Set-Mailbox", ctrlDomain)
 
-                If TryWaitMailboxCalendarReady(pRunspace, login, ctrlDomain) Then
-                    Dim pCommand2 As New PSCommand()
-                    With pCommand2
-                        .AddCommand("Set-MailboxCalendarConfiguration")
-                        .AddParameter("Identity", login)
-                        .AddParameter("FirstWeekOfYear", "FirstFourDayWeek")
-                    End With
-                    TryInvokeExchangeCommand(pRunspace, pCommand2, "Set-MailboxCalendarConfiguration", ctrlDomain)
-
-                    Dim pCommand3 As New PSCommand()
-                    With pCommand3
-                        .AddCommand("Set-MailboxRegionalConfiguration")
-                        .AddParameter("Identity", login)
-                        .AddParameter("TimeZone", "Romance Standard Time")
-                        .AddParameter("Language", "fr-FR")
-                        .AddParameter("LocalizeDefaultFolderName", True)
-                    End With
-                    TryInvokeExchangeCommand(pRunspace, pCommand3, "Set-MailboxRegionalConfiguration", ctrlDomain)
+                If TryConfigurerMailboxCalendrierEtRegion(pRunspace, login, ctrlDomain) Then
+                    SupprimerConfigurationMailboxDifferee(login)
                 Else
+                    EnregistrerConfigurationMailboxDifferee(login)
                     Commun.Journal("ATTENTION : mailbox creee mais configuration calendrier/regionale differee : " & login & vbCrLf & CommandesConfigurationMailboxDifferee(login, ctrlDomain), True)
                 End If
+
             End Using
 
             Commun.Journal("Creation de la boite mail reussie : " & login)
@@ -92,7 +80,7 @@ Public Class Pws
             Commun.Journal("ERREUR : Creation de compte : Creation du compte mail : " & ex.Message & " : " & login, True)
         End Try
     End Sub
-    Private Shared Function TryWaitMailboxCalendarReady(pRunspace As Runspace, login As String, ctrlDomain As String) As Boolean
+    Private Shared Function TryWaitMailboxCalendarReady(pRunspace As Runspace, login As String, ctrlDomain As String, Optional ByVal journalFailure As Boolean = True) As Boolean
         For tentative As Integer = 1 To 24
             Try
                 Dim pTest As New PSCommand()
@@ -110,7 +98,7 @@ Public Class Pws
             End Try
         Next
 
-        Commun.Journal("ATTENTION : mailbox non prete pour configuration calendrier : " & login & vbCrLf & CommandesConfigurationMailboxDifferee(login, ctrlDomain), True)
+        If journalFailure Then Commun.Journal("ATTENTION : mailbox non prete pour configuration calendrier : " & login, True)
         Return False
     End Function
     Private Shared Function CommandesConfigurationMailboxDifferee(ByVal login As String, ByVal ctrlDomain As String) As String
@@ -140,21 +128,6 @@ Public Class Pws
         DescribeExchangeCommand(pCommandCalendar) & vbCrLf &
         DescribeExchangeCommand(pCommandRegional)
     End Function
-    Private Shared Function TryInvokeExchangeCommand(
-    ByVal runspace As Runspace,
-    ByVal pCommand As PSCommand,
-    ByVal commandName As String,
-    Optional ByVal ctrlDomain As String = Nothing
-) As Boolean
-
-        Try
-            InvokeExchangeCommand(runspace, pCommand, commandName, ctrlDomain)
-            Return True
-        Catch ex As Exception
-            Commun.Journal("ATTENTION : " & commandName & " non applique : " & ex.Message, True)
-            Return False
-        End Try
-    End Function
     Private Shared Function DescribeExchangeCommand(ByVal pCommand As PSCommand) As String
         Dim commandText As New System.Text.StringBuilder()
 
@@ -168,7 +141,11 @@ Public Class Pws
                 commandText.Append(parameter.Name)
 
                 If parameter.Value IsNot Nothing Then
-                    commandText.Append(" ")
+                    If TypeOf parameter.Value Is Boolean Then
+                        commandText.Append(":")
+                    Else
+                        commandText.Append(" ")
+                    End If
                     commandText.Append(FormatPowerShellValue(parameter.Value))
                 End If
             Next
@@ -182,6 +159,24 @@ Public Class Pws
 
         Dim textValue As String = value.ToString()
         Return "'" & textValue.Replace("'", "''") & "'"
+    End Function
+    Private Shared Function TryInvokeExchangeCommand(
+    ByVal runspace As Runspace,
+    ByVal pCommand As PSCommand,
+    ByVal commandName As String,
+    Optional ByVal ctrlDomain As String = Nothing,
+    Optional ByVal journalFailure As Boolean = True
+) As Boolean
+
+        Try
+            InvokeExchangeCommand(runspace, pCommand, commandName, ctrlDomain)
+            Return True
+        Catch ex As Exception
+            If journalFailure Then
+                Commun.Journal("ATTENTION : " & commandName & " non applique : " & ex.Message, True)
+            End If
+            Return False
+        End Try
     End Function
     Private Shared Function InvokeExchangeCommand(
     ByVal runspace As Runspace,
@@ -220,6 +215,138 @@ Public Class Pws
             Return result
         End Using
     End Function
+
+    Private Shared Function TryConfigurerMailboxCalendrierEtRegion(
+    ByVal pRunspace As Runspace,
+    ByVal login As String,
+    ByVal ctrlDomain As String,
+    Optional ByVal journalFailure As Boolean = True
+) As Boolean
+
+        If Not TryWaitMailboxCalendarReady(pRunspace, login, ctrlDomain, journalFailure) Then
+            Return False
+        End If
+
+        Dim pCommand2 As New PSCommand()
+        With pCommand2
+            .AddCommand("Set-MailboxCalendarConfiguration")
+            .AddParameter("Identity", login)
+            .AddParameter("FirstWeekOfYear", "FirstFourDayWeek")
+        End With
+
+        Dim pCommand3 As New PSCommand()
+        With pCommand3
+            .AddCommand("Set-MailboxRegionalConfiguration")
+            .AddParameter("Identity", login)
+            .AddParameter("TimeZone", "Romance Standard Time")
+            .AddParameter("Language", "fr-FR")
+            .AddParameter("LocalizeDefaultFolderName", True)
+        End With
+
+        Dim calendarConfigured As Boolean = TryInvokeExchangeCommand(pRunspace, pCommand2, "Set-MailboxCalendarConfiguration", ctrlDomain, journalFailure)
+        Dim regionalConfigured As Boolean = TryInvokeExchangeCommand(pRunspace, pCommand3, "Set-MailboxRegionalConfiguration", ctrlDomain, journalFailure)
+
+        Return calendarConfigured AndAlso regionalConfigured
+    End Function
+    Shared Sub TraiterConfigurationsMailboxDifferees()
+        Dim pendingLogins As List(Of String) = LireConfigurationsMailboxDifferees()
+        If pendingLogins.Count = 0 Then Exit Sub
+
+        Dim ctrlDomain As String = Commun.DCName
+        Dim exchangeServer As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
+
+        Try
+            If String.IsNullOrWhiteSpace(exchangeServer) Then
+                Throw New Exception("Le serveur Exchange n'est pas renseigne dans MODIFAUTO/CasExchangeServer.")
+            End If
+
+            Dim pCredential As PSCredential = Nothing
+            Dim connectionUri As New Uri("http://" & exchangeServer & "/powershell")
+            Dim pConnectionInfo As New WSManConnectionInfo(
+                connectionUri,
+                "http://schemas.microsoft.com/powershell/Microsoft.Exchange",
+                pCredential
+            )
+
+            Dim remainingLogins As New List(Of String)()
+
+            Using pRunspace As Runspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
+                pRunspace.Open()
+
+                For Each pendingLogin As String In pendingLogins
+                    If TryConfigurerMailboxCalendrierEtRegion(pRunspace, pendingLogin, ctrlDomain, False) Then
+                        Commun.Journal("Configuration calendrier/regionale appliquee en differe : " & pendingLogin)
+                    Else
+                        remainingLogins.Add(pendingLogin)
+                        Commun.Journal("ATTENTION : configuration calendrier/regionale toujours differee : " & pendingLogin, False)
+                    End If
+                Next
+            End Using
+
+            EcrireConfigurationsMailboxDifferees(remainingLogins)
+
+        Catch ex As Exception
+            Commun.Journal("ERREUR : reprise configuration mailbox differee : " & ex.Message, True)
+        End Try
+    End Sub
+    Private Shared Function LireConfigurationsMailboxDifferees() As List(Of String)
+        Dim logins As New List(Of String)()
+
+        If Not File.Exists(PendingMailboxConfigFilePath) Then
+            Return logins
+        End If
+
+        Dim uniques As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+
+        For Each rawLine As String In File.ReadAllLines(PendingMailboxConfigFilePath)
+            Dim login As String = rawLine.Trim()
+            If login <> "" AndAlso uniques.Add(login) Then
+                logins.Add(login)
+            End If
+        Next
+
+        Return logins
+    End Function
+    Private Shared Sub EnregistrerConfigurationMailboxDifferee(ByVal login As String)
+        If String.IsNullOrWhiteSpace(login) Then Exit Sub
+
+        Dim logins As List(Of String) = LireConfigurationsMailboxDifferees()
+        If logins.Exists(Function(existingLogin) String.Equals(existingLogin, login, StringComparison.OrdinalIgnoreCase)) Then
+            Exit Sub
+        End If
+
+        logins.Add(login)
+        EcrireConfigurationsMailboxDifferees(logins)
+    End Sub
+    Private Shared Sub SupprimerConfigurationMailboxDifferee(ByVal login As String)
+        If String.IsNullOrWhiteSpace(login) Then Exit Sub
+
+        Dim logins As List(Of String) = LireConfigurationsMailboxDifferees()
+        If logins.Count = 0 Then Exit Sub
+
+        logins.RemoveAll(Function(existingLogin) String.Equals(existingLogin, login, StringComparison.OrdinalIgnoreCase))
+        EcrireConfigurationsMailboxDifferees(logins)
+    End Sub
+    Private Shared Sub EcrireConfigurationsMailboxDifferees(ByVal logins As IEnumerable(Of String))
+        Dim lignes As New List(Of String)()
+        Dim uniques As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+
+        For Each login As String In logins
+            Dim loginNettoye As String = If(login, "").Trim()
+            If loginNettoye <> "" AndAlso uniques.Add(loginNettoye) Then
+                lignes.Add(loginNettoye)
+            End If
+        Next
+
+        If lignes.Count = 0 Then
+            If File.Exists(PendingMailboxConfigFilePath) Then
+                File.Delete(PendingMailboxConfigFilePath)
+            End If
+            Exit Sub
+        End If
+
+        File.WriteAllLines(PendingMailboxConfigFilePath, lignes.ToArray())
+    End Sub
 
     Shared Function commandePWSMailUser(ByVal aliasMail As String, ByVal externalEmail As String) As Boolean
         Dim result As Boolean = False
