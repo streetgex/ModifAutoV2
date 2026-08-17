@@ -42,7 +42,7 @@ Module Module1
     Public auth As AuthenticationTypes = AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure ' 'AuthenticationTypes.Secure
     Public usersRH As New List(Of UtilisateurRH)
 
-
+    Public adminsDuDomaine As String = LCase(ini.ReadValue("MODIFAUTO", "Group_Admins_du_domaine"))
 
     Public Sub Main()
         Dim debutScript As DateTime = Now()
@@ -60,6 +60,7 @@ Module Module1
 
         Dim listExtensionsXivo As String = ""
         If Environment.MachineName <> "SERV-AD1" Then
+            Gestion.CtrlGroupAdmins()
             'ExpirationMDP()
             'Gestion.GestionGroupeUserActive(New DirectoryEntry("LDAP://serv-ad2.igbmc.u-strasbg.fr/CN=Pietro GIRAUDO,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr", AdminScriptLogin, AdminScriptPassword, auth))
             'Dim dateNowU  = Now.ToUniversalTime.Date.ToString("yyyyMMddHHmmss.sZ")
@@ -76,7 +77,7 @@ Module Module1
             withJson = "json"
         End If
 
-        'withJson = "debug"
+        If InStr(adminsDuDomaine, "stephadm") = 0 Then End
 
         'Creation et envoi du fichier de controle MicroSesame
         If sendMSreport = True Then

@@ -398,7 +398,7 @@ Public Class Gestion
                     'listMembresAutorises = "Administrateur,steph,stephadm,guiseithadm,userprog"
             End Select
 
-            If InStr(listMembresAutorises, "administrateur,stephadm") <> 0 Then
+            If InStr(listMembresAutorises, "administrateur") <> 0 Then
 
                 Dim tabMembresAutorises = Split(listMembresAutorises, ",")
                 Dim monGroupe As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN(samaccountGroup)), Commun.admin, Commun.passwd, auth)
