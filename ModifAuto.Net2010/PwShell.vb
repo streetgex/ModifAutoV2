@@ -31,6 +31,7 @@ Public Class Pws
             "http://schemas.microsoft.com/powershell/Microsoft.Exchange",
             pCredential
         )
+        pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
 
             Using pRunspace As Runspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
                 pRunspace.Open()
@@ -267,6 +268,7 @@ Public Class Pws
                 "http://schemas.microsoft.com/powershell/Microsoft.Exchange",
                 pCredential
             )
+            pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
 
             Dim remainingLogins As New List(Of String)()
 
@@ -421,6 +423,7 @@ Public Class Pws
             '-- set connection info
             Dim server As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
             pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & server & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
+            pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
 
             '-- create remote runspace
             pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
@@ -511,6 +514,7 @@ Public Class Pws
             '-- set connection info
             Dim server As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
             pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & server & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
+            pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
 
             '-- create remote runspace
             pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
@@ -554,7 +558,7 @@ Public Class Pws
             "http://schemas.microsoft.com/powershell/Microsoft.PowerShell",
             DirectCast(Nothing, PSCredential)
         )
-        connectionInfo.AuthenticationMechanism = AuthenticationMechanism.Default
+        connectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
 
         Using runspace = RunspaceFactory.CreateRunspace(connectionInfo)
             runspace.Open()
@@ -614,6 +618,7 @@ Public Class Pws
             '-- set connection info
             Dim server As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
             pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & server & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
+            pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
 
             '-- create remote runspace
             pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
@@ -670,6 +675,7 @@ Public Class Pws
 
             '-- set connection info
             pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & ini.ReadValue("MODIFAUTO", "CasExchangeServer") & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
+            pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
 
             '-- create remote runspace
             pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)

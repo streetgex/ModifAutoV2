@@ -45,6 +45,7 @@ Public Class ADHelper
                     End If
                 End Using
             Catch ex As Exception
+                Commun.Journal("ERREUR : DC ignore : " & dc & " : " & ex.Message, True)
                 Debug.WriteLine("DC ignoré : " & dc & " - " & ex.Message)
             End Try
         Next
