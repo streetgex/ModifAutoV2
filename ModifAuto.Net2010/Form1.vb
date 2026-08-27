@@ -1,4 +1,4 @@
-﻿Imports System.DirectoryServices
+Imports System.DirectoryServices
 Imports System.IO
 'Imports ActiveDs
 Imports Newtonsoft.Json
@@ -13,7 +13,7 @@ Imports System.Runtime.InteropServices
 Module Module1
     Public iniFilePath = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2.ini"
     Public ini As New IniFile(iniFilePath)
-    Public withJson As String = "json" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
+    Public withJson As String = "debug" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
     'Public tabPersoMonoEquipe As String(,)
     Public listeUtilisateursRH As New List(Of UtilisateurRH)
     Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Integer)
@@ -36,10 +36,11 @@ Module Module1
     Public directeurLogin As String = ini.ReadValue("MODIFAUTO", "LoginDirecteur")
 
     Public AdminScriptLogin As String = ini.ReadValue("GLOBAL", "AdminScriptLogin")
+    Public MailSenderAddress As String = If(InStr(AdminScriptLogin, "@") > 0, AdminScriptLogin, AdminScriptLogin & "@igbmc.fr")
     Public AdminScriptPassword As String = ini.ReadValue("GLOBAL", "AdminScriptPassword_encrypted")
 
     Public nomFichierRapportMS As String = "c:\temp\MSrapport(" & Replace(Now.ToString("dd-MM-yyyy HH.mm"), "/", "-") & ").csv"
-    Public auth As AuthenticationTypes = AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure ' 'AuthenticationTypes.Secure
+    Public auth As AuthenticationTypes = AuthenticationTypes.Secure 'SocketsLayer or AuthenticationTypes.Secure ' 'AuthenticationTypes.Secure
     Public usersRH As New List(Of UtilisateurRH)
 
     Public adminsDuDomaine As String = LCase(ini.ReadValue("MODIFAUTO", "Group_Admins_du_domaine"))
@@ -206,7 +207,7 @@ Module Module1
         ini.WriteValue("MODIFAUTO", "lastExec", Now.ToString("dd/MM/yyyy HH:mm:ss"))
     End Sub
     Public Sub sendJournalError()
-        Commun.SendEmail(AdminScriptLogin & "@igbmc.fr", "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
+        Commun.SendEmail(MailSenderAddress, "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
     End Sub
 
     Public Sub GestionDesFichiers()
@@ -1051,6 +1052,7 @@ Module Module1
         If ctrlEnvoiMailAP = False Then
             Exit Sub
         End If
+
 
         Dim corpmailAssistentsPrévention As String =
         vbCrLf & "Nom : " & userRH.prenom_givenName & " " & userRH.nom_sn &
@@ -2026,7 +2028,7 @@ Module Module1
 
         Catch ex As Exception
             Commun.Journal("ERREUR : Creation des fichiers et des tableaux : " & ex.Message, True)
-            Commun.SendEmail(AdminScriptLogin & "@igbmc.fr", "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
+            Commun.SendEmail(MailSenderAddress, "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
             Return result
         End Try
 
