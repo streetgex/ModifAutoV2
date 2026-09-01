@@ -1,4 +1,4 @@
-Imports System.DirectoryServices
+﻿Imports System.DirectoryServices
 Imports System.IO
 'Imports ActiveDs
 Imports Newtonsoft.Json
@@ -1561,38 +1561,28 @@ Module Module1
         })
         End If
 
-        Dim extensionAttribute1Renseigne As Boolean =
-        Not String.IsNullOrWhiteSpace(adUser.extensionAttribute1) OrElse
-        Not String.IsNullOrWhiteSpace(userRH.extensionAttribute1_finDeContrat)
-
         If DatesDifferentes(adUser.accountDeactivationDT, userRH.accountDeactivationDT_finDeContrat) Then
-            If userRH.accountDeactivationDT_finDeContrat.HasValue OrElse Not extensionAttribute1Renseigne Then
-                changements.Add(New ChangementAttributAD With {
-                .Attribut = "accountDeactivationDT",
-                .AncienneValeur = If(adUser.accountDeactivationDT.HasValue, adUser.accountDeactivationDT.Value.ToString("dd/MM/yyyy"), ""),
-                .NouvelleValeur = If(userRH.accountDeactivationDT_finDeContrat.HasValue, userRH.accountDeactivationDT_finDeContrat.Value.ToString("dd/MM/yyyy"), "")
-            })
-            End If
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "accountDeactivationDT",
+            .AncienneValeur = If(adUser.accountDeactivationDT.HasValue, adUser.accountDeactivationDT.Value.ToString("dd/MM/yyyy"), ""),
+            .NouvelleValeur = If(userRH.accountDeactivationDT_finDeContrat.HasValue, userRH.accountDeactivationDT_finDeContrat.Value.ToString("dd/MM/yyyy"), "")
+        })
         End If
 
         If DatesDifferentes(adUser.accountDeletionDT, userRH.accountDeletionDT_finDeContratPlus3Mois) Then
-            If userRH.accountDeletionDT_finDeContratPlus3Mois.HasValue OrElse Not extensionAttribute1Renseigne Then
-                changements.Add(New ChangementAttributAD With {
-                .Attribut = "accountDeletionDT",
-                .AncienneValeur = If(adUser.accountDeletionDT.HasValue, adUser.accountDeletionDT.Value.ToString("dd/MM/yyyy"), ""),
-                .NouvelleValeur = If(userRH.accountDeletionDT_finDeContratPlus3Mois.HasValue, userRH.accountDeletionDT_finDeContratPlus3Mois.Value.ToString("dd/MM/yyyy"), "")
-            })
-            End If
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "accountDeletionDT",
+            .AncienneValeur = If(adUser.accountDeletionDT.HasValue, adUser.accountDeletionDT.Value.ToString("dd/MM/yyyy"), ""),
+            .NouvelleValeur = If(userRH.accountDeletionDT_finDeContratPlus3Mois.HasValue, userRH.accountDeletionDT_finDeContratPlus3Mois.Value.ToString("dd/MM/yyyy"), "")
+        })
         End If
 
         If adUser.accountDeletionDate <> userRH.accountDeletionDate_finDeContratPlus3Mois Then
-            If Not String.IsNullOrWhiteSpace(userRH.accountDeletionDate_finDeContratPlus3Mois) OrElse Not extensionAttribute1Renseigne Then
-                changements.Add(New ChangementAttributAD With {
-                .Attribut = "accountDeletionDate",
-                .AncienneValeur = adUser.accountDeletionDate,
-                .NouvelleValeur = userRH.accountDeletionDate_finDeContratPlus3Mois
-            })
-            End If
+            changements.Add(New ChangementAttributAD With {
+            .Attribut = "accountDeletionDate",
+            .AncienneValeur = adUser.accountDeletionDate,
+            .NouvelleValeur = userRH.accountDeletionDate_finDeContratPlus3Mois
+        })
         End If
 
         Return changements
