@@ -36,15 +36,20 @@ Public Class ADHelper
             Dim sw As Stopwatch = Stopwatch.StartNew()
 
             Try
-                Using root As New DirectoryEntry("LDAP://" & dc & "/rootDSE", Commun.admin, Commun.passwd, auth)
-                    Dim namingContext As String = CStr(root.Properties("defaultNamingContext").Value)
+                Using entry As New DirectoryEntry(
+            "LDAP://" & dc & "/DC=igbmc,DC=u-strasbg,DC=fr",
+            Commun.admin,
+            Commun.passwd,
+            auth)
 
-                    If Not String.IsNullOrWhiteSpace(namingContext) Then
-                        sw.Stop()
-                        mesures.Add(Tuple.Create(dc, sw.ElapsedMilliseconds))
-                    End If
+                    entry.RefreshCache(New String() {"distinguishedName"})
+
+                    sw.Stop()
+                    mesures.Add(Tuple.Create(dc, sw.ElapsedMilliseconds))
                 End Using
+
             Catch ex As Exception
+                Commun.Journal("ERREUR : DC ignore : " & dc & " : " & ex.Message, True)
                 Debug.WriteLine("DC ignoré : " & dc & " - " & ex.Message)
             End Try
         Next

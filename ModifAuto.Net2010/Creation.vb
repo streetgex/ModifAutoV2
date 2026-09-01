@@ -1,4 +1,4 @@
-﻿Imports System.DirectoryServices
+Imports System.DirectoryServices
 Imports System.IO
 Imports System.Net.Mail
 Imports System.Management.Automation
@@ -391,7 +391,7 @@ Public Class Creation
                     & "You can access to your mail And to the shared calendar at https://igbmcmail.igbmc.fr/owa <BR></center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>Disk space</center></TD><TD WIDTH=490><center>" _
                     & "You have a backed up data storage space that you can access by: " & usrPathEquipeinfo & "</center></TD></TR><TR VALIGN=TOP><TD WIDTH=150><center>Contact</center></TD><TD WIDTH=490><center>Send an email to: <B>helpdesk@igbmc.fr</B>" _
                     & "</center></TD></TR></TABLE></BODY></HTML>"
-            Commun.SendEmail(AdminScriptLogin & "@igbmc.fr", "serviceinfo@igbmc.fr", "[Creation de compte] " & usrPrenom & " " & usrNom, textMail)
+            Commun.SendEmail(MailSenderAddress, "serviceinfo@igbmc.fr", "[Creation de compte] " & usrPrenom & " " & usrNom, textMail)
 
         Catch e As Exception
             Commun.Journal("ERREUR : Creation de compte : envoie du mail de creation de compte : " & e.Message & " : " & usrLogin, True)
