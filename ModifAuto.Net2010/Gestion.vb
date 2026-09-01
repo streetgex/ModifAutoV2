@@ -954,7 +954,7 @@ Public Class Gestion
                     End Try
 
                     'Active le compte loginadm s'il existe
-                    Commun.ReactiveDesactiveCompte(login & "adm", "Active")
+                    TraiterComptesAdminAssocies(login, "Active")
 
                     Try
                         CompararaisonAjoutRetraitDestinationsDepartement(dirEntry)
@@ -993,7 +993,7 @@ Public Class Gestion
                     'on reactive le compte adm si besoin, on remet les groupes actifs,
                     'puis on le deplace vers OUUtilisateursExceptions.
                     If doitPasserException Then
-                        Commun.ReactiveDesactiveCompte(login & "adm", "Active")
+                        TraiterComptesAdminAssocies(login, "Active")
 
                         Try
                             GestionGroupeUserActive(dirEntry)
@@ -1097,7 +1097,7 @@ Public Class Gestion
                     End Try
 
                     'Lorsque le compte principal passe dans l'etat desactive, le compte admin associe est desactive.
-                    Commun.ReactiveDesactiveCompte(login & "adm", "Desactive")
+                    TraiterComptesAdminAssocies(login, "Desactive")
 
                     'Avant le deplacement vers OUUtilisateursDesactives,
                     'on applique les groupes/restrictions correspondant a l'etat desactive.
@@ -1329,6 +1329,27 @@ Public Class Gestion
             Commun.Journal("ERREUR : réactivation du compte(modification des groupes) : " & CNUser, True)
         End Try
     End Sub
+
+    Private Shared Sub TraiterComptesAdminAssocies(ByVal login As String, ByVal action As String)
+        If String.IsNullOrWhiteSpace(login) Then
+            Exit Sub
+        End If
+
+        For Each suffixe As String In New String() {"adm", "padm"}
+            Dim loginAssocie As String = login & suffixe
+            Dim cheminLdapCompteAssocie As String = Commun.TransformeSAMACCOUNTenCN(loginAssocie)
+            If String.IsNullOrWhiteSpace(cheminLdapCompteAssocie) Then
+                Continue For
+            End If
+
+            Try
+                Commun.ReactiveDesactiveCompte(loginAssocie, action)
+            Catch ex As Exception
+                Commun.Journal(vbTab & "ERREUR : compte associe " & LCase(action) & " : " & loginAssocie & " : " & ex.Message, True)
+            End Try
+        Next
+    End Sub
+
     Shared Sub GestionGroupeUserDesactive(ByVal dirEntry1 As DirectoryEntry)
 
         Dim CNUser As String = Replace(dirEntry1.Path, "LDAP://" & Commun.LdapServerPrefix(), "")
