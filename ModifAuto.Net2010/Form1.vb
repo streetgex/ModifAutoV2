@@ -2999,10 +2999,10 @@ fermerUsing:
                         Dim groupe As String = ""
                         Dim StrategieMDP As DirectoryEntry
                         If Commun.AppartientGroup(samaccountname, "G_SMDPM_Admins") = True Then
-                            StrategieMDP = New DirectoryEntry("LDAP://" & Commun.LdapPath("CN=Strategie_MDPM_Admins,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
+                            StrategieMDP = New DirectoryEntry("LDAP://" & Commun.LdapPath("CN=Strategie_MDPM_AdminsT1,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
                             type = "adminInfo"
                             sujet = "Expiration de Votre mot de passe d'administration"
-                            groupe = "G_SMDPM_Admins"
+                            groupe = "G_SMDPM_AdminsT1"
                         ElseIf Commun.AppartientGroup(samaccountname, "G_SMDPM_UsersAdm") = True Then
                             StrategieMDP = New DirectoryEntry("LDAP://" & Commun.LdapPath("CN=Strategie_MDPM_UsersAdm,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
                             type = "usersAdm"
@@ -3014,10 +3014,10 @@ fermerUsing:
                             sujet = "Expiration de Votre mot de passe"
                             groupe = "G_SMDPM_Users-Admins"
                         ElseIf Commun.AppartientGroup(samaccountname, "G_SMDPM_AdminsPostes") = True Then
-                            StrategieMDP = New DirectoryEntry("LDAP://" & Commun.LdapPath("CN=Strategie_MDPM_AdminsPostes,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
+                            StrategieMDP = New DirectoryEntry("LDAP://" & Commun.LdapPath("CN=Strategie_MDPM_AdminsT2,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
                             type = "adminsPostes"
                             sujet = "Expiration de Votre mot de passe d'administration"
-                            groupe = "G_SMDPM_AdminsPostes"
+                            groupe = "G_SMDPM_AdminsT2"
                         ElseIf Commun.AppartientGroup(samaccountname, "G_SMDPM_CS") = True Then
                             StrategieMDP = New DirectoryEntry("LDAP://" & Commun.LdapPath("CN=Strategie_MDMP_CompteService,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
                             type = "Compte de service"
