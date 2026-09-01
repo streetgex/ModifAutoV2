@@ -2863,7 +2863,7 @@ fermerUsing:
             End If
         End Using
 
-        updateGroupeWithArray("G_SMDPM_Admins", tabresults)
+        updateGroupeWithArray("G_SMDPM_AdminsT1", tabresults)
 
         'cas UsersAdm
         Dim tabresults1 As String()
@@ -2891,7 +2891,7 @@ fermerUsing:
         End Using
 
 
-        updateGroupeWithArray("G_SMDPM_AdminsPostes", tabresults3)
+        updateGroupeWithArray("G_SMDPM_AdminsT2", tabresults3)
 
         'cas Users-Admins
         Dim tabresults2 As String()
