@@ -61,7 +61,7 @@ Module Module1
 
         Dim listExtensionsXivo As String = ""
         If Environment.MachineName <> "SERV-AD1" Then
-            Gestion.CtrlGroupAdmins()
+            ExpirationMDP()
             'ExpirationMDP()
             'Gestion.GestionGroupeUserActive(New DirectoryEntry("LDAP://serv-ad2.igbmc.u-strasbg.fr/CN=Pietro GIRAUDO,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr", AdminScriptLogin, AdminScriptPassword, auth))
             'Dim dateNowU  = Now.ToUniversalTime.Date.ToString("yyyyMMddHHmmss.sZ")
@@ -2978,7 +2978,8 @@ fermerUsing:
                 Using OUAdminsearcher As DirectorySearcher = New DirectorySearcher(OUAdmins)
                     'OUAdminsearcher.Filter = "(&(objectClass=user)(|((memberof=" & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_Admins") & ")(memberof=" & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_Users-Admins") & "))))"
                     OUAdminsearcher.Filter = "(&(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=2)" _
-                                            & "(|((memberof=" & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_Admins") & ")" _
+                                            & "(|((memberof=" & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_AdminsT1") & ")" _
+                                            & "(memberof=" & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_AdminsT2") & ")" _
                                             & "(memberof = " & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_Users-Admins") & ")" _
                                             & "(memberof=" & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_UsersAdm") & ")" _
                                             & "(memberof=" & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_CS") & "))))"
@@ -2998,10 +2999,10 @@ fermerUsing:
                         Dim sujet As String
                         Dim groupe As String = ""
                         Dim StrategieMDP As DirectoryEntry
-                        If Commun.AppartientGroup(samaccountname, "G_SMDPM_Admins") = True Then
+                        If Commun.AppartientGroup(samaccountname, "G_SMDPM_AdminsT1") = True Then
                             StrategieMDP = New DirectoryEntry("LDAP://" & Commun.LdapPath("CN=Strategie_MDPM_AdminsT1,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
-                            type = "adminInfo"
-                            sujet = "Expiration de Votre mot de passe d'administration"
+                            type = "adminsT1" '"adminInfo"
+                            sujet = "Expiration de Votre mot de passe d'administration T1"
                             groupe = "G_SMDPM_AdminsT1"
                         ElseIf Commun.AppartientGroup(samaccountname, "G_SMDPM_UsersAdm") = True Then
                             StrategieMDP = New DirectoryEntry("LDAP://" & Commun.LdapPath("CN=Strategie_MDPM_UsersAdm,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
@@ -3013,10 +3014,10 @@ fermerUsing:
                             type = "users-admin"
                             sujet = "Expiration de Votre mot de passe"
                             groupe = "G_SMDPM_Users-Admins"
-                        ElseIf Commun.AppartientGroup(samaccountname, "G_SMDPM_AdminsPostes") = True Then
+                        ElseIf Commun.AppartientGroup(samaccountname, "G_SMDPM_AdminsT2") = True Then
                             StrategieMDP = New DirectoryEntry("LDAP://" & Commun.LdapPath("CN=Strategie_MDPM_AdminsT2,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
-                            type = "adminsPostes"
-                            sujet = "Expiration de Votre mot de passe d'administration"
+                            type = "adminsT2" '"adminsPostes"
+                            sujet = "Expiration de Votre mot de passe d'administration T2"
                             groupe = "G_SMDPM_AdminsT2"
                         ElseIf Commun.AppartientGroup(samaccountname, "G_SMDPM_CS") = True Then
                             StrategieMDP = New DirectoryEntry("LDAP://" & Commun.LdapPath("CN=Strategie_MDMP_CompteService,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
@@ -3045,7 +3046,7 @@ fermerUsing:
 
                         Using userADM As DirectoryEntry = resultUser.GetDirectoryEntry
                             Dim expirationPWDDateTxt As String = expirationPWDDate.ToString("dd/MM/yyy")
-                            If type = "usersAdm" Or type = "adminInfo" Or type = "Compte de service" Then
+                            If type = "usersAdm" Or type = "adminsT1" Or type = "Compte de service" Or type = "adminsT2" Then
                                 If userADM.Properties("physicalDeliveryOfficeName").Value <> "Expire le : " & expirationPWDDateTxt And resultUser.Properties("pwdLastSet")(0) <> 0 Then
                                     userADM.Properties("physicalDeliveryOfficeName").Value = "Expire le : " & expirationPWDDateTxt
                                     Commun.AppliquerChangement(userADM)
@@ -3062,7 +3063,7 @@ fermerUsing:
 
                         Dim Email As String
 
-                        If type = "adminInfo" Or type = "usersAdm" Then
+                        If type = "adminsT1" Or type = "adminsT2" Or type = "usersAdm" Then
                             Email = Strings.Left(samaccountname, Len(samaccountname) - 3) & "@igbmc.fr"
                         ElseIf type = "Compte de service" Then
                             Email = resultUser.Properties("wWWHomePage")(0)
@@ -3073,7 +3074,7 @@ fermerUsing:
 
 
                         Dim ctrl As Boolean = False
-                        If type = "adminInfo" Then
+                        If type = "adminsT1" Then
                             ctrl = (aujourdhui = expirationPWDDate Or demain = expirationPWDDate Or expiration7 = expirationPWDDate Or expiration3 = expirationPWDDate Or expiration2 = expirationPWDDate)
                         ElseIf type = "Compte de service" Then
                             ctrl = (aujourdhui = expirationPWDDate Or demain = expirationPWDDate Or expiration30 = expirationPWDDate Or expiration7 = expirationPWDDate Or expiration3 = expirationPWDDate Or expiration2 = expirationPWDDate Or Now() > expirationPWDDate)
@@ -3099,7 +3100,7 @@ sortie:
     End Sub
     Public Function MailTemplatePasswdExpire(ByVal type As String, ByVal samaccountname As String, ByVal expirationPWD As String, ByVal MaxPWDageJourPolicy As String, ByVal historyLenght As String, ByVal nbrChar As String) As String
         Dim corpMail As String
-        If type = "adminInfo" Or type = "usersAdm" Or type = "adminsPostes" Then
+        If type = "adminsT1" Or type = "usersAdm" Or type = "adminsT2" Then
             Dim rappelComplexite As String = "Votre mot de passe doit etre changé tous les " & MaxPWDageJourPolicy & " jours." & vbCrLf & "Il ne peut pas etre le meme que les " & historyLenght & " précédents." & vbCrLf & "Votre mot de passe doit contenir au moins :" & vbCrLf & vbTab & "- " & nbrChar & " caractères"
             rappelComplexite = rappelComplexite & vbCrLf & vbTab & "- 1 Majuscule" & vbCrLf & vbTab & "- 1 Minuscule" & vbCrLf & vbTab & "- 1 Chiffre" & vbCrLf & vbTab & "- 1 Caractère spécial (non-alphabétique)"
 
