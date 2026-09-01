@@ -112,7 +112,7 @@ Module Module1
             GestionDesFichiers()
 
             'ne pas sauter GestionDestinationsDepartements, construction du dictionnaire equipeinfo
-            gestion.GestionDestinationsDepartements()
+            Gestion.GestionDestinationsDepartements()
 
             Dim usersRaw As Dictionary(Of String, UserRaw) = LoadUsersFromFile("c:\temp\listepersoJson.txt")
             Dim dnParEmployeeId As Dictionary(Of String, String) = ChargerIndexDnParEmployeeId()
@@ -128,7 +128,7 @@ Module Module1
             ModifDonneesAD(usersRH, adUsersByEmployeeId)
 
             If Environment.MachineName = "SERV-AD1" Then
-                gestion.GestionReactiveDesactiveComptesInterne(adUsersByEmployeeId)
+                Gestion.GestionReactiveDesactiveComptesInterne(adUsersByEmployeeId)
             End If
 
         End If
@@ -144,9 +144,9 @@ Module Module1
         Gestion.GestionSuppressionProfilsItinerantsEtDossiersRedirigés()
 
         AttributionStrategieMDP()
-        gestion.CtrlGroupAdmins()
-        gestion.UpdateComptesProvisoires()
-        gestion.ControleOUUtilisateurs()
+        Gestion.CtrlGroupAdmins()
+        Gestion.UpdateComptesProvisoires()
+        Gestion.ControleOUUtilisateurs()
 
 
         If Hour(Now) = 1 Or Hour(Now) = 2 Then
@@ -2125,9 +2125,9 @@ Module Module1
         Next
 
         Return New ReferentielDestinationsDepartements With {
-            .destinations = destinations,
-            .departements = departements,
-            .equipesInfo = equipesInfo
+            .Destinations = destinations,
+            .Departements = departements,
+            .EquipesInfo = equipesInfo
         }
     End Function
 
