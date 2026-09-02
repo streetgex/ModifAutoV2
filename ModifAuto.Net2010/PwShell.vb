@@ -551,8 +551,50 @@ Public Class Pws
         End Try
     End Sub
 
-    Public Shared Sub ForceSyncPeperCutAD(server As String)
-        ' Connexion WSMan avec l’utilisateur courant
+    Public Shared Sub ForceSyncADDepuisDC(dc As String)
+        If String.IsNullOrWhiteSpace(dc) Then
+            Throw New ArgumentException("Le nom du DC est vide.", "dc")
+        End If
+
+        Dim arguments As String = "/syncall " & dc.Trim() & " /A /e /P /d"
+        Dim commandeComplete As String = "repadmin " & arguments
+
+        Dim psi As New System.Diagnostics.ProcessStartInfo()
+        psi.FileName = "repadmin.exe"
+        psi.Arguments = arguments
+        psi.UseShellExecute = False
+        psi.CreateNoWindow = True
+        psi.RedirectStandardOutput = True
+        psi.RedirectStandardError = True
+        psi.StandardOutputEncoding = System.Text.Encoding.GetEncoding(850)
+        psi.StandardErrorEncoding = System.Text.Encoding.GetEncoding(850)
+
+        Using process As System.Diagnostics.Process = System.Diagnostics.Process.Start(psi)
+            Dim sortie As String = process.StandardOutput.ReadToEnd()
+            Dim erreur As String = process.StandardError.ReadToEnd()
+            process.WaitForExit()
+
+            If process.ExitCode <> 0 Then
+                Commun.Journal(vbTab & "ERREUR : Synchronisation AD : commande : " & commandeComplete, True)
+
+                If Not String.IsNullOrWhiteSpace(erreur) Then
+                    For Each ligne As String In erreur.Split({vbCrLf, vbLf}, StringSplitOptions.RemoveEmptyEntries)
+                        Commun.Journal(vbTab & "ERREUR repadmin : " & ligne, True)
+                    Next
+                End If
+
+                If Not String.IsNullOrWhiteSpace(sortie) Then
+                    For Each ligne As String In sortie.Split({vbCrLf, vbLf}, StringSplitOptions.RemoveEmptyEntries)
+                        Commun.Journal(vbTab & "repadmin : " & ligne, True)
+                    Next
+                End If
+
+                Throw New Exception("repadmin a retourne le code " & process.ExitCode & ". Commande : " & commandeComplete)
+            End If
+        End Using
+    End Sub
+
+    Public Shared Sub ForceSyncPeperCutAD(server As String)        ' Connexion WSMan avec l’utilisateur courant
         Dim connectionInfo As New WSManConnectionInfo(
             New Uri("http://" & server & ":5985/wsman"),
             "http://schemas.microsoft.com/powershell/Microsoft.PowerShell",

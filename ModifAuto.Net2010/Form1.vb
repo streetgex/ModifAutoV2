@@ -175,6 +175,14 @@ Module Module1
         End If
 
         Try
+            Commun.Journal("Lancement de la synchronisation AD depuis le DC de travail : " & Commun.DCName, False)
+            Pws.ForceSyncADDepuisDC(Commun.DCName)
+            Commun.Journal("Fin de la synchronisation AD depuis le DC de travail : " & Commun.DCName, False)
+        Catch ex As Exception
+            Commun.Journal(vbTab & "ERREUR : Lancement de la synchronisation AD depuis le DC de travail : " & Commun.DCName & " : " & ex.Message, True)
+        End Try
+
+        Try
             Commun.Journal("Lancement de la synchronisation de PaperCut avec l'AD", False)
             Pws.ForceSyncPeperCutAD("serv-printtools.igbmc.u-strasbg.fr")
             Commun.Journal("Fin de la synchronisation de PaperCut avec l'AD", False)
