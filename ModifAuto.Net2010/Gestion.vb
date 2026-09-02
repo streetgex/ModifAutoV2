@@ -368,77 +368,7 @@ Public Class Gestion
             Next
         End If
     End Sub
-    Shared Sub CtrlGroupAdmins()
-
-        Commun.Journal("Controle des groupes Admins de l'AD", False)
-
-        Dim samaccountGroup As String = ""
-        Dim listMembresAutorises As String = ""
-        For compteur = 0 To 4
-            Select Case compteur
-                Case 0
-                    samaccountGroup = "Admins du domaine"
-                    listMembresAutorises = LCase(ini.ReadValue("MODIFAUTO", "Group_Admins_du_domaine"))
-                    'listMembresAutorises = "Administrateur,steph,stephadm,tina,guiseithadm,SERV-TMG$,SERV-CLUSTER2$,SERV-EXCHANGE$,userprog,krbtgt"
-                Case 1
-                    samaccountGroup = "Administrateurs de l'entreprise"
-                    listMembresAutorises = LCase(ini.ReadValue("MODIFAUTO", "Group_Administrateurs_de_l_entreprise"))
-                    'listMembresAutorises = "Administrateur,steph,stephadm,guiseithadm,userprog"
-                Case 2
-                    samaccountGroup = "Administrateurs"
-                    listMembresAutorises = LCase(ini.ReadValue("MODIFAUTO", "Group_Administrateurs"))
-                    'listMembresAutorises = "Administrateur,steph,stephadm,Administrateurs,Admins du domaine,scripsteph"
-                Case 3
-                    samaccountGroup = "Administrateurs du schéma"
-                    listMembresAutorises = LCase(ini.ReadValue("MODIFAUTO", "Group_Administrateurs_du_schema"))
-                    'listMembresAutorises = "Administrateur,steph,stephadm"
-                Case 4
-                    samaccountGroup = "Administrateurs DHCP"
-                    listMembresAutorises = LCase(ini.ReadValue("MODIFAUTO", "Group_Administrateurs_DHCP"))
-                    'listMembresAutorises = "Administrateur,steph,stephadm,guiseithadm,userprog"
-            End Select
-
-            If InStr(listMembresAutorises, "administrateur") <> 0 Then
-
-                Dim tabMembresAutorises = Split(listMembresAutorises, ",")
-                Dim monGroupe As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN(samaccountGroup)), Commun.admin, Commun.passwd, auth)
-                Try
-                    ' Groupe dont les membres sont à lister
-                    Dim tabMembre As String() = Commun.MembresDuGroupe(samaccountGroup, True)
-                    'tabMembre = Split(LCase(Join(tabMembre, ";")), ";")
-                    For Each unMembre In tabMembre
-
-                        Dim userLogin As String = Commun.TransformeSAMACCOUNTenCN(unMembre.ToString) 'user.Properties("sAMAccountName").Value
-                        userLogin = LCase(userLogin)
-
-                        If Array.IndexOf(tabMembresAutorises, userLogin) = -1 Then
-                            monGroupe.Invoke("Remove", New Object() {"LDAP://" & Commun.LdapPath(unMembre.ToString)})
-                        End If
-                    Next unMembre
-
-                    For i = 0 To UBound(tabMembresAutorises)
-                        Dim DNUser As String = Commun.TransformeSAMACCOUNTenCN(tabMembresAutorises(i))
-                        'DNUser = LCase(DNUser)
-                        Dim found As Integer = Array.IndexOf(tabMembre, DNUser)
-                        If found = -1 Then
-                            monGroupe.Invoke("Add", New Object() {"LDAP://" & Commun.LdapPath(DNUser)})
-                        End If
-                    Next i
-
-                Catch ex As Exception
-                    Commun.Journal("ERREUR : Controle des groupes Admins : case " & compteur & " : " & ex.Message, True)
-                Finally
-                    monGroupe.Close()
-                    monGroupe.Dispose()
-                    monGroupe = Nothing
-                End Try
-            Else
-                Commun.Journal("ERREUR : Controle des groupes Admins : Liste Vide : case " & compteur, True)
-            End If
-        Next
-        Commun.Journal("Fin du Controle des groupes Admins", False)
-    End Sub
-
+    
     Shared Sub UpdateComptesProvisoires()
 
         Commun.Journal("Mise a jour des utilisateurs provisoires", False)
@@ -953,9 +883,6 @@ Public Class Gestion
                         Commun.Journal(vbTab & "ERREUR : réactivation du compte(propriétés) : " & dirEntry.Name & " : " & ex.Message, True)
                     End Try
 
-                    'Active le compte loginadm s'il existe
-                    TraiterComptesAdminAssocies(login, "Active")
-
                     Try
                         CompararaisonAjoutRetraitDestinationsDepartement(dirEntry)
                         MoveToOu(dirEntry, userAD, OUUtilisateursActifs)
@@ -990,11 +917,8 @@ Public Class Gestion
                     End Try
 
                     'Si l'utilisateur est en exception valide mais n'est pas deja dans l'OU exceptions,
-                    'on reactive le compte adm si besoin, on remet les groupes actifs,
                     'puis on le deplace vers OUUtilisateursExceptions.
                     If doitPasserException Then
-                        TraiterComptesAdminAssocies(login, "Active")
-
                         Try
                             GestionGroupeUserActive(dirEntry)
                             MoveToOu(dirEntry, userAD, OUUtilisateursExceptions)
@@ -1008,7 +932,6 @@ Public Class Gestion
                 'et n'est pas deja dans l'etat desactive ou sorti,
                 'on le fait passer dans l'etat desactive.
                 'Le compte login reste dans la periode desactive, avec une date de sortie prevue a +3 mois.
-                'Le compte loginadm est desactive.
                 'La sortie definitive du compte login est geree plus tard dans OUUtilisateursSortis.
                 If doitPasserDesactive Then
                     Dim dateDefinDeContrat As String = ""
@@ -1095,9 +1018,6 @@ Public Class Gestion
                     Catch ex As Exception
                         Commun.Journal(vbTab & "ERREUR : désactivation du compte(propriétés) : " & dirEntry.Name, True)
                     End Try
-
-                    'Lorsque le compte principal passe dans l'etat desactive, le compte admin associe est desactive.
-                    TraiterComptesAdminAssocies(login, "Desactive")
 
                     'Avant le deplacement vers OUUtilisateursDesactives,
                     'on applique les groupes/restrictions correspondant a l'etat desactive.
@@ -1328,26 +1248,6 @@ Public Class Gestion
         Catch ex As Exception
             Commun.Journal("ERREUR : réactivation du compte(modification des groupes) : " & CNUser, True)
         End Try
-    End Sub
-
-    Private Shared Sub TraiterComptesAdminAssocies(ByVal login As String, ByVal action As String)
-        If String.IsNullOrWhiteSpace(login) Then
-            Exit Sub
-        End If
-
-        For Each suffixe As String In New String() {"adm", "padm"}
-            Dim loginAssocie As String = login & suffixe
-            Dim cheminLdapCompteAssocie As String = Commun.TransformeSAMACCOUNTenCN(loginAssocie)
-            If String.IsNullOrWhiteSpace(cheminLdapCompteAssocie) Then
-                Continue For
-            End If
-
-            Try
-                Commun.ReactiveDesactiveCompte(loginAssocie, action)
-            Catch ex As Exception
-                Commun.Journal(vbTab & "ERREUR : compte associe " & LCase(action) & " : " & loginAssocie & " : " & ex.Message, True)
-            End Try
-        Next
     End Sub
 
     Shared Sub GestionGroupeUserDesactive(ByVal dirEntry1 As DirectoryEntry)

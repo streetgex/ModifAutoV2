@@ -54,30 +54,6 @@ Public Class Supprime
                 End If
 
 
-                'Suppression du compte ADM
-                Dim cheminLdapCompteAdm As String = Commun.TransformeSAMACCOUNTenCN(login & "adm")
-                If cheminLdapCompteAdm <> "" Then
-                    removeAllGroup(login & "adm")
-                    Dim ldapPathCompteAdm As String = "LDAP://" & Commun.LdapPath(cheminLdapCompteAdm)
-                    Using userAdm As DirectoryEntry = New DirectoryEntry(ldapPathCompteAdm, Commun.admin, Commun.passwd, auth)
-                        Try
-                            userAdm.DeleteTree()
-                            Commun.Journal("SupprimCompte : Suppression Compte AD Adm : " & login)
-                        Catch ex As Exception
-                            Dim adminCountCompteAdm As String = ""
-                            Dim erreurLectureInfosCompteAdm As String = ""
-                            Try
-                                userAdm.RefreshCache(New String() {"adminCount"})
-                                If userAdm.Properties.Contains("adminCount") AndAlso userAdm.Properties("adminCount").Value IsNot Nothing Then
-                                    adminCountCompteAdm = userAdm.Properties("adminCount").Value.ToString()
-                                End If
-                            Catch exInfo As Exception
-                                erreurLectureInfosCompteAdm = " : erreur lecture adminCount=" & exInfo.Message
-                            End Try
-                            Commun.Journal("ERREUR : SupprimCompte : Suppression Compte AD Adm : " & login & " : DC=" & Commun.DCName & " : LDAP=" & ldapPathCompteAdm & " : adminCount=" & adminCountCompteAdm & erreurLectureInfosCompteAdm & " : " & ex.Message, True)
-                        End Try
-                    End Using
-                End If
             End If
 
         Catch ex As Exception

@@ -43,7 +43,7 @@ Module Module1
     Public auth As AuthenticationTypes = AuthenticationTypes.Secure 'SocketsLayer or AuthenticationTypes.Secure ' 'AuthenticationTypes.Secure
     Public usersRH As New List(Of UtilisateurRH)
 
-    Public adminsDuDomaine As String = LCase(ini.ReadValue("MODIFAUTO", "Group_Admins_du_domaine"))
+    'Public adminsDuDomaine As String = LCase(ini.ReadValue("MODIFAUTO", "Group_Admins_du_domaine"))
 
     Public Sub Main()
         Dim debutScript As DateTime = Now()
@@ -61,8 +61,6 @@ Module Module1
 
         Dim listExtensionsXivo As String = ""
         If Environment.MachineName <> "SERV-AD1" Then
-            ExpirationMDP()
-            'ExpirationMDP()
             'Gestion.GestionGroupeUserActive(New DirectoryEntry("LDAP://serv-ad2.igbmc.u-strasbg.fr/CN=Pietro GIRAUDO,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr", AdminScriptLogin, AdminScriptPassword, auth))
             'Dim dateNowU  = Now.ToUniversalTime.Date.ToString("yyyyMMddHHmmss.sZ")
             'ModEquipeDestinationDepartement.ChargerEquipeDestinationDepartement()
@@ -78,7 +76,7 @@ Module Module1
             withJson = "json"
         End If
 
-        If InStr(adminsDuDomaine, "stephadm") = 0 Then End
+        If Commun.AppartientGroup("stephadm", "admins du domaine") = False Then End
 
         'Creation et envoi du fichier de controle MicroSesame
         If sendMSreport = True Then
@@ -143,8 +141,8 @@ Module Module1
 
         Gestion.GestionSuppressionProfilsItinerantsEtDossiersRedirigés()
 
-        AttributionStrategieMDP()
-        Gestion.CtrlGroupAdmins()
+        'AttributionStrategieMDP()
+        'Gestion.CtrlGroupAdmins()
         Gestion.UpdateComptesProvisoires()
         Gestion.ControleOUUtilisateurs()
 
@@ -152,8 +150,8 @@ Module Module1
         If Hour(Now) = 1 Or Hour(Now) = 2 Then
             'Gestion de l'expiration des mot de passe des comptes adm
 
-            Commun.Journal("Gestion de l'expiration des comptes/ mots de passe", False)
-            ExpirationMDP()
+            'Commun.Journal("Gestion de l'expiration des comptes/ mots de passe", False)
+            'ExpirationMDP()
 
             Commun.Journal("Debut de la gestion de l'envoi des mails de cloture de compte", False)
             EnvoiMailCompteExpireXjour(30)
@@ -2847,318 +2845,6 @@ fermerUsing:
 
     End Sub
 
-    Public Sub AttributionStrategieMDP()
-        Commun.Journal("Verification des strategies de mot de passe", False)
-        'Cas adminInfo
-        Dim tabresults As String()
-        Dim tabPoste As String()
-        Using objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=AdmInfo,OU=Admins,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
-            Dim results As SearchResultCollection = Commun.SearchFilterAll(objAD, "(&(objectClass=user)(!(distinguishedName=CN=userprog,OU=AdmInfo,OU=Admins,DC=igbmc,DC=u-strasbg,DC=fr)))", SearchScope.Subtree)
-            If Not results Is Nothing Then
-                For Each result As SearchResult In results
-                    tabresults.Add(Replace(result.Path, "LDAP://" & Commun.LdapServerPrefix(), ""))
-                Next
-            End If
-        End Using
-
-        updateGroupeWithArray("G_SMDPM_AdminsT1", tabresults)
-
-        'cas UsersAdm
-        Dim tabresults1 As String()
-        Using objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=UsersAdm,OU=Admins,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
-            Dim results As SearchResultCollection = Commun.SearchFilterAll(objAD, "(&(objectClass=user)(!(distinguishedName=CN=userprog,OU=AdmInfo,OU=Admins,DC=igbmc,DC=u-strasbg,DC=fr)))", SearchScope.Subtree)
-            If Not results Is Nothing Then
-                For Each result As SearchResult In results
-                    tabresults1.Add(Replace(result.Path, "LDAP://" & Commun.LdapServerPrefix(), ""))
-                Next
-            End If
-        End Using
-
-
-        updateGroupeWithArray("G_SMDPM_UsersAdm", tabresults1)
-
-        'cas AdminsPostes
-        Dim tabresults3 As String()
-        Using objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=AdminsPostes,OU=Admins,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
-            Dim results As SearchResultCollection = Commun.SearchFilterAll(objAD, "(&(objectClass=user)(!(distinguishedName=CN=userprog,OU=AdmInfo,OU=Admins,DC=igbmc,DC=u-strasbg,DC=fr)))", SearchScope.Subtree)
-            If Not results Is Nothing Then
-                For Each result As SearchResult In results
-                    tabresults3.Add(Replace(result.Path, "LDAP://" & Commun.LdapServerPrefix(), ""))
-                Next
-            End If
-        End Using
-
-
-        updateGroupeWithArray("G_SMDPM_AdminsT2", tabresults3)
-
-        'cas Users-Admins
-        Dim tabresults2 As String()
-        Using objGroupAdminPoste As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=Admins,OU=Postes,OU=Micro,OU=Groupes,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
-            Dim results As SearchResultCollection = Commun.SearchFilterAll(objGroupAdminPoste, "(&(objectCategory=group)(member=*))", SearchScope.Subtree)
-            Dim dejaMembreStrategie As String() = Commun.MembresDuGroupe("G_SMDPM_Users-Admins")
-            If Not results Is Nothing Then
-                For Each result As SearchResult In results
-                    Dim nomDuGroup As String = Commun.TransformeSAMACCOUNTenCN(Replace(result.Path, "LDAP://" & Commun.LdapServerPrefix(), ""))
-                    Dim membresGroup As String() = Commun.MembresDuGroupe(nomDuGroup)
-                    If membresGroup Is Nothing Then Continue For
-                    Dim nomDuPoste As String = Replace((Replace(nomDuGroup, "DL_", "")), "_Admins", "")
-                    Dim posteAjout As Boolean = 0
-                    For Each user In membresGroup
-                        If user Like "CN=*,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr" And user <> "CN=Stephane CERDAN,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr" Then
-                            If posteAjout = False Then
-                                tabPoste.Add(Commun.TransformeSAMACCOUNTenCN(nomDuPoste & "$"))
-                                posteAjout = True
-                            End If
-                            If Array.IndexOf(dejaMembreStrategie, user) = -1 Then
-                                DisablePasswordNeverExpiresETPasswordLastSet(user)
-                            End If
-                            tabresults2.Add(user)
-                        End If
-                    Next
-                Next
-
-            End If
-        End Using
-
-        'Mise en place de la strategie UAC, pour les postes par groupe
-        Using groupePoste As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN("PostesAvecAdmin")), Commun.admin, Commun.passwd, auth)
-            groupePoste.Properties("member").Value = tabPoste
-            Commun.AppliquerChangement(groupePoste)
-        End Using
-
-
-        updateGroupeWithArray("G_SMDPM_Users-Admins", tabresults2)
-
-
-        Commun.Journal("Verification des strategies de mot de passe terminée", False)
-
-    End Sub
-    Public Sub DisablePasswordNeverExpiresETPasswordLastSet(ByVal usrPath As String)
-        Using user As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(usrPath), Commun.admin, Commun.passwd, auth)
-            Const NON_EXPIRE_FLAG = &H10000
-            Dim Val As Integer = user.Properties("userAccountControl").Value
-            'Defini le flag ADS_UF_DONT_EXPIRE_PASSWD sur "non coché"
-            user.Properties("userAccountControl").Value = Val And Not NON_EXPIRE_FLAG
-            Commun.AppliquerChangement(user)
-            'Defini le dernier changement de mot de passe a aujourd'hui
-            user.Properties("pwdLastSet").Value = 0
-            Commun.AppliquerChangement(user)
-            user.Properties("pwdLastSet").Value = -1
-            Commun.AppliquerChangement(user)
-        End Using
-    End Sub
-
-    Public Sub updateGroupeWithArray(ByVal nomGroupe As String, ByVal arr As String())
-        Dim tabGroup As String() = Commun.MembresDuGroupe(nomGroupe)
-        Dim absentDeArr As String() = tabGroup
-        Dim absentDeTabGroup1 As String() = arr
-        If Not tabGroup Is Nothing And Not arr Is Nothing Then
-            absentDeArr = tabGroup.Except(arr).ToArray()
-            absentDeTabGroup1 = arr.Except(tabGroup).ToArray()
-        End If
-
-        If Not absentDeTabGroup1 Is Nothing Then
-            For Each user In absentDeTabGroup1
-                Commun.AddRemoveADGroup(user, nomGroupe, "Add")
-            Next
-        End If
-        If Not absentDeArr Is Nothing Then
-            For Each user In absentDeArr
-                Commun.AddRemoveADGroup(user, nomGroupe, "Remove")
-            Next
-        End If
-    End Sub
-    Public Sub ExpirationMDP()
-        Dim samaccountname As String
-        Try
-
-            Using OUAdmins As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
-                Using OUAdminsearcher As DirectorySearcher = New DirectorySearcher(OUAdmins)
-                    'OUAdminsearcher.Filter = "(&(objectClass=user)(|((memberof=" & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_Admins") & ")(memberof=" & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_Users-Admins") & "))))"
-                    OUAdminsearcher.Filter = "(&(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=2)" _
-                                            & "(|((memberof=" & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_AdminsT1") & ")" _
-                                            & "(memberof=" & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_AdminsT2") & ")" _
-                                            & "(memberof = " & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_Users-Admins") & ")" _
-                                            & "(memberof=" & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_UsersAdm") & ")" _
-                                            & "(memberof=" & Commun.TransformeSAMACCOUNTenCN("G_SMDPM_CS") & "))))"
-                    OUAdminsearcher.PropertiesToLoad.Add("pwdLastSet")
-                    OUAdminsearcher.PropertiesToLoad.Add("userPrincipalName")
-                    OUAdminsearcher.PropertiesToLoad.Add("Description")
-                    OUAdminsearcher.PropertiesToLoad.Add("mail")
-                    OUAdminsearcher.PropertiesToLoad.Add("wWWHomePage")
-                    Dim results As SearchResultCollection = OUAdminsearcher.FindAll()
-                    For Each resultUser As SearchResult In results
-                        samaccountname = Replace(Replace(resultUser.Properties("userPrincipalName")(0), "@igbmc.fr", ""), "@igbmc.u-strasbg.fr", "")
-                        'si le compte est userprog continuer sans traiter
-                        If samaccountname = "userprog" Then Continue For
-
-                        Dim rappelComplexite As String = ""
-                        Dim type As String = ""
-                        Dim sujet As String
-                        Dim groupe As String = ""
-                        Dim StrategieMDP As DirectoryEntry
-                        If Commun.AppartientGroup(samaccountname, "G_SMDPM_AdminsT1") = True Then
-                            StrategieMDP = New DirectoryEntry("LDAP://" & Commun.LdapPath("CN=Strategie_MDPM_AdminsT1,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
-                            type = "adminsT1" '"adminInfo"
-                            sujet = "Expiration de Votre mot de passe d'administration T1"
-                            groupe = "G_SMDPM_AdminsT1"
-                        ElseIf Commun.AppartientGroup(samaccountname, "G_SMDPM_UsersAdm") = True Then
-                            StrategieMDP = New DirectoryEntry("LDAP://" & Commun.LdapPath("CN=Strategie_MDPM_UsersAdm,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
-                            type = "usersAdm"
-                            sujet = "Expiration de Votre mot de passe d'administration"
-                            groupe = "G_SMDPM_UsersAdm"
-                        ElseIf Commun.AppartientGroup(samaccountname, "G_SMDPM_Users-Admins") = True Then
-                            StrategieMDP = New DirectoryEntry("LDAP://" & Commun.LdapPath("CN=Strategie_MDPM_Users-Admins,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
-                            type = "users-admin"
-                            sujet = "Expiration de Votre mot de passe"
-                            groupe = "G_SMDPM_Users-Admins"
-                        ElseIf Commun.AppartientGroup(samaccountname, "G_SMDPM_AdminsT2") = True Then
-                            StrategieMDP = New DirectoryEntry("LDAP://" & Commun.LdapPath("CN=Strategie_MDPM_AdminsT2,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
-                            type = "adminsT2" '"adminsPostes"
-                            sujet = "Expiration de Votre mot de passe d'administration T2"
-                            groupe = "G_SMDPM_AdminsT2"
-                        ElseIf Commun.AppartientGroup(samaccountname, "G_SMDPM_CS") = True Then
-                            StrategieMDP = New DirectoryEntry("LDAP://" & Commun.LdapPath("CN=Strategie_MDMP_CompteService,CN=Password Settings Container,CN=System,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
-                            type = "Compte de service"
-                            sujet = "Expiration du mot de passe de votre compte de service " & samaccountname
-                            groupe = "G_SMDPM_CS"
-                        Else
-                            Commun.Journal("ERREUR : Determiner strategie de mot de passe : " & samaccountname, True)
-                            GoTo sortie
-                        End If
-
-                        Dim nbrChar As String = StrategieMDP.Properties("msDS-MinimumPasswordLength").Value.ToString
-                        Dim historyLenght As String = StrategieMDP.Properties("msDS-PasswordHistoryLength").Value.ToString
-                        Dim MaxPWDageJourPolicy As Integer = ConvertAttribute(StrategieMDP.Properties("msDS-MaximumPasswordAge").Value)
-
-
-                        StrategieMDP.Close()
-                        StrategieMDP.Dispose()
-                        StrategieMDP = Nothing
-
-                        rappelComplexite = "Votre mot de passe doit etre changé tous les " & MaxPWDageJourPolicy & " jours." & vbCrLf & "Il ne peut pas etre le meme que les " & historyLenght & " précédents." & vbCrLf & "Votre mot de passe doit contenir au moins :" & vbCrLf & vbTab & "- " & nbrChar & " caractères"
-                        rappelComplexite = rappelComplexite & vbCrLf & vbTab & "- 1 Majuscule" & vbCrLf & vbTab & "- 1 Minuscule" & vbCrLf & vbTab & "- 1 Chiffre" & vbCrLf & vbTab & "- 1 Caractère spécial (non-alphabétique)"
-
-                        Dim lastSetPWD As DateTime = Format(New DateTime(1601, 1, 2).AddTicks(resultUser.Properties("pwdLastSet")(0)), "dd/MM/yyyy")
-                        Dim expirationPWDDate As DateTime = lastSetPWD.AddDays(MaxPWDageJourPolicy - 1)
-
-                        Using userADM As DirectoryEntry = resultUser.GetDirectoryEntry
-                            Dim expirationPWDDateTxt As String = expirationPWDDate.ToString("dd/MM/yyy")
-                            If type = "usersAdm" Or type = "adminsT1" Or type = "Compte de service" Or type = "adminsT2" Then
-                                If userADM.Properties("physicalDeliveryOfficeName").Value <> "Expire le : " & expirationPWDDateTxt And resultUser.Properties("pwdLastSet")(0) <> 0 Then
-                                    userADM.Properties("physicalDeliveryOfficeName").Value = "Expire le : " & expirationPWDDateTxt
-                                    Commun.AppliquerChangement(userADM)
-                                End If
-                            End If
-                        End Using
-
-                        Dim aujourdhui As DateTime = Format(Date.Now.AddDays(0), "dd/MM/yyyy")
-                        Dim demain As DateTime = Format(Date.Now.AddDays(1), "dd/MM/yyyy")
-                        Dim expiration30 As DateTime = Format(Date.Now.AddDays(30), "dd/MM/yyyy")
-                        Dim expiration7 As DateTime = Format(Date.Now.AddDays(7), "dd/MM/yyyy")
-                        Dim expiration3 As DateTime = Format(Date.Now.AddDays(3), "dd/MM/yyyy")
-                        Dim expiration2 As DateTime = Format(Date.Now.AddDays(2), "dd/MM/yyyy")
-
-                        Dim Email As String
-
-                        If type = "adminsT1" Or type = "adminsT2" Or type = "usersAdm" Then
-                            Email = Strings.Left(samaccountname, Len(samaccountname) - 3) & "@igbmc.fr"
-                        ElseIf type = "Compte de service" Then
-                            Email = resultUser.Properties("wWWHomePage")(0)
-                        Else
-                            Email = resultUser.Properties("mail")(0)
-                        End If
-
-
-
-                        Dim ctrl As Boolean = False
-                        If type = "adminsT1" Then
-                            ctrl = (aujourdhui = expirationPWDDate Or demain = expirationPWDDate Or expiration7 = expirationPWDDate Or expiration3 = expirationPWDDate Or expiration2 = expirationPWDDate)
-                        ElseIf type = "Compte de service" Then
-                            ctrl = (aujourdhui = expirationPWDDate Or demain = expirationPWDDate Or expiration30 = expirationPWDDate Or expiration7 = expirationPWDDate Or expiration3 = expirationPWDDate Or expiration2 = expirationPWDDate Or Now() > expirationPWDDate)
-                        Else
-                            ctrl = (aujourdhui = expirationPWDDate Or demain = expirationPWDDate Or expiration30 = expirationPWDDate Or expiration7 = expirationPWDDate Or expiration3 = expirationPWDDate Or expiration2 = expirationPWDDate)
-                        End If
-
-                        If ctrl = True Then
-                            Dim corpMail As String = MailTemplatePasswdExpire(type, samaccountname, expirationPWDDate, MaxPWDageJourPolicy, historyLenght, nbrChar)
-                            Commun.SendEmail("serviceinfo@igbmc.fr", Email & ";Cc:serviceinfo@igbmc.fr", sujet, corpMail)
-                            Commun.Journal("Mot de passe ADM : mail envoyé a : " & Email, False)
-                        End If
-                    Next resultUser
-
-sortie:
-                End Using
-            End Using
-            Commun.Journal("Gestion des mots de passe des comptes ADM terminée avec succes", False)
-        Catch ex As Exception
-            Commun.Journal("ERREUR : Gestion de password des comptes ADM : " & samaccountname & " : " & ex.Message, True)
-        End Try
-
-    End Sub
-    Public Function MailTemplatePasswdExpire(ByVal type As String, ByVal samaccountname As String, ByVal expirationPWD As String, ByVal MaxPWDageJourPolicy As String, ByVal historyLenght As String, ByVal nbrChar As String) As String
-        Dim corpMail As String
-        If type = "adminsT1" Or type = "usersAdm" Or type = "adminsT2" Then
-            Dim rappelComplexite As String = "Votre mot de passe doit etre changé tous les " & MaxPWDageJourPolicy & " jours." & vbCrLf & "Il ne peut pas etre le meme que les " & historyLenght & " précédents." & vbCrLf & "Votre mot de passe doit contenir au moins :" & vbCrLf & vbTab & "- " & nbrChar & " caractères"
-            rappelComplexite = rappelComplexite & vbCrLf & vbTab & "- 1 Majuscule" & vbCrLf & vbTab & "- 1 Minuscule" & vbCrLf & vbTab & "- 1 Chiffre" & vbCrLf & vbTab & "- 1 Caractère spécial (non-alphabétique)"
-
-            corpMail = "Le mot de passe de votre compte administrateur (" & samaccountname & ") va expirer le " & expirationPWD & "." & vbCrLf _
-                                                        & "Pensez à le changer en ouvrant une session sur un ordinateur du domaine ou en vous connectant ici : https://password.igbmc.fr" & vbCrLf & vbCrLf _
-                                                        & rappelComplexite & vbCrLf & vbCrLf & vbCrLf & "Le service Informatique" & vbCrLf & "(Email généré automatiquement)"
-        End If
-
-        If type = "Compte de service" Then
-            Dim rappelComplexite As String = "Le mot de passe de votre compte de service doit etre changé tous les " & MaxPWDageJourPolicy & " jours." & vbCrLf & "Il ne peut pas etre le meme que les " & historyLenght & " précédents." & vbCrLf & "Votre mot de passe doit contenir au moins :" & vbCrLf & vbTab & "- " & nbrChar & " caractères"
-            rappelComplexite = rappelComplexite & vbCrLf & vbTab & "- 1 Majuscule" & vbCrLf & vbTab & "- 1 Minuscule" & vbCrLf & vbTab & "- 1 Chiffre" & vbCrLf & vbTab & "- 1 Caractère spécial (non-alphabétique)"
-
-            corpMail = "Le mot de passe de votre compte de service (" & samaccountname & ") va expirer ou a expiré le " & expirationPWD & "." & vbCrLf _
-                                                        & "Pensez à le changer en vous connectant ici : https://password.igbmc.fr," & vbCrLf & vbCrLf _
-                                                        & "ainsi que dans l'application dans laquelle il est utilisé" & vbCrLf & vbCrLf _
-                                                        & rappelComplexite & vbCrLf & vbCrLf & vbCrLf & "Le service Informatique" & vbCrLf & "(Email généré automatiquement)"
-        End If
-
-        If type = "users-admin" Then
-
-            corpMail = "Le mot de passe de votre compte informatique IGBMC (" & samaccountname & ") va expirer le " & expirationPWD & "." & vbCrLf _
-                                    & "Votre mot de passe expire tous les " & MaxPWDageJourPolicy & " jours car votre compte informatique dispose des droits d'administration sur un ou plusieurs postes de travail de l'IGBMC." & vbCrLf & vbCrLf _
-                                    & "Pour éviter toute perturbation dans l'accès à votre ordinateur ainsi qu'aux applications de l'IGBMC, nous vous recommandons de le changer AVANT qu'il ne soit expiré : " & vbCrLf & vbCrLf _
-                                    & "Si vous utilisez un ordinateur portable, assurez que celui-ci soit connecté au réseau interne ou au VPN de l'IGBMC AVANT de changer votre mot de passe." & vbCrLf & vbCrLf _
-                                    & vbTab & "- Si vous utilisez un ordinateur sous Windows, rendez-vous dans le menu Windows, choisissez ""Sécurité de Windows"" puis cliquez sur ""Modifier un mot de passe""" & vbCrLf _
-                                    & vbTab & "- Si vous utilisez un Mac, rendez-vous dans les Préférences Systèmes, choisissez ""Utilisateurs et groupes"" puis cliquez sur ""Modifier le mot de passe...""" & vbCrLf & vbCrLf _
-                                    & "Votre mot de passe doit comporter au moins " & nbrChar & " caractères dont au moins 1 majuscule, 1 minuscule, 1 chiffre et un caractère spécial (hors & , et |)" & vbCrLf & vbCrLf _
-                                    & "Une fois votre mot de passe changé, vous serez peut-être amené à mettre à jour votre mot de passe dans certaines de vos applications, comme votre client email par exemple." & vbCrLf & vbCrLf _
-                                    & "Si vous n'avez pas pu changer votre mot de passe avant son expiration, vous pouvez le mettre à jour en vous connectant au webmail de l'IGBMC depuis une simple connexion Internet (https://igbmcmail.igbmc.fr) ou en prenant contact avec le support informatique (03 88 65 35 53)." & vbCrLf & vbCrLf _
-                                    & "###" & vbCrLf & vbCrLf _
-                                    & "Your IGBMC computer account password (" & samaccountname & ") will expire on the " & expirationPWD & "." & vbCrLf _
-                                    & "Your password expires every " & MaxPWDageJourPolicy & " days because your computer account has administrative rights on one Or more IGBMC workstations." & vbCrLf & vbCrLf _
-                                    & "To avoid any disruption in the access to your computer as well as to the IGBMC applications, we recommend you to change it BEFORE it expires:" & vbCrLf & vbCrLf _
-                                    & "If you are using a laptop, make sure it is connected to the internal network or IGBMC VPN BEFORE you change your password." & vbCrLf & vbCrLf _
-                                    & vbTab & "- If you are using a Windows computer, go to the Windows menu, choose ""Windows Security"" and click on ""Change Password""" & vbCrLf _
-                                    & vbTab & "- If you are using a Mac, go to System Preferences, choose ""Users And Groups"" And click ""Change Password...""" & vbCrLf & vbCrLf _
-                                    & "Your password must be at least " & nbrChar & " characters including at least 1 upper case, 1 lower case, 1 number and one special character (excluding & , and |)." & vbCrLf & vbCrLf _
-                                    & "Once you have changed your password, you may need to update your password in some of your applications, such as your email client for example." & vbCrLf & vbCrLf _
-                                    & "If you have not been able to change your password before it expires, you can update it by connecting to the IGBMC webmail from a simple Internet connection (https://igbmcmail.igbmc.fr) or by contacting the IT support (03 88 65 35 53)."
-        End If
-
-
-        Return corpMail
-    End Function
-    '    
-    Public Function ConvertAttribute(ByVal li As Object) As Integer
-        Try
-            Dim lngHigh = li.HighPart
-            Dim lngLow = li.LowPart
-            Dim lastLogon = (lngHigh * 2 ^ 32) - lngLow
-            'Dim returnDateTime As DateTime = DateTime.FromFileTime(lastLogon)
-            Dim interval As TimeSpan = New TimeSpan(lastLogon * -1)
-            Dim returnDateTime = interval.Days
-
-            Return returnDateTime
-        Catch ex As Exception
-            Return Nothing
-        End Try
-
-    End Function
 
     ''' <summary>
     ''' Controle qu'un utilisateur est en exception valide
