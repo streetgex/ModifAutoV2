@@ -11,7 +11,11 @@ Imports System.Text
 Imports System.Runtime.InteropServices
 
 Module Module1
-    Public iniFilePath = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2.ini"
+#If DEBUG Then
+    Dim iniFilePath = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2test.ini"
+#Else
+    Dim iniFilePath = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2.ini"
+#End If
     Public ini As New IniFile(iniFilePath)
     Public withJson As String = "debug" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
     'Public tabPersoMonoEquipe As String(,)
@@ -60,7 +64,7 @@ Module Module1
         Pws.TraiterConfigurationsMailboxDifferees()
 
         Dim listExtensionsXivo As String = ""
-        If Environment.MachineName <> "SERV-AD1" Then
+        If Environment.MachineName <> "SERV-AD1" And Environment.MachineName <> "SERV-NAP" Then
             'Gestion.GestionGroupeUserActive(New DirectoryEntry("LDAP://serv-ad2.igbmc.u-strasbg.fr/CN=Pietro GIRAUDO,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr", AdminScriptLogin, AdminScriptPassword, auth))
             'Dim dateNowU  = Now.ToUniversalTime.Date.ToString("yyyyMMddHHmmss.sZ")
             'ModEquipeDestinationDepartement.ChargerEquipeDestinationDepartement()
