@@ -99,68 +99,80 @@ Public Class jsonMS
 
     End Function
 
-    Shared Function ChargerBadgesParEmployeeId() As Dictionary(Of String, String())
+    Shared Function ChargerBadgesParEmployeeId(ByRef recuperationReussie As Boolean) As Dictionary(Of String, String())
         Dim result As New Dictionary(Of String, String())(StringComparer.OrdinalIgnoreCase)
+        recuperationReussie = False
 
         Dim offset As Integer = 0
         Dim limit As Integer = 100
 
-        Do
-            Dim url As String =
-            "/credentials/?filter=idTechno=1,csn,holder.matricule,status=k_valid" &
-            "&limit=" & limit &
-            "&offset=" & offset &
-            "&fields=holder.matricule,status,csn,holder.mail"
+        Try
+            Do
+                Dim url As String =
+                "/credentials/?filter=idTechno=1,csn,holder.matricule,status=k_valid" &
+                "&limit=" & limit &
+                "&offset=" & offset &
+                "&fields=holder.matricule,status,csn,holder.mail"
 
-            Dim fiche As String = jsonMS.MakeRequest("GET", url)
-            Dim responseData = New JavaScriptSerializer().Deserialize(Of Object)(fiche)
-
-            If responseData Is Nothing OrElse Not responseData.ContainsKey("data") Then
-                Exit Do
-            End If
-
-            Dim data = responseData("data")
-            If data Is Nothing OrElse data.length = 0 Then
-                Exit Do
-            End If
-
-            For Each cred In data
-                Dim matricule As String = ""
-                Dim csn As String = ""
-
-                If Not cred("csn") Is Nothing Then
-                    csn = CStr(cred("csn"))
+                Dim fiche As String = jsonMS.MakeRequest("GET", url)
+                If String.IsNullOrWhiteSpace(fiche) Then
+                    Commun.Journal("ERREUR : Recuperation des badges Micro-Sesame impossible : reponse vide : " & url, True)
+                    Return Nothing
                 End If
 
-                If cred.ContainsKey("holder") AndAlso Not cred("holder") Is Nothing Then
-                    Dim holder = cred("holder")
-                    If holder.ContainsKey("matricule") AndAlso Not holder("matricule") Is Nothing Then
-                        matricule = CStr(holder("matricule"))
+                Dim responseData = New JavaScriptSerializer().Deserialize(Of Object)(fiche)
+                If responseData Is Nothing OrElse Not responseData.ContainsKey("data") Then
+                    Commun.Journal("ERREUR : Recuperation des badges Micro-Sesame impossible : reponse invalide : " & url, True)
+                    Return Nothing
+                End If
+
+                Dim data = responseData("data")
+                If data Is Nothing OrElse data.length = 0 Then
+                    Exit Do
+                End If
+
+                For Each cred In data
+                    Dim matricule As String = ""
+                    Dim csn As String = ""
+
+                    If Not cred("csn") Is Nothing Then
+                        csn = CStr(cred("csn"))
                     End If
+
+                    If cred.ContainsKey("holder") AndAlso Not cred("holder") Is Nothing Then
+                        Dim holder = cred("holder")
+                        If holder.ContainsKey("matricule") AndAlso Not holder("matricule") Is Nothing Then
+                            matricule = CStr(holder("matricule"))
+                        End If
+                    End If
+
+                    If matricule = "" OrElse csn = "" Then
+                        Continue For
+                    End If
+
+                    If Not result.ContainsKey(matricule) Then
+                        result.Add(matricule, New String() {})
+                    End If
+
+                    result(matricule).Add(csn)
+                Next
+
+                If data.length < limit Then
+                    Exit Do
                 End If
 
-                If matricule = "" OrElse csn = "" Then
-                    Continue For
-                End If
-
-                If Not result.ContainsKey(matricule) Then
-                    result.Add(matricule, New String() {})
-                End If
-
-                result(matricule).Add(csn)
-            Next
-
-            If data.length < limit Then
-                Exit Do
-            End If
-
-            offset += limit
-        Loop
+                offset += limit
+            Loop
+        Catch ex As Exception
+            Commun.Journal("ERREUR : Recuperation des badges Micro-Sesame impossible : " & ex.Message, True)
+            Return Nothing
+        End Try
 
         For Each matricule As String In result.Keys.ToList()
             result(matricule) = TrierTableau(result(matricule))
         Next
 
+        recuperationReussie = True
         Return result
     End Function
     Shared Function GetIdMS(ByVal matricule As Integer) As String

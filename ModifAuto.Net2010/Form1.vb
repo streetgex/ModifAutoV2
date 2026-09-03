@@ -49,7 +49,7 @@ Module Module1
 
     'Public adminsDuDomaine As String = LCase(ini.ReadValue("MODIFAUTO", "Group_Admins_du_domaine"))
 
-    Public Sub Main()
+    Public Sub Main(ByVal args() As String)
         Dim debutScript As DateTime = Now()
         'pour affichage correct de la barre de progression
         Console.OutputEncoding = System.Text.Encoding.UTF8
@@ -78,6 +78,12 @@ Module Module1
 
         Else
             withJson = "json"
+        End If
+
+        If args IsNot Nothing AndAlso
+           args.Length > 0 AndAlso
+           String.Equals(args(0), "/debug", StringComparison.OrdinalIgnoreCase) Then
+            withJson = "debug"
         End If
 
         If Commun.AppartientGroup("stephadm", "admins du domaine") = False Then End
@@ -118,7 +124,8 @@ Module Module1
 
             Dim usersRaw As Dictionary(Of String, UserRaw) = LoadUsersFromFile("c:\temp\listepersoJson.txt")
             Dim dnParEmployeeId As Dictionary(Of String, String) = ChargerIndexDnParEmployeeId()
-            Dim badgesParEmployeeId As Dictionary(Of String, String()) = jsonMS.ChargerBadgesParEmployeeId()
+            Dim badgesRecuperes As Boolean = False
+            Dim badgesParEmployeeId As Dictionary(Of String, String()) = jsonMS.ChargerBadgesParEmployeeId(badgesRecuperes)
 
             Dim adUsersByEmployeeId As Dictionary(Of String, UtilisateurADIndex) = ChargerIndexUtilisateursAD()
 
@@ -127,7 +134,7 @@ Module Module1
                 usersRH.Add(ConvertToUtilisateurRH(kvp.Value, dnParEmployeeId, badgesParEmployeeId))
             Next
 
-            ModifDonneesAD(usersRH, adUsersByEmployeeId)
+            ModifDonneesAD(usersRH, adUsersByEmployeeId, badgesRecuperes)
 
             If Environment.MachineName = "SERV-AD1" Then
                 Gestion.GestionReactiveDesactiveComptesInterne(adUsersByEmployeeId)
@@ -197,11 +204,13 @@ Module Module1
             sendJournalError()
         End If
 
-        Try
-            Shell(cheminMAJZoneInfo)
-        Catch
-            Commun.Journal("ERREUR: Lancement de MAJZoneInfo", True)
-        End Try
+        If withJson = "json" Then
+            Try
+                Shell(cheminMAJZoneInfo)
+            Catch
+                Commun.Journal("ERREUR: Lancement de MAJZoneInfo", True)
+            End Try
+        End If
 
         If File.Exists(nomFichierRapportMS) Then
             File.Delete(nomFichierRapportMS)
@@ -270,7 +279,7 @@ Module Module1
     ''' Collection d'utilisateurs RH déjà normalisés pour la comparaison avec l'AD.
     ''' </param>
 
-    Public Sub ModifDonneesAD(usersRH As IEnumerable(Of UtilisateurRH), adUsersByEmployeeId As Dictionary(Of String, UtilisateurADIndex))
+    Public Sub ModifDonneesAD(usersRH As IEnumerable(Of UtilisateurRH), adUsersByEmployeeId As Dictionary(Of String, UtilisateurADIndex), badgesDisponibles As Boolean)
         Commun.Journal("Debut des Modification des Utilisateurs", False)
 
         Dim ctrlMailOOrienteurs As Boolean = False
@@ -299,7 +308,7 @@ Module Module1
             PreparerUidNumber(userAD, userRH)
             PreparerDatesDesactivationSuppression(userRH)
 
-            Dim changementsAD As List(Of ChangementAttributAD) = UtilisateurADDiffereDeRH(userAD, userRH, changementPhotoAFaire)
+            Dim changementsAD As List(Of ChangementAttributAD) = UtilisateurADDiffereDeRH(userAD, userRH, changementPhotoAFaire, badgesDisponibles)
             If changementsAD.Count = 0 Then
                 Continue For
             End If
@@ -705,7 +714,7 @@ Module Module1
                 End Try
                 Try
                     Dim prop As String = "serialNumber"
-                    If changementsSet.Contains(prop) Then
+                    If badgesDisponibles AndAlso changementsSet.Contains(prop) Then
                         Commun.SetADLDAPPropertyMulti(objuser, prop, userRH.serialNumber_serialNumber)
                         Commun.AppliquerChangement(objuser)
                         userAD.serialNumber = If(userRH.serialNumber_serialNumber IsNot Nothing, userRH.serialNumber_serialNumber, Array.Empty(Of String)())
@@ -718,7 +727,7 @@ Module Module1
 
                 Try
                     Dim prop As String = "employeeNumber"
-                    If changementsSet.Contains(prop) Then
+                    If badgesDisponibles AndAlso changementsSet.Contains(prop) Then
                         Commun.SetADLDAPProperty(objuser, prop, userRH.employeeNumber_employeeNumber)
                         Commun.AppliquerChangement(objuser)
                         userAD.employeeNumber = userRH.employeeNumber_employeeNumber
@@ -1310,7 +1319,7 @@ Module Module1
     ''' les propriétés live de <c>DirectoryEntry</c>.
     ''' </remarks>
 
-    Private Function UtilisateurADDiffereDeRH(adUser As UtilisateurADIndex, userRH As UtilisateurRH, changementPhotoAFaire As Boolean) As List(Of ChangementAttributAD)
+    Private Function UtilisateurADDiffereDeRH(adUser As UtilisateurADIndex, userRH As UtilisateurRH, changementPhotoAFaire As Boolean, badgesDisponibles As Boolean) As List(Of ChangementAttributAD)
         Dim changements As New List(Of ChangementAttributAD)
 
         If adUser Is Nothing Then
@@ -1538,7 +1547,7 @@ Module Module1
         })
         End If
 
-        If adUser.employeeNumber <> userRH.employeeNumber_employeeNumber Then
+        If badgesDisponibles AndAlso adUser.employeeNumber <> userRH.employeeNumber_employeeNumber Then
             changements.Add(New ChangementAttributAD With {
             .Attribut = "employeeNumber",
             .AncienneValeur = adUser.employeeNumber,
@@ -1546,7 +1555,7 @@ Module Module1
         })
         End If
 
-        If Join(TrierTableau(adUser.serialNumber), ";") <> Join(TrierTableau(userRH.serialNumber_serialNumber), ";") Then
+        If badgesDisponibles AndAlso Join(TrierTableau(adUser.serialNumber), ";") <> Join(TrierTableau(userRH.serialNumber_serialNumber), ";") Then
             changements.Add(New ChangementAttributAD With {
             .Attribut = "serialNumber",
             .AncienneValeur = Join(If(adUser.serialNumber, New String() {}), ";"),
@@ -1977,7 +1986,7 @@ Module Module1
             creationFichierParJson(tabDestinationsJsonIsTrue)
 
         ElseIf withJson = "debug" Then
-            Commun.Journal("Mode DEBUG : recuperation des fichiers de données")
+            Commun.Journal("Mode DEBUG : recuperation des fichiers de données. Aucune requete ne sera faite à IGBMCServices")
 
             ' En mode debug, on recopie simplement des fichiers de référence dans c:\temp.
             File.Copy(ini.ReadValue("MODIFAUTO", "CheminPartage") & "\todo\eq.txt", "c:\temp\eq.txt", True)
