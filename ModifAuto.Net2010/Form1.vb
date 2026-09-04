@@ -40,7 +40,7 @@ Module Module1
     Public directeurLogin As String = ini.ReadValue("MODIFAUTO", "LoginDirecteur")
 
     Public AdminScriptLogin As String = ini.ReadValue("GLOBAL", "AdminScriptLogin")
-    Public MailSenderAddress As String = If(InStr(AdminScriptLogin, "@") > 0, AdminScriptLogin, AdminScriptLogin & "@igbmc.fr")
+    Public MailSenderAddress As String = ini.ReadValue("GLOBAL", "MailSenderAddress")
     Public AdminScriptPassword As String = ini.ReadValue("GLOBAL", "AdminScriptPassword_encrypted")
 
     Public nomFichierRapportMS As String = "c:\temp\MSrapport(" & Replace(Now.ToString("dd-MM-yyyy HH.mm"), "/", "-") & ").csv"
