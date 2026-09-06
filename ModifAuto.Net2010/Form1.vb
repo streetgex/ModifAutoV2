@@ -100,6 +100,8 @@ Module Module1
             End If
         End If
 
+        GestionMails.InitialiserNotificationsAssistantsPrevention()
+
         Dim debutCreationFichier As DateTime = Now()
         'creer les comptes des utilisateurs qui sont dans le fichier ForceCreationDeCompte.txt sous la forme <EmployéeID>,<Short_name_destination>
         exceptionCreationCompte()
@@ -199,6 +201,8 @@ Module Module1
             Commun.Journal(vbTab & "ERREUR : Lancement de la synchronisation de PaperCut avec l'AD : " & ex.Message, True)
         End Try
 
+
+        GestionMails.EnvoyerNotificationsAssistantsPrevention()
 
         If Commun.controlSendMail = True Then
             sendJournalError()
@@ -552,7 +556,7 @@ Module Module1
                     Dim prop As String = "extensionAttribute1"
                     If changementsSet.Contains(prop) Then
                         If objuser.Parent.Path = "LDAP://" & Commun.LdapPath(OUUtilisateursActifs) Then
-                            EnvoyerMailAPSiNecessaire(userRH, userAD)
+                            EnvoyerMailAPSiNecessaire(userRH.prenom_givenName, userRH.nom_sn, userRH.employeeID_id, userRH.department_destinationNomLong, userRH.title_unité, userRH.login_samAccountName, userRH.extensionAttribute1_finDeContrat, False)
 
                             Dim oldDate As String = userAD.extensionAttribute1
                             Dim dateCreation As Date = If(userAD.whenCreated.HasValue, userAD.whenCreated.Value, Now)
@@ -1059,30 +1063,6 @@ Module Module1
 
         Return resultat.ToArray()
     End Function
-    Private Sub EnvoyerMailAPSiNecessaire(
-    ByVal userRH As UtilisateurRH,
-    ByVal userAD As UtilisateurADIndex
-)
-        If userRH.extensionAttribute1_finDeContrat <> "" AndAlso If(userAD Is Nothing, "", userAD.extensionAttribute1) = "" Then
-            Exit Sub
-        End If
-
-        Dim ctrlEnvoiMailAP As Boolean = GetContractsLenght(userRH.employeeID_id, False)
-        If ctrlEnvoiMailAP = False Then
-            Exit Sub
-        End If
-
-
-        Dim corpmailAssistentsPrévention As String =
-        vbCrLf & "Nom : " & userRH.prenom_givenName & " " & userRH.nom_sn &
-        vbCrLf & "Identifiant GDPI : " & userRH.employeeID_id &
-        vbCrLf & "Service : " & userRH.department_destinationNomLong &
-        vbCrLf & "Unité : " & userRH.title_unité &
-        vbCrLf & "Mail : " & userRH.login_samAccountName & "@igbmc.fr" &
-        vbCrLf & "Date de fin de contrat : " & userRH.extensionAttribute1_finDeContrat
-
-        Commun.SendEmail("administrateur@igbmc.fr", "assistants-de-prevention@igbmc.fr;Bcc:steph@igbmc.fr", "(Mail automatique) Nouvel entrant", corpmailAssistentsPrévention)
-    End Sub
 
     Public Function ChargerIndexUtilisateursAD() As Dictionary(Of String, UtilisateurADIndex)
 
@@ -2993,24 +2973,7 @@ fermerUsing:
                 'Dim location As Json.locationC = JsonConvert.DeserializeObject(Of Json.locationC)(locations(l).ToString)
                 Dim unite As Json.uniteC = JsonConvert.DeserializeObject(Of Json.uniteC)(persons(p).unite.ToString())
                 Dim uniteNametmp As String = unite.nom
-                Dim uniteName As String
-
-                Select Case uniteNametmp
-                    Case "IGBMC RECHERCHE"
-                        uniteName = "UMR 7104"
-
-                    Case "PALME"
-                        uniteName = "UAR 2060"
-
-                    Case "BIOSTRUCTURE"
-                        uniteName = "UAR 2061"
-
-                    Case "PHEN-ICS"
-                        uniteName = "UAR 2062"
-
-                    Case Else
-                        uniteName = ""
-                End Select
+                Dim uniteName As String = NomUniteDepuisApi(uniteNametmp)
 
                 'Dim unité As String = persons(p).email_alias
 
@@ -3044,7 +3007,7 @@ fermerUsing:
                         login = crea.DetermineLogin(firstname, lastname, IDuser)
                     End If
 
-                    crea.createCompte(lastname, firstname, Dest_short_name, IDuser, login, genre, finContrat, ld)
+                    crea.createCompte(lastname, firstname, Dest_short_name, dest_name, IDuser, login, genre, finContrat, uniteName, ld)
 
                     'quand le compte AD est créé, on defini la variable "compteAD" sur True
                     compteAD = True
@@ -3164,13 +3127,47 @@ fermerUsing:
 
         Return resultat
     End Function
+    Private Function NomUniteDepuisApi(ByVal uniteNomApi As String) As String
+        Select Case uniteNomApi
+            Case "IGBMC RECHERCHE"
+                Return "UMR 7104"
+            Case "PALME"
+                Return "UAR 2060"
+            Case "BIOSTRUCTURE"
+                Return "UAR 2061"
+            Case "PHEN-ICS"
+                Return "UAR 2062"
+            Case Else
+                Return ""
+        End Select
+    End Function
     Public Sub exceptionCreationCompte()
         Dim lines() As String = IO.File.ReadAllLines("\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ForceCreationDeCompte.txt")
         For Each line As String In lines
 
-            Dim dest_short_name As String = Split(line, ",")(1)
+            Dim employeeID As String = Split(line, ",")(0)
+            Dim destShortNameRecherche As String = Split(line, ",")(1)
+            Dim dest_short_name As String = ""
+            Dim dest_long_name As String = ""
 
-            Dim dataException As String = Json.SendJson("", "persons/" & Split(line, ",")(0), "AD", "GET")
+            Dim dataDestinations As String = Json.SendJson("", "persons/" & employeeID & "/destinations?is_current_destinations=true&is_team=true&fast=true", "AD", "GET")
+            Dim destinations = Json.DeserializeJson(dataDestinations, "destinations")
+
+            For Each userDestination In destinations
+                Dim destinationData As Json.destinationC = JsonConvert.DeserializeObject(Of Json.destinationC)(userDestination.destination.ToString())
+                If String.Equals(destinationData.short_name, destShortNameRecherche, StringComparison.OrdinalIgnoreCase) Then
+                    dest_short_name = destinationData.short_name
+                    dest_long_name = destinationData.name
+                    Exit For
+                End If
+            Next
+
+            If String.IsNullOrWhiteSpace(dest_short_name) Then
+                Commun.Journal("ERREUR : Creation forcee de compte : destination introuvable : " & employeeID & " : " & destShortNameRecherche, True)
+                Continue For
+            End If
+
+            Dim dataException As String = Json.SendJson("", "persons/" & employeeID, "AD", "GET")
             Dim persons = JsonConvert.DeserializeObject(Of Json.personC)(dataException)
             'si le login n'est pas defini
             Dim crea As New Creation
@@ -3185,13 +3182,36 @@ fermerUsing:
             Else
                 genre = "Femme"
             End If
-            Dim finContrat As String
+            Dim dataContracts As String = Json.SendJson("", "persons/" & IDuser & "/contracts", "AD", "GET")
+            Dim contracts = Json.DeserializeJson(dataContracts, "contracts")
+            Dim finContrat As String = ""
+            Dim dateDebutPremierContratFutur As DateTime = DateTime.MaxValue
+
+            For Each contractRaw In contracts
+                Dim contract As Json.contractC = JsonConvert.DeserializeObject(Of Json.contractC)(contractRaw.ToString())
+                Dim dateDebut As DateTime
+                Dim dateFin As DateTime
+
+                If DateTime.TryParse(contract.start_date, dateDebut) AndAlso
+                   dateDebut.Date > Now.Date AndAlso
+                   dateDebut < dateDebutPremierContratFutur Then
+
+                    dateDebutPremierContratFutur = dateDebut
+                    If DateTime.TryParse(contract.end_date, dateFin) Then
+                        finContrat = dateFin.ToString("dd/MM/yyyy")
+                    Else
+                        finContrat = ""
+                    End If
+                End If
+            Next
+
+            Dim unite As Json.uniteC = JsonConvert.DeserializeObject(Of Json.uniteC)(persons.unite.ToString())
+            Dim uniteName As String = NomUniteDepuisApi(unite.nom)
 
             If login = "" Then
                 login = crea.DetermineLogin(firstname, lastname, IDuser)
             End If
-            crea.createCompte(lastname, firstname, dest_short_name, IDuser, login, genre, finContrat, "")
-
+            crea.createCompte(lastname, firstname, dest_short_name, dest_long_name, IDuser, login, genre, finContrat, uniteName, "")
         Next
         'nettoyage du fichier ForceCreationDeCompte.txt
         Try

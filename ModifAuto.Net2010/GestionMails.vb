@@ -1,4 +1,10 @@
 ﻿Module GestionMails
+    Private ReadOnly blocsMailAssistantsPrevention As New System.Collections.Generic.List(Of String)()
+
+    Public Sub InitialiserNotificationsAssistantsPrevention()
+        blocsMailAssistantsPrevention.Clear()
+    End Sub
+
     ''' <summary>
     ''' Vérifie si un mail doit être envoyé aux assistants de prévention,
     ''' puis déclenche l'envoi si nécessaire.
@@ -6,23 +12,24 @@
     ''' <param name="usrPrenom">Prénom de la personne concernée.</param>
     ''' <param name="usrNom">Nom de la personne concernée.</param>
     ''' <param name="usrID">Identifiant de la personne dans IGBMCSERVICES / GDPI.</param>
-    ''' <param name="EqDescr">Libellé du service ou de l'équipe.</param>
+    ''' <param name="eqDescr">Libellé du service ou de l'équipe.</param>
+    ''' <param name="unite">Libellé de l'unité.</param>
     ''' <param name="usrLogin">Login de la personne concernée.</param>
     ''' <param name="finContrat">Date de fin de contrat à transmettre dans le mail.</param>
-    ''' <param name="createdUser">
+    ''' <param name="checkMode">
     ''' Indique le contexte du contrôle.
     ''' <c>True</c> pour une création d'utilisateur ;
     ''' <c>False</c> pour une mise à jour.
     ''' </param>
     ''' <remarks>
     ''' La décision d'envoi repose sur <c>GetContractsLenght</c>.
-    ''' L'envoi effectif est réalisé via <c>SendMailAP</c>.
     ''' </remarks>
     Public Sub EnvoyerMailAPSiNecessaire(
                     ByVal usrPrenom As String,
                     ByVal usrNom As String,
                     ByVal usrID As String,
                     ByVal eqDescr As String,
+                    ByVal unite As String,
                     ByVal usrLogin As String,
                     ByVal finContrat As String,
                     ByVal checkMode As Boolean
@@ -31,52 +38,39 @@
             Dim ctrlEnvoiMailAP As Boolean = GetContractsLenght(usrID, checkMode)
 
             If ctrlEnvoiMailAP = True Then
-                SendMailAP(usrPrenom, usrNom, usrID, eqDescr, usrLogin, finContrat)
+                Dim uniteMail As String = If(String.IsNullOrWhiteSpace(unite), "Exterieur", unite)
+                Dim ligneUnite As String = vbCrLf & "Unité : " & uniteMail
+                Dim corpmailAssistentsPrévention As String =
+                    vbCrLf & "Nom : " & usrPrenom & " " & usrNom &
+                    vbCrLf & "Identifiant GDPI : " & usrID &
+                    vbCrLf & "Service : " & eqDescr &
+                    ligneUnite &
+                    vbCrLf & "Mail : " & usrLogin & "@igbmc.fr" &
+                    vbCrLf & "Date de fin de contrat : " & finContrat
+
+                blocsMailAssistantsPrevention.Add(corpmailAssistentsPrévention.TrimStart())
             End If
         Catch ex As Exception
             Commun.Journal("ERREUR : Envoi de mail Assistants de prévention : " & usrLogin & " : " & ex.Message, True)
         End Try
     End Sub
-    ''' <summary>
-    ''' Vérifie si un mail doit être envoyé aux assistants de prévention
-    ''' dans le cadre d'une modification de date de fin de contrat, puis déclenche l'envoi si nécessaire.
-    ''' </summary>
-    ''' <param name="userRH">Utilisateur issu des données RH.</param>
-    ''' <param name="userAD">État actuel de l'utilisateur dans Active Directory.</param>
-    ''' <remarks>
-    ''' Aucun mail n'est envoyé si une date de fin de contrat apparaît pour la première fois
-    ''' alors qu'aucune date n'était encore présente dans l'AD.
-    ''' La décision d'envoi repose sur <c>GetContractsLenght</c>.
-    ''' L'envoi effectif est réalisé via <c>SendMailAP</c>.
-    ''' </remarks>
-    Public Sub EnvoyerMailAPSiNecessaire(ByVal userRH As UtilisateurRH, ByVal userAD As UtilisateurADIndex)
-        If userRH.extensionAttribute1_finDeContrat <> "" AndAlso If(userAD Is Nothing, "", userAD.extensionAttribute1) = "" Then
+
+    Public Sub EnvoyerNotificationsAssistantsPrevention()
+        If blocsMailAssistantsPrevention.Count = 0 Then
             Exit Sub
         End If
 
-        Dim ctrlEnvoiMailAP As Boolean = GetContractsLenght(userRH.employeeID_id, False)
-        If ctrlEnvoiMailAP = False Then
-            Exit Sub
-        End If
+        Try
+            Dim corpsMail As String = String.Join(vbCrLf & vbCrLf & New String("_"c, 100) & vbCrLf & vbCrLf, blocsMailAssistantsPrevention.ToArray())
+            corpsMail &= vbCrLf & vbCrLf & "(Exterieur : personnes dependantes d'une autre unite, mais affectees a l'IGBMC)"
 
-        SendMailAP(
-            userRH.prenom_givenName,
-            userRH.nom_sn,
-            userRH.employeeID_id,
-            userRH.department_destinationNomLong,
-            userRH.login_samAccountName,
-            userRH.extensionAttribute1_finDeContrat
-        )
-    End Sub
-    Public Sub SendMailAP(ByVal usrPrenom As String, ByVal usrNom As String, ByVal usrID As String, ByVal EqDescr As String, ByVal usrLogin As String, ByVal finContrat As String)
-        Dim corpmailAssistentsPrévention =
-                                                 vbCrLf & "Nom : " & usrPrenom & " " & usrNom &
-                                                 vbCrLf & "Identifiant GDPI : " & usrID &
-                                                 vbCrLf & "Service : " & EqDescr &
-                                                 vbCrLf & "Mail : " & usrLogin & "@igbmc.fr" &
-                                                 vbCrLf & "Date de fin de contrat : " & finContrat
-
-        Commun.SendEmail("administrateur@igbmc.fr", "assistants-de-prevention@igbmc.fr;Bcc:steph@igbmc.fr", "(Mail automatique) Nouvel entrant", corpmailAssistentsPrévention)
+            Dim sujet As String = "[Mail automatique] Nouveaux Entrants (" & blocsMailAssistantsPrevention.Count & ")"
+            Commun.SendEmail("administrateur@igbmc.fr", "assistants-de-prevention@igbmc.fr;Bcc:steph@igbmc.fr", sujet, corpsMail)
+        Catch ex As Exception
+            Commun.Journal("ERREUR : Envoi du mail recapitulatif Assistants de prevention : " & ex.Message, True)
+        Finally
+            InitialiserNotificationsAssistantsPrevention()
+        End Try
     End Sub
 
     Public Sub AjouterNotificationOfficierOrienteur(

@@ -15,20 +15,18 @@ Public Class Creation
         If Not searchID Is Nothing Then result = searchID.Path
         Return result
     End Function
-    Sub createCompte(ByVal usrNom As String, ByVal usrPrenom As String, ByVal usrDest As String, usrID As String, ByVal usrLogin As String, ByVal genre As String, ByVal finContrat As String, ByVal Optional usrListeDiff As String = "")
+    Sub createCompte(ByVal usrNom As String, ByVal usrPrenom As String, ByVal usrDestCourt As String, ByVal usrDestLong As String, usrID As String, ByVal usrLogin As String, ByVal genre As String, ByVal finContrat As String, ByVal usrUnite As String, ByVal usrListeDiff As String)
 
 
 
         ' TRAITEMENT DU FICHIER DE CREATION DE COMPTES
 
 
-
-
         Dim objUser As DirectoryEntry
         Dim objOUUtilisateurs As DirectoryEntry
 
 
-        Dim EqDescr As String = " "
+        'Dim EqDescr As String = " "
 
 
         'Si l'utilisateur existe par rapport a l'employeeID et est dans l'ou Utilisateurs, on prend la ligne suivante du fichier
@@ -45,7 +43,7 @@ Public Class Creation
 
 
         Dim usrPasswd As String = RandomPassword.Generate(8, 10)
-        Dim usrEquipeinfo As String = Commun.RecupEquipeinfo(usrDest)
+        Dim usrEquipeinfo As String = Commun.RecupEquipeinfo(usrDestCourt)
         If usrEquipeinfo = Nothing Then
             usrEquipeinfo = "externe"
         End If
@@ -55,9 +53,9 @@ Public Class Creation
 
         'Commun.Journal("Debut de Creation de compte : " & usrNom & "," & usrPrenom & "," & usrDest & "," & usrID & "," & usrLogin & "," & usrListeDiff)
         Console.WriteLine()
-        Commun.Journal("Debut de Creation de compte : " & usrNom & "," & usrPrenom & "," & usrDest & "," & usrID & "," & usrLogin & "," & genre & "," & finContrat & "," & usrListeDiff)
+        Commun.Journal("Debut de Creation de compte : " & usrNom & "," & usrPrenom & "," & usrDestCourt & "," & usrDestLong & "," & usrID & "," & usrLogin & "," & genre & "," & finContrat & "," & usrListeDiff)
 
-        EqDescr = Commun.FindAttribut(usrDest & " grp", "Description")
+        'EqDescr = Commun.FindAttribut(usrDestCourt & " grp", "Description")
 
         Try
             'verification si un compte provisoire exsite
@@ -156,13 +154,13 @@ Public Class Creation
             objUser.Properties("ObjectClass").Add("posixaccount")
 
             objUser.Properties("mail").Value = usrLogin & "@igbmc.fr"
-            objUser.Properties("department").Value = EqDescr
+            objUser.Properties("department").Value = usrDestLong
             Commun.AppliquerChangement(objUser)
 
 
             objUser.Properties("employeeID").Value = usrID
             objUser.Properties("company").Value = "IGBMC"
-            objUser.Properties("departmentNumber").Value = usrDest
+            objUser.Properties("departmentNumber").Value = usrDestCourt
             If finContrat <> "" Then
                 objUser.Properties("extensionAttribute1").Value = finContrat
             End If
@@ -170,7 +168,7 @@ Public Class Creation
 
             Try
 
-                EnvoyerMailAPSiNecessaire(usrPrenom, usrNom, usrID, EqDescr, usrLogin, finContrat, True)
+                EnvoyerMailAPSiNecessaire(usrPrenom, usrNom, usrID, usrDestLong, usrUnite, usrLogin, finContrat, True)
             Catch ex As Exception
                 Commun.Journal("ERREUR : Envoi de mail Assistants de prévention : " & usrLogin & " : " & ex.Message, True)
             End Try
@@ -220,9 +218,9 @@ Public Class Creation
         End Try
 
         'AJOUT DU GROUPE EQUIPE COMPTABLE
-        If EqDescr <> " " And EqDescr <> "" And EqDescr <> Nothing Then
+        If usrDestLong <> " " And usrDestLong <> "" And usrDestLong <> Nothing Then
             Try
-                Commun.AddRemoveADGroup(usrLogin, usrDest & " grp", "Add")
+                Commun.AddRemoveADGroup(usrLogin, usrDestCourt & " grp", "Add")
             Catch ex As Exception
                 Commun.Journal("ERREUR : Ajout a l'equipe comptable : " & usrLogin & " : " & ex.Message, True)
             End Try
