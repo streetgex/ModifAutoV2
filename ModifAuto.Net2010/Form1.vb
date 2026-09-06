@@ -40,8 +40,9 @@ Module Module1
     Public directeurLogin As String = ini.ReadValue("MODIFAUTO", "LoginDirecteur")
 
     Public AdminScriptLogin As String = ini.ReadValue("GLOBAL", "AdminScriptLogin")
-    Public MailSenderAddress As String = ini.ReadValue("GLOBAL", "MailSenderAddress")
+    'Public MailSenderAddress As String = ini.ReadValue("GLOBAL", "MailSenderAddress")
     Public AdminScriptPassword As String = ini.ReadValue("GLOBAL", "AdminScriptPassword_encrypted")
+    Public mailOuvertureDeCompte As String = ini.ReadValue("MODIFAUTO", "MailOuvertureDeCompte")
 
     Public nomFichierRapportMS As String = "c:\temp\MSrapport(" & Replace(Now.ToString("dd-MM-yyyy HH.mm"), "/", "-") & ").csv"
     Public auth As AuthenticationTypes = AuthenticationTypes.Secure 'SocketsLayer or AuthenticationTypes.Secure ' 'AuthenticationTypes.Secure
@@ -230,7 +231,7 @@ Module Module1
         ini.WriteValue("MODIFAUTO", "lastExec", Now.ToString("dd/MM/yyyy HH:mm:ss"))
     End Sub
     Public Sub sendJournalError()
-        Commun.SendEmail(MailSenderAddress, "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
+        Commun.SendEmail("administrateur@igbmc.fr", "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
     End Sub
 
     Public Sub GestionDesFichiers()
@@ -2017,7 +2018,7 @@ Module Module1
 
         Catch ex As Exception
             Commun.Journal("ERREUR : Creation des fichiers et des tableaux : " & ex.Message, True)
-            Commun.SendEmail(MailSenderAddress, "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
+            Commun.SendEmail("administrateur@igbmc.fr", "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
             Return result
         End Try
 
