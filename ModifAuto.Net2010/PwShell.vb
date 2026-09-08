@@ -1,4 +1,4 @@
-Imports System.Management.Automation
+ï»¿Imports System.Management.Automation
 Imports System.Management.Automation.Runspaces
 Imports System.Collections.ObjectModel
 Imports System.IO
@@ -445,7 +445,7 @@ Public Class Pws
             pCommand = New PSCommand
             With pCommand
                 .AddCommand("get-MailboxExportRequest")
-                .AddParameter("identity", login)
+                .AddParameter("Mailbox", login)
             End With
 
             '-- add command to powershell
@@ -455,17 +455,20 @@ Public Class Pws
             pResult = pShell.Invoke
 
             For Each item As PSObject In pResult
-                result = item.Members("Status").Value
+                If String.Equals(CStr(item.Members("Name").Value), jobName, StringComparison.OrdinalIgnoreCase) Then
+                    result = CStr(item.Members("Status").Value)
+                    Exit For
+                End If
             Next
 
             pRunspace.Close()
             pRunspace.Dispose()
             If result = "Failed" Then
-                Commun.Journal("ERREUR : La création de l'archive PST a échouée, elle sera recréée a la prochaine execution du script: " & jobName, True)
+                Commun.Journal("ERREUR : La crï¿½ation de l'archive PST a ï¿½chouï¿½e, elle sera recrï¿½ï¿½e a la prochaine execution du script: " & jobName, True)
                 DeleteExportRequest(jobName)
             End If
             If result Is Nothing Then
-                'Commun.Journal("ERREUR : La demande de creation de fichier PST n'existe pas. Verifier la création de l'archive: " & jobName, True)
+                'Commun.Journal("ERREUR : La demande de creation de fichier PST n'existe pas. Verifier la crï¿½ation de l'archive: " & jobName, True)
             End If
             Return result
 
@@ -545,9 +548,9 @@ Public Class Pws
             pRunspace.Close()
             pRunspace.Dispose()
 
-            Commun.Journal("Suppression de la requete de création du PST: " & jobName, True)
+            Commun.Journal("Suppression de la requete de crï¿½ation du PST: " & jobName, True)
         Catch e As Exception
-            Commun.Journal("ERREUR : Suppression de la requete de création du PST: " & e.Message & " : " & jobName, True)
+            Commun.Journal("ERREUR : Suppression de la requete de crï¿½ation du PST: " & e.Message & " : " & jobName, True)
         End Try
     End Sub
 
@@ -594,7 +597,7 @@ Public Class Pws
         End Using
     End Sub
 
-    Public Shared Sub ForceSyncPeperCutAD(server As String)        ' Connexion WSMan avec l’utilisateur courant
+    Public Shared Sub ForceSyncPeperCutAD(server As String)        ' Connexion WSMan avec lï¿½utilisateur courant
         Dim connectionInfo As New WSManConnectionInfo(
             New Uri("http://" & server & ":5985/wsman"),
             "http://schemas.microsoft.com/powershell/Microsoft.PowerShell",
@@ -611,7 +614,7 @@ Public Class Pws
                 Dim cmd As String = "& 'C:\Program Files\PaperCut MF\server\bin\win\server-command.exe' perform-user-and-group-sync"
                 ps.AddScript(cmd)
 
-                ' Exécution
+                ' Exï¿½cution
                 Dim results = ps.Invoke()
 
                 ' Sortie standard
@@ -619,7 +622,7 @@ Public Class Pws
                     Commun.Journal(vbTab & "Resultat de la synchronisation de PaperCut avec l'AD : " & r.ToString(), False)
                 Next
 
-                ' Erreurs éventuelles
+                ' Erreurs ï¿½ventuelles
                 If ps.Streams.Error.Count > 0 Then
                     For Each e In ps.Streams.Error
                         Commun.Journal(vbTab & "ERREUR : Resultat de la synchronisation de PaperCut avec l'AD : " & e.ToString(), True)
@@ -732,7 +735,7 @@ Public Class Pws
             pCommand = New PSCommand
             With pCommand
                 .AddCommand("disable-mailbox")
-                .AddParameter("identity", login)
+                .AddParameter("Mailbox", login)
                 .AddParameter("DomainController", ctrlDomain)
                 .AddParameter("Confirm", False)
             End With
@@ -749,7 +752,7 @@ Public Class Pws
             pRunspace.Dispose()
             pRunspace = Nothing
 
-            Commun.Journal("Suppression de la boite mail Réussie: " & login)
+            Commun.Journal("Suppression de la boite mail Rï¿½ussie: " & login)
         Catch e As Exception
             Commun.Journal("ERREUR : Suppression de compte : Suppression du compte mail: " & e.Message & " : " & login, True)
         End Try

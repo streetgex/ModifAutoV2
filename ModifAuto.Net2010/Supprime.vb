@@ -62,6 +62,67 @@ Public Class Supprime
 
     End Sub
 
+    Shared Sub RelancerDemandesPSTEnEchec()
+        Using OUDisable As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursSortis), Nothing, Nothing, auth)
+            Using dirSearcher As DirectorySearcher = New DirectorySearcher(OUDisable)
+                dirSearcher.Filter = "(&(objectClass=user)(homeMDB=*))"
+                dirSearcher.SearchScope = SearchScope.OneLevel
+
+                For Each result As SearchResult In dirSearcher.FindAll()
+                    Using userAD As DirectoryEntry = result.GetDirectoryEntry()
+                        Dim login As String = userAD.Properties("sAMAccountName").Value
+                        Try
+                            Dim userID As String = Nothing
+                            If userAD.Properties.Contains("employeeID") Then userID = userAD.Properties("employeeID").Value
+                            If String.IsNullOrWhiteSpace(userID) Then Continue For
+
+                            Dim archiveEnabled As Boolean = userAD.Properties.Contains("msExchArchiveGUID")
+                            Dim statusPSTMailbox As String = Pws.ControleArchiveCreee(login, userID)
+                            Dim statusPSTArchive As String = Nothing
+                            If archiveEnabled Then statusPSTArchive = Pws.ControleArchiveCreee(login, userID, True)
+
+                            If statusPSTMailbox = "Completed" Then
+                                If archiveEnabled Then
+                                    If statusPSTArchive = "Completed" Then
+                                        Pws.DeleteExportRequest(login, userID)
+                                        Pws.DeleteExportRequest(login, userID, True)
+                                        Commun.Journal("PST termines : suppression de la boite mail : " & login, False)
+                                        Pws.commandePWSDisableMailbox(login)
+                                    End If
+                                Else
+                                    Pws.DeleteExportRequest(login, userID)
+                                    Commun.Journal("PST termine : suppression de la boite mail : " & login, False)
+                                    Pws.commandePWSDisableMailbox(login)
+                                End If
+                            End If
+
+                            If statusPSTMailbox = "Failed" Then
+                                DeleteIncompletePSTFile(login, userID)
+                                Commun.Journal("Relance creation PST principal : " & login & " : demande precedente en echec", False)
+                                Pws.CommandePWSCreatePSTMailbox(login, userID)
+                            ElseIf statusPSTMailbox Is Nothing Then
+                                Commun.Journal("Relance creation PST principal : " & login & " : demande absente", False)
+                                Pws.CommandePWSCreatePSTMailbox(login, userID)
+                            End If
+
+                            If archiveEnabled Then
+                                If statusPSTArchive = "Failed" Then
+                                    DeleteIncompletePSTFile(login, userID, True)
+                                    Commun.Journal("Relance creation PST archive : " & login & " : demande precedente en echec", False)
+                                    Pws.CommandePWSCreatePSTMailbox(login, userID, True)
+                                ElseIf statusPSTArchive Is Nothing Then
+                                    Commun.Journal("Relance creation PST archive : " & login & " : demande absente", False)
+                                    Pws.CommandePWSCreatePSTMailbox(login, userID, True)
+                                End If
+                            End If
+                        Catch ex As Exception
+                            Commun.Journal("ERREUR : Relance creation PST : " & login & " : " & ex.Message, True)
+                        End Try
+                    End Using
+                Next
+            End Using
+        End Using
+    End Sub
     Shared Sub SupprimeMailbox()
 
         Commun.Journal("Creation des archives PST", False)
@@ -100,6 +161,21 @@ Public Class Supprime
                                     End If
                                 Else
                                     Pws.DeleteExportRequest(login, userID)
+                                    Pws.commandePWSDisableMailbox(login)
+                                End If
+                            End If
+
+                            If statusPSTMailbox = "Completed" Then
+                                If archiveEnabled Then
+                                    If statusPSTArchive = "Completed" Then
+                                        Pws.DeleteExportRequest(login, userID)
+                                        Pws.DeleteExportRequest(login, userID, True)
+                                        Commun.Journal("PST termines : suppression de la boite mail : " & login, False)
+                                        Pws.commandePWSDisableMailbox(login)
+                                    End If
+                                Else
+                                    Pws.DeleteExportRequest(login, userID)
+                                    Commun.Journal("PST termine : suppression de la boite mail : " & login, False)
                                     Pws.commandePWSDisableMailbox(login)
                                 End If
                             End If

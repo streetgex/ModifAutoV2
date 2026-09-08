@@ -162,6 +162,10 @@ Module Module1
         Gestion.ControleOUUtilisateurs()
 
 
+        If Hour(Now) <> 1 And Hour(Now) <> 2 Then
+            Supprime.RelancerDemandesPSTEnEchec()
+        End If
+
         If Hour(Now) = 1 Or Hour(Now) = 2 Then
             'Gestion de l'expiration des mot de passe des comptes adm
 
