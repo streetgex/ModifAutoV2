@@ -1,14 +1,15 @@
-﻿Imports System.DirectoryServices
+﻿Imports System.Collections.ObjectModel
+Imports System.DirectoryServices
 Imports System.IO
+Imports System.Management.Automation
+Imports System.Management.Automation.Runspaces
+Imports System.Runtime.InteropServices
+Imports System.Text
+Imports System.Web.Script.Serialization
+Imports Microsoft.VisualBasic.ApplicationServices
 'Imports ActiveDs
 Imports Newtonsoft.Json
 Imports Newtonsoft.Json.Linq
-Imports System.Management.Automation
-Imports System.Management.Automation.Runspaces
-Imports System.Collections.ObjectModel
-Imports System.Web.Script.Serialization
-Imports System.Text
-Imports System.Runtime.InteropServices
 
 Module Module1
 #If DEBUG Then
@@ -17,7 +18,7 @@ Module Module1
     Dim iniFilePath = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2.ini"
 #End If
     Public ini As New IniFile(iniFilePath)
-    Public withJson As String = "debug" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
+    Public withJson As String = "json" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
     'Public tabPersoMonoEquipe As String(,)
     Public listeUtilisateursRH As New List(Of UtilisateurRH)
     Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Integer)
@@ -211,9 +212,10 @@ Module Module1
 
         If withJson = "json" Then
             Try
+                Commun.Journal("Lancement de MAJZoneInfo", False)
                 Shell(cheminMAJZoneInfo)
-            Catch
-                Commun.Journal("ERREUR: Lancement de MAJZoneInfo", True)
+            Catch ex As Exception
+                Commun.Journal("ERREUR: Lancement de MAJZoneInfo : " & ex.Message, True)
             End Try
         End If
 

@@ -64,7 +64,7 @@
     </WarningsAsErrors>
   </PropertyGroup>
   <PropertyGroup>
-    <OptionExplicit>Off</OptionExplicit>
+    <OptionExplicit>On</OptionExplicit>
   </PropertyGroup>
   <PropertyGroup>
     <OptionCompare>Binary</OptionCompare>
@@ -273,6 +273,11 @@
     )
 
     copy /Y "$(TargetPath)" "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName)"
+)
+
+if /I "$(ConfigurationName)"=="Release" (
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(ProjectDir)IncrementVersion.ps1" -Mode Commit -AssemblyInfo "$(ProjectDir)My Project\AssemblyInfo.vb" -Configuration "$(ConfigurationName)"
+    if errorlevel 1 exit /b 1
 )</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
@@ -282,4 +287,7 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <PropertyGroup>
+    <PreBuildEvent>if /I "$(ConfigurationName)"=="Release" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(ProjectDir)IncrementVersion.ps1" -Mode Prepare -AssemblyInfo "$(ProjectDir)My Project\AssemblyInfo.vb" -Configuration "$(ConfigurationName)"</PreBuildEvent>
+  </PropertyGroup>
 </Project>
