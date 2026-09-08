@@ -1,4 +1,4 @@
-﻿Imports System.IO
+Imports System.IO
 Imports System.Net.Mail
 Imports System.DirectoryServices
 Imports System.Text.RegularExpressions
@@ -132,8 +132,8 @@ Public Class Commun
         End If
 
         Dim ctrlError As Boolean = False
-        If Left(texte, 6) = "ERREUR" Then
-            texte = vbTab & texte
+        If texte.TrimStart().StartsWith("ERREUR", StringComparison.Ordinal) Then
+            If Not texte.StartsWith(vbTab) Then texte = vbTab & texte
             ctrlError = True
         End If
 
