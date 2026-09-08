@@ -13,7 +13,7 @@ Public Class Gestion
 
     Private Shared Sub CompleterDatesContratManquantesDansOU(ByVal cheminOu As String, ByVal libelleOu As String)
         Try
-            Using ouEntry As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(cheminOu), Commun.admin, Commun.passwd, auth)
+            Using ouEntry As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(cheminOu), Nothing, Nothing, auth)
                 Using searcher As DirectorySearcher = New DirectorySearcher(ouEntry)
                     searcher.Filter = "(&(objectClass=user)(employeeID=*)(!(extensionAttribute1=*)))"
                     searcher.SearchScope = SearchScope.OneLevel
@@ -143,7 +143,7 @@ Public Class Gestion
         Dim dateNowU As String = Now.ToUniversalTime.Date.ToString("yyyyMMddHHmmss.sZ")
 
 
-        Using OuUsers As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateurs), Commun.admin, Commun.passwd, auth)
+        Using OuUsers As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateurs), Nothing, Nothing, auth)
 
             'accountDeletionDT
             Using searcher As DirectorySearcher = New DirectorySearcher(OuUsers)
@@ -374,7 +374,7 @@ Public Class Gestion
         Commun.Journal("Mise a jour des utilisateurs provisoires", False)
 
         'Mise a jour des utilisateurs provisoires
-        Using OUProvisoire As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(ini.ReadValue("MODIFAUTO", "OUUtilisateursProvisoires")), Commun.admin, Commun.passwd, auth)
+        Using OUProvisoire As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(ini.ReadValue("MODIFAUTO", "OUUtilisateursProvisoires")), Nothing, Nothing, auth)
             Dim searcher As DirectorySearcher = New DirectorySearcher(OUProvisoire)
             searcher.Filter = "(&(objectClass=user))"
 
@@ -427,7 +427,7 @@ Public Class Gestion
         Commun.Journal("Controle de l'OU Utilisateurs", False)
 
         'Desactivation des comptes dans l'OU Exception qui n'ont rien a y faire
-        Dim OUException As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursExceptions), Commun.admin, Commun.passwd, auth)
+        Dim OUException As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursExceptions), Nothing, Nothing, auth)
         Dim searchOUException As DirectorySearcher = New DirectorySearcher(OUException)
         searchOUException.Filter = "(&(objectClass=user))"
         searchOUException.PropertiesToLoad.Add("samAccountName")
@@ -454,7 +454,7 @@ Public Class Gestion
         'Ajout au groupe G_Domain_DisableOpenSession des comptes de l'OU "Comptes Désactivés"
         Dim DNDisableOpenSession As String = Commun.TransformeSAMACCOUNTenCN("G_Domain_DisableOpenSession")
         Dim IDDisableOpenSession As Integer = Commun.PrimaryGroupId(Commun.FindAttribut("G_Domain_DisableOpenSession", "objectSid"))
-        Using OUComptesDesactives As New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursDesactives), Commun.admin, Commun.passwd, auth)
+        Using OUComptesDesactives As New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursDesactives), Nothing, Nothing, auth)
             Using searchDesactiv As DirectorySearcher = New DirectorySearcher(OUComptesDesactives)
                 'primaryGroupID=513 correspond au groupe Utilisa. du domaine
                 searchDesactiv.PageSize = 5000
@@ -487,7 +487,7 @@ Public Class Gestion
 
 
         'MODIFICATION ET AJOUT DES NOUVELLES DESTINATIONS
-        Using OUDomDest As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=Equipes,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
+        Using OUDomDest As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=Equipes,DC=igbmc,DC=u-strasbg,DC=fr"), Nothing, Nothing, auth)
             Using dirDestSearcher As DirectorySearcher = New DirectorySearcher(OUDomDest)
                 Dim dicoDestAd As New Dictionary(Of String, SearchResult)(StringComparer.OrdinalIgnoreCase)
                 dirDestSearcher.Filter = "(&(objectClass=group)(languageCode=*))"
@@ -535,7 +535,7 @@ Public Class Gestion
                         If result Is Nothing Then
                             'Creation d'une nouvelle destination
                             Commun.NouveauGroupe(OUDomDest, SAMAccountGroup, description)
-                            dirDest = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN(SAMAccountGroup)), Commun.admin, Commun.passwd, auth)
+                            dirDest = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN(SAMAccountGroup)), Nothing, Nothing, auth)
                             'L'attribut "languageCode" contient le groupe ID de GDPI
                             dirDest.Properties("languageCode").Value = IdDest
                             Commun.AppliquerChangement(dirDest)
@@ -593,7 +593,7 @@ Public Class Gestion
 
 
                 'gestion des departements
-                Using OUDomDepart As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=Departements,OU=EMC Celerra,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
+                Using OUDomDepart As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=Departements,OU=EMC Celerra,DC=igbmc,DC=u-strasbg,DC=fr"), Nothing, Nothing, auth)
                     Using dirDepartSearcher As DirectorySearcher = New DirectorySearcher(OUDomDepart)
                         Dim dicoDepartAd As New Dictionary(Of String, SearchResult)(StringComparer.OrdinalIgnoreCase)
                         dirDepartSearcher.Filter = "(&(objectClass=group)(languageCode=*))"
@@ -642,7 +642,7 @@ Public Class Gestion
                                     Catch
 
                                     End Try
-                                    dirDepart = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN(SAMAccountDepart)), Commun.admin, Commun.passwd, auth)
+                                    dirDepart = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN(SAMAccountDepart)), Nothing, Nothing, auth)
                                     'L'attribut "languageCode" contient le groupe ID de GDPI
                                     dirDepart.Properties("languageCode").Value = IdDepart
                                     Commun.AppliquerChangement(dirDepart)
@@ -755,7 +755,7 @@ Public Class Gestion
 
 
     Shared Sub PIDepartementGroup()
-        Using dptAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=Departements,OU=EMC Celerra,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
+        Using dptAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=Departements,OU=EMC Celerra,DC=igbmc,DC=u-strasbg,DC=fr"), Nothing, Nothing, auth)
             Dim resultsDpt As SearchResultCollection = Commun.SearchFilterAll("OU=Departements,OU=EMC Celerra,DC=igbmc,DC=u-strasbg,DC=fr", "objectClass=group", SearchScope.OneLevel, "description,cn")
 
             Dim maxTabPI As Integer = resultsDpt.Count
@@ -772,7 +772,7 @@ Public Class Gestion
                         'MsgBox(destAD.Properties("sAMAccountName").Value)
                         Dim chefCN As String = destAD.Properties("managedBy").Value
                         If Not DirectoryEntry.Exists("LDAP://" & Commun.LdapPath("CN=" & nomGrpPI & ",OU=Departements PI,OU=Departements,OU=EMC Celerra,DC=igbmc,DC=u-strasbg,DC=fr")) Then
-                            Commun.NouveauGroupe(New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=Departements PI,OU=Departements,OU=EMC Celerra,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth), nomGrpPI, "")
+                            Commun.NouveauGroupe(New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=Departements PI,OU=Departements,OU=EMC Celerra,DC=igbmc,DC=u-strasbg,DC=fr"), Nothing, Nothing, auth), nomGrpPI, "")
                         End If
                         Commun.AddRemoveADGroup(chefCN, nomGrpPI, "Add")
                     End Using
@@ -861,7 +861,7 @@ Public Class Gestion
                 Continue For
             End If
 
-            Using dirEntry As New DirectoryEntry("LDAP://" & Commun.LdapPath(userAD.distinguishedName), Commun.admin, Commun.passwd, auth)
+            Using dirEntry As New DirectoryEntry("LDAP://" & Commun.LdapPath(userAD.distinguishedName), Nothing, Nothing, auth)
 
                 'Si l'utilisateur est present RH mais n'est pas dans l'OU actifs,
                 'on nettoie les attributs de desactivation, on reactive les comptes,
@@ -1128,7 +1128,7 @@ Public Class Gestion
         Dim ancienDn As String = userAD.distinguishedName
         Dim login As String = userAD.samAccountName
 
-        Using ouDest As New DirectoryEntry("LDAP://" & Commun.LdapPath(destinationOu), Commun.admin, Commun.passwd, auth)
+        Using ouDest As New DirectoryEntry("LDAP://" & Commun.LdapPath(destinationOu), Nothing, Nothing, auth)
             dirEntry.MoveTo(ouDest)
             dirEntry.RefreshCache(New String() {"distinguishedName"})
 

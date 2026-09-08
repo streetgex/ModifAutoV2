@@ -38,8 +38,8 @@ Public Class ADHelper
             Try
                 Using entry As New DirectoryEntry(
             "LDAP://" & dc & "/DC=igbmc,DC=u-strasbg,DC=fr",
-            Commun.admin,
-            Commun.passwd,
+            Nothing,
+            Nothing,
             auth)
 
                     entry.RefreshCache(New String() {"distinguishedName"})

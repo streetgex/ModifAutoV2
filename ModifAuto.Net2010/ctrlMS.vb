@@ -42,7 +42,7 @@ Public Class ctrlMS
             End If
         Next
 
-        Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateurs), Commun.admin, Commun.passwd, auth)
+        Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateurs), Nothing, Nothing, auth)
             'Dim filtre As SearchResultCollection = Commun.SearchFilterAll(AD, "(&(employeeID=*)(objectCategory=person)(|((&(accountDeactivationDT>=20200101000000.0Z)(msDS-parentdistname=OU=Out,OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(&(accountDeactivationDT>=20200101000000.0Z)(msDS-parentdistname=OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(msDS-parentdistname=OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))))", SearchScope.Subtree, "employeeID")
             Dim filtre As SearchResultCollection = Commun.SearchFilterAll(AD, "(&(objectCategory=person)(employeeID=*)(|((&(accountDeactivationDT>=" & dateRef & ")(msDS-parentdistname=OU=Out,OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(&(accountDeactivationDT>=" & dateRef & ")(msDS-parentdistname=OU=Comptes Désactivés,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))(msDS-parentdistname=OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr))))", SearchScope.Subtree)
             Dim i As Integer = filtre.Count

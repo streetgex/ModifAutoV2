@@ -161,9 +161,7 @@
     <Import Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\CLASS COMMUNES\Commun.vb">
-      <Link>Commun.vb</Link>
-    </Compile>
+    <Compile Include="CommunLocal.vb" />
     <Compile Include="..\..\CLASS COMMUNES\iniFile.vb">
       <Link>iniFile.vb</Link>
     </Compile>

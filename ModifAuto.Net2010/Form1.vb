@@ -66,7 +66,7 @@ Module Module1
 
         Dim listExtensionsXivo As String = ""
         If Environment.MachineName <> "SERV-AD1" And Environment.MachineName <> "SERV-NAP" Then
-            'Gestion.GestionGroupeUserActive(New DirectoryEntry("LDAP://serv-ad2.igbmc.u-strasbg.fr/CN=Pietro GIRAUDO,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr", AdminScriptLogin, AdminScriptPassword, auth))
+            'Gestion.GestionGroupeUserActive(New DirectoryEntry("LDAP://serv-ad2.igbmc.u-strasbg.fr/CN=Pietro GIRAUDO,OU=Utilisateurs,DC=igbmc,DC=u-strasbg,DC=fr", Nothing, Nothing, auth))
             'Dim dateNowU  = Now.ToUniversalTime.Date.ToString("yyyyMMddHHmmss.sZ")
             'ModEquipeDestinationDepartement.ChargerEquipeDestinationDepartement()
             'Dim a As New Creation
@@ -332,7 +332,7 @@ Module Module1
                 Continue For
             End If
 
-            Using objuser As New DirectoryEntry("LDAP://" & Commun.LdapPath(userAD.distinguishedName), Commun.admin, Commun.passwd, auth)
+            Using objuser As New DirectoryEntry("LDAP://" & Commun.LdapPath(userAD.distinguishedName), Nothing, Nothing, auth)
                 Try
                     Dim prop As String = "jpegPhoto"
                     If changementsSet.Contains(prop) Then
@@ -1069,7 +1069,7 @@ Module Module1
 
         Dim adUsersByEmployeeId As New Dictionary(Of String, UtilisateurADIndex)(StringComparer.OrdinalIgnoreCase)
 
-        Using ldap As New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateurs), Commun.admin, Commun.passwd, auth)
+        Using ldap As New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateurs), Nothing, Nothing, auth)
             Using searcher As New DirectorySearcher(ldap)
 
                 searcher.Filter = "(&(objectClass=user)(employeeID=*))"
@@ -1913,7 +1913,7 @@ Module Module1
     Private Function ChargerIndexDnParEmployeeId() As Dictionary(Of String, String)
         Dim result As New Dictionary(Of String, String)(StringComparer.OrdinalIgnoreCase)
 
-        Using ldap As New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
+        Using ldap As New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Nothing, Nothing, auth)
             Using searcher As New DirectorySearcher(ldap)
                 searcher.Filter = "(&(objectClass=user)(employeeID=*))"
                 searcher.SearchScope = SearchScope.Subtree
@@ -2441,7 +2441,7 @@ Module Module1
 
         Const ADS_UF_ACCOUNT_DISABLE = 2
         Dim i = 0
-        Using objADExt As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursExternes), Commun.admin, Commun.passwd, auth)
+        Using objADExt As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursExternes), Nothing, Nothing, auth)
             Dim results As SearchResultCollection
             Using searcher As DirectorySearcher = New DirectorySearcher(objADExt)
                 searcher.SearchScope = SearchScope.OneLevel
@@ -2483,7 +2483,7 @@ Module Module1
                                         Sleep(20000)
                                         Commun.Journal("GestionComptesExternes : User Externe : Utilisateur de messagerie créé : " & login)
                                     Else
-                                        Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
+                                        Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Nothing, Nothing, auth)
                                             Using searcherMailExist As DirectorySearcher = New DirectorySearcher(AD)
 
                                                 'searcher.Filter = "(&(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)(!(msExchRecipientTypeDetails=1))))"
@@ -2499,7 +2499,7 @@ Module Module1
                                     End If
 
                                 Else
-                                    Using ADuser As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursActifs), Commun.admin, Commun.passwd, auth)
+                                    Using ADuser As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursActifs), Nothing, Nothing, auth)
                                         Using searcherMail As DirectorySearcher = New DirectorySearcher(ADuser)
                                             searcherMail.SearchScope = SearchScope.OneLevel
                                             searcherMail.Filter = "((proxyAddresses=*" & mail & "))"
@@ -2626,7 +2626,7 @@ fermerUsing:
 
     Public Function UserMembreDeDestination(ByVal username As String) As String()
         Dim appartientA As String()
-        Dim Entry As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
+        Dim Entry As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Nothing, Nothing, auth)
         Dim Searcher As New DirectorySearcher(Entry)
         Searcher.SearchScope = DirectoryServices.SearchScope.Subtree
         'Searcher.Filter = "(&(objectcategory=user)(sAMAccountName=" & username & "))"
@@ -2716,7 +2716,7 @@ fermerUsing:
         Dim login As String = usrDir.Properties("sAMAccountName").Value
         Dim EquipeUserAD As String() = UserMembreDeDestination(login)
         Dim EquipeUserFichier As String() = EquipeComptableFichierUser(login)
-        Dim DepartementUserAdSR As SearchResultCollection = Commun.SearchFilterAll(New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth), "(&(objectcategory=group)(member=" & Commun.TransformeSAMACCOUNTenCN(login) & ")(name=Dpt_*)(!(name=Dpt_PI*)))", SearchScope.Subtree, "name")
+        Dim DepartementUserAdSR As SearchResultCollection = Commun.SearchFilterAll(New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Nothing, Nothing, auth), "(&(objectcategory=group)(member=" & Commun.TransformeSAMACCOUNTenCN(login) & ")(name=Dpt_*)(!(name=Dpt_PI*)))", SearchScope.Subtree, "name")
         Dim DepartementUserAd As String() = {}
         For Each res As SearchResult In DepartementUserAdSR
             DepartementUserAd.Add(res.Properties("name")(0).ToString)
@@ -3262,11 +3262,11 @@ fermerUsing:
         Try
             Dim passwordPrestaImagerieAdm = RandomPassword.Generate(8)
             Dim passwordPrestaImagerieUsr = RandomPassword.Generate(8)
-            Using userEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN("cs-prestaadm")), Commun.admin, Commun.passwd, auth)
+            Using userEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN("cs-prestaadm")), Nothing, Nothing, auth)
                 userEntry.Invoke("SetPassword", New Object() {passwordPrestaImagerieAdm})
                 Commun.AppliquerChangement(userEntry)
             End Using
-            Using userEntry1 = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN("cs-prestausr")), Commun.admin, Commun.passwd, auth)
+            Using userEntry1 = New DirectoryEntry("LDAP://" & Commun.LdapPath(Commun.TransformeSAMACCOUNTenCN("cs-prestausr")), Nothing, Nothing, auth)
                 userEntry1.Invoke("SetPassword", New Object() {passwordPrestaImagerieUsr})
                 Commun.AppliquerChangement(userEntry1)
             End Using
@@ -3290,7 +3290,7 @@ fermerUsing:
         Try
             Dim dateDeSuppressionPrevueUniversal As String = Now.Date.AddDays(j).ToString("yyyyMMddHHmmss.sZ")
             Dim dateDeSuppressionPrevueTxt As String = Now.Date.AddDays(j).ToString("dd/MM/yyyy")
-            Using objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursDesactives), Commun.admin, Commun.passwd, auth)
+            Using objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursDesactives), Nothing, Nothing, auth)
                 Using searcher As DirectorySearcher = New DirectorySearcher(objAD)
                     searcher.Filter = "(&(objectClass=person)(objectClass=user)(accountDeletionDT=" & dateDeSuppressionPrevueUniversal & "))"
 
@@ -3433,7 +3433,7 @@ fermerUsing:
         'PARTIE ALIAS
         Dim tabAlias(,) As String = Commun.CreateTabHistoAliasLogin("alias")
 
-        Using objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
+        Using objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Nothing, Nothing, auth)
             Using searcher As DirectorySearcher = New DirectorySearcher(objAD)
                 searcher.Filter = "(&(proxyAddresses=*)(employeeID=*))"
                 searcher.PageSize = 2000

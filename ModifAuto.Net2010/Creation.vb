@@ -66,7 +66,7 @@ Public Class Creation
 
             Dim userExiste As String = UserExist(usrPrenom & " " & usrNom)
 
-            objOUUtilisateurs = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursActifs), Commun.admin, Commun.passwd, auth)
+            objOUUtilisateurs = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursActifs), Nothing, Nothing, auth)
 
 
 
@@ -82,20 +82,20 @@ Public Class Creation
                 Commun.Journal("Creation de compte : Creation d'un nouveau compte : " & usrLogin, False)
             Else
                 If outCtrlAccountExist <> "" Then
-                    objUser = New DirectoryEntry(outCtrlAccountExist, Commun.admin, Commun.passwd, auth)
+                    objUser = New DirectoryEntry(outCtrlAccountExist, Nothing, Nothing, auth)
                     objUser.Properties("Comment").Value += "Réactivé le: " & Strings.Left(CStr(Now), 10) & " (ModifAuto)" & vbCrLf
                     objUser.Properties("AccountExpires").Value = 0
                     Commun.AppliquerChangement(objUser)
                 ElseIf provCtrlPathExist <> "" Then
 
-                    objUser = New DirectoryEntry(provCtrlPathExist, Commun.admin, Commun.passwd, auth)
+                    objUser = New DirectoryEntry(provCtrlPathExist, Nothing, Nothing, auth)
                     objUser.Rename("CN=" & usrPrenom & " " & usrNom)
                     Commun.AppliquerChangement(objUser)
                     objUser.Properties("Comment").Value += "Transformé le: " & Strings.Left(CStr(Now), 10) & vbCrLf
                     objUser.Properties("AccountExpires").Value = 0
                     Commun.AppliquerChangement(objUser)
                 ElseIf userExiste <> "" Then
-                    objUser = New DirectoryEntry(userExiste, Commun.admin, Commun.passwd, auth)
+                    objUser = New DirectoryEntry(userExiste, Nothing, Nothing, auth)
                 End If
                 Try
 
@@ -420,7 +420,7 @@ Public Class Creation
 
     Shared Sub NbUserDatabaseExchange()
         Dim DNUsersActif = Commun.LdapPrefix & OUUtilisateursActifs
-        Dim Ldap As DirectoryEntry = New DirectoryEntry(DNUsersActif, Commun.admin, Commun.passwd, auth)
+        Dim Ldap As DirectoryEntry = New DirectoryEntry(DNUsersActif, Nothing, Nothing, auth)
         'Public Shared Function LdapPrefix() As String
 
         Dim dirSearcher As DirectorySearcher = New DirectorySearcher(Ldap)
@@ -486,7 +486,7 @@ Public Class Creation
 
     Function EmployeeIDExist(ByVal employeeID As String) As Boolean
         Dim resultat As Boolean = False
-        Dim objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
+        Dim objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Nothing, Nothing, auth)
         Dim searcher As DirectorySearcher = New DirectorySearcher(objAD)
         searcher.PageSize = 5000
         searcher.Filter = "(employeeID=" & employeeID & ")"
@@ -552,7 +552,7 @@ sortie:
 
     Function UserExist(ByVal prenom_nom As String) As String
 
-        Dim monEntry As New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursActifs), Commun.admin, Commun.passwd, auth)
+        Dim monEntry As New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursActifs), Nothing, Nothing, auth)
         Dim maRecherche As DirectorySearcher = New DirectorySearcher(monEntry)
         maRecherche.PageSize = 2000
         Dim resultat As String = ""

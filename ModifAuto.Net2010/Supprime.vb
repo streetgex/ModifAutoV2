@@ -67,7 +67,7 @@ Public Class Supprime
         Commun.Journal("Creation des archives PST", False)
 
         'Dim dateSuppressionMB As String = Now.AddDays(-2).ToString("dd/MM/yyyy")
-        Using OUDisable As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursSortis), Commun.admin, Commun.passwd, auth)
+        Using OUDisable As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursSortis), Nothing, Nothing, auth)
             Using dirSearcher As DirectorySearcher = New DirectorySearcher(OUDisable)
                 dirSearcher.Filter = "(&(objectClass=user)(homeMDB=*))"
                 dirSearcher.SearchScope = SearchScope.OneLevel
@@ -106,20 +106,24 @@ Public Class Supprime
 
                             If statusPSTMailbox = "Failed" Then
                                 DeleteIncompletePSTFile(login, userID)
+                                Commun.Journal("Relance creation PST principal : " & login & " : demande precedente en echec", False)
                                 Pws.CommandePWSCreatePSTMailbox(login, userID)
                             End If
 
                             If archiveEnabled = True Then
                                 If statusPSTArchive = "Failed" Then
                                     DeleteIncompletePSTFile(login, userID, True)
+                                    Commun.Journal("Relance creation PST archive : " & login & " : demande precedente en echec", False)
                                     Pws.CommandePWSCreatePSTMailbox(login, userID, True)
                                 End If
                                 If statusPSTArchive Is Nothing Then
-                                    Pws.CommandePWSCreatePSTMailbox(login, userID)
+                                    Commun.Journal("Relance creation PST archive : " & login & " : demande absente", False)
+                                    Pws.CommandePWSCreatePSTMailbox(login, userID, True)
                                 End If
                             End If
 
                             If statusPSTMailbox Is Nothing Then
+                                Commun.Journal("Relance creation PST principal : " & login & " : demande absente", False)
                                 Pws.CommandePWSCreatePSTMailbox(login, userID)
                             End If
 
@@ -213,7 +217,7 @@ Public Class Supprime
 
             Commun.ReactiveDesactiveCompte(login, "desactive")
 
-            Using ouOut As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursSortis), Commun.admin, Commun.passwd, auth)
+            Using ouOut As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursSortis), Nothing, Nothing, auth)
                 DirEntry.MoveTo(ouOut)
             End Using
         Catch ex As Exception
@@ -239,7 +243,7 @@ Public Class Supprime
         Dim i As Integer = -1
         Try
             'Recupération de l'attribut Member pour le mettre dans le tableau des resultats
-            Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
+            Using AD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Nothing, Nothing, auth)
                 Using searcherGroup As DirectorySearcher = New DirectorySearcher(AD)
                     searcherGroup.Filter = "(&(objectClass=user) (sAMAccountName=" & SamAccount & "))"
                     searcherGroup.PropertiesToLoad.Add("Member")

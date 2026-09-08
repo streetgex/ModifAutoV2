@@ -3,7 +3,7 @@
 Public Class Supprime
     Sub SupprimCompte()
 
-        Using OUDisable As DirectoryEntry = New DirectoryEntry("LDAP://DC=igbmc,DC=u-strasbg,DC=fr", admin, passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+        Using OUDisable As DirectoryEntry = New DirectoryEntry("LDAP://DC=igbmc,DC=u-strasbg,DC=fr", Nothing, Nothing, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
             Using dirSearcher As DirectorySearcher = New DirectorySearcher(OUDisable)
                 dirSearcher.PropertiesToLoad.Add("EmployeeID")
                 dirSearcher.PropertiesToLoad.Add("accountDeletionDate")
@@ -66,7 +66,7 @@ Public Class Supprime
                             'Suppression du compte ADM
                             Dim cheminLdapCompteAdm As String = Commun.TransformeSAMACCOUNTenCN(login & "adm")
                             If cheminLdapCompteAdm <> "" Then
-                                Using userAdm As DirectoryEntry = New DirectoryEntry("LDAP://" & cheminLdapCompteAdm, admin, passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+                                Using userAdm As DirectoryEntry = New DirectoryEntry("LDAP://" & cheminLdapCompteAdm, Nothing, Nothing, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
                                     Try
                                         userAdm.DeleteTree()
                                         Commun.Journal("SupprimCompte : Suppression Compte AD Adm : " & login)
@@ -91,7 +91,7 @@ Public Class Supprime
 
     Sub SupprimeMailbox()
         'Dim dateSuppressionMB As String = Now.AddDays(-2).ToString("dd/MM/yyyy")
-        Using OUDisable As DirectoryEntry = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursSortis]"), admin, passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+        Using OUDisable As DirectoryEntry = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursSortis]"), Nothing, Nothing, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
             Using dirSearcher As DirectorySearcher = New DirectorySearcher(OUDisable)
                 dirSearcher.PropertiesToLoad.Add("accountDeletionDate")
                 dirSearcher.PropertiesToLoad.Add("SAMAccountName")
@@ -150,7 +150,7 @@ Public Class Supprime
 
             Commun.ReactiveDesactiveCompte(login, "desactive")
 
-            Using ouOut As DirectoryEntry = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursSortis]"), admin, passwd, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
+            Using ouOut As DirectoryEntry = New DirectoryEntry("LDAP://" & RecupDataini.RecupVar("[OUUtilisateursSortis]"), Nothing, Nothing, AuthenticationTypes.SecureSocketsLayer + AuthenticationTypes.Secure)
                 DirEntry.MoveTo(ouOut)
             End Using
         Catch ex As Exception

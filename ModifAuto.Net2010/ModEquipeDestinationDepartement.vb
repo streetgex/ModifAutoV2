@@ -59,7 +59,7 @@ Public Module ModEquipeDestinationDepartement
     Public Function ChargerDnDepartementsDepuisAd() As Dictionary(Of String, String)
         Dim result As New Dictionary(Of String, String)
 
-        Using ouDepart As New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=Departements,OU=EMC Celerra,DC=igbmc,DC=u-strasbg,DC=fr"), Commun.admin, Commun.passwd, auth)
+        Using ouDepart As New DirectoryEntry("LDAP://" & Commun.LdapPath("OU=Departements,OU=EMC Celerra,DC=igbmc,DC=u-strasbg,DC=fr"), Nothing, Nothing, auth)
             Using searcher As New DirectorySearcher(ouDepart)
                 searcher.Filter = "(&(objectClass=group)(languageCode=*))"
                 searcher.SearchScope = SearchScope.OneLevel
