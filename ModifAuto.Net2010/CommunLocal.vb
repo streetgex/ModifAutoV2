@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.Net.Mail
 Imports System.DirectoryServices
 Imports System.Text.RegularExpressions
@@ -21,6 +21,20 @@ Public Class Commun
 
     Private Shared _barreEnCours As Boolean = False
     Private Shared _longueurDerniereBarre As Integer = 0
+    Private Shared ReadOnly JournalEncoding As New System.Text.UTF8Encoding(True)
+
+    Shared Sub New()
+        Console.OutputEncoding = System.Text.Encoding.UTF8
+    End Sub
+
+    Private Shared Sub AjouterAuJournal(texte As String)
+        If File.Exists(fichierLog) Then
+            File.AppendAllText(fichierLog, texte, JournalEncoding)
+        Else
+            File.WriteAllText(fichierLog, texte, JournalEncoding)
+        End If
+    End Sub
+
 
     Friend Shared DCName As String = ""
     ''' <summary>
@@ -140,7 +154,7 @@ Public Class Commun
         Dim separateur As String = "__________________________________________________________________________________________________"
 
         If texte = "Debut de traitement" Then
-            File.AppendAllText(fichierLog, separateur & vbCrLf & vbCrLf)
+            AjouterAuJournal(separateur & vbCrLf & vbCrLf)
         End If
 
         Dim color As ConsoleColor = ConsoleColor.Gray
@@ -148,15 +162,10 @@ Public Class Commun
 
         ConsoleWrite(texte, color)
 
-        If Not File.Exists(fichierLog) Then
-            Using fs = IO.File.Create(fichierLog)
-            End Using
-        End If
-
-        File.AppendAllText(fichierLog, Now & " : " & texte & vbCrLf)
+        AjouterAuJournal(Now & " : " & texte & vbCrLf)
 
         If texte Like "Fin de traitement*" Then
-            File.AppendAllText(fichierLog, separateur & vbCrLf & vbCrLf)
+            AjouterAuJournal(separateur & vbCrLf & vbCrLf)
         End If
 
     End Sub
