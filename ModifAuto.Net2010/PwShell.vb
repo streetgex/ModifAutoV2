@@ -6,6 +6,25 @@ Imports System.IO
 
 Public Class Pws
     Private Const PendingMailboxConfigFilePath As String = "c:\temp\ModifAuto_PendingMailboxConfig.txt"
+    Private Shared Function CreerCredentialExchange() As PSCredential
+        Dim loginExchange As String = If(ini.ReadValue("MODIFAUTO", "exchangeLogin"), "").Trim()
+        Dim motDePasseChiffre As String = ini.ReadValue("MODIFAUTO", "exchangePassword_encrypted")
+
+        If String.IsNullOrWhiteSpace(loginExchange) OrElse String.IsNullOrWhiteSpace(motDePasseChiffre) Then
+            Throw New Exception("Les identifiants Exchange MODIFAUTO/exchangeLogin ou exchangePassword_encrypted ne sont pas renseignes.")
+        End If
+
+        If loginExchange.IndexOf("\") = -1 AndAlso loginExchange.IndexOf("@") = -1 Then
+            loginExchange = "IGBMC\" & loginExchange
+        End If
+
+        Dim motDePasse As String = ini.DecryptPassword(motDePasseChiffre)
+        If String.IsNullOrWhiteSpace(motDePasse) Then
+            Throw New Exception("Impossible de dechiffrer MODIFAUTO/exchangePassword_encrypted.")
+        End If
+
+        Return New PSCredential(loginExchange, CreateSecurePasswordString(motDePasse))
+    End Function
     Shared Sub commandePWSMailbox(ByVal login As String, ByVal db As String)
         Dim ctrlDomain As String = Commun.DCName
         Dim exchangeServer As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
@@ -23,7 +42,7 @@ Public Class Pws
                 Throw New Exception("Le serveur Exchange n'est pas renseigne dans MODIFAUTO/CasExchangeServer.")
             End If
 
-            Dim pCredential As PSCredential = Nothing
+            Dim pCredential As PSCredential = CreerCredentialExchange()
 
             Dim connectionUri As New Uri("http://" & exchangeServer & "/powershell")
             Dim pConnectionInfo As New WSManConnectionInfo(
@@ -261,7 +280,7 @@ Public Class Pws
                 Throw New Exception("Le serveur Exchange n'est pas renseigne dans MODIFAUTO/CasExchangeServer.")
             End If
 
-            Dim pCredential As PSCredential = Nothing
+            Dim pCredential As PSCredential = CreerCredentialExchange()
             Dim connectionUri As New Uri("http://" & exchangeServer & "/powershell")
             Dim pConnectionInfo As New WSManConnectionInfo(
                 connectionUri,
@@ -365,7 +384,7 @@ Public Class Pws
             Dim pResult1 As Collection(Of PSObject)
 
             '-- set credentials      
-            pCredential = DirectCast(Nothing, PSCredential) 'New PSCredential("igbmc\steph", CreateSecurePasswordString("aaaaaa"))
+            pCredential = CreerCredentialExchange()
 
             '-- set connection info
             pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & exchangeServer & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
@@ -418,7 +437,7 @@ Public Class Pws
             Dim pResult1 As Collection(Of PSObject)
 
             '-- set credentials      
-            pCredential = DirectCast(Nothing, PSCredential)
+            pCredential = CreerCredentialExchange()
             'pCredential = New PSCredential("IGBMC\userprog", CreateSecurePasswordString("FV,k,~?qa3 8ESYjYF9%"))
 
             '-- set connection info
@@ -520,7 +539,7 @@ Public Class Pws
             Dim pResult1 As Collection(Of PSObject)
 
             '-- set credentials      
-            pCredential = DirectCast(Nothing, PSCredential)
+            pCredential = CreerCredentialExchange()
             'pCredential = New PSCredential("IGBMC\userprog", CreateSecurePasswordString("FV,k,~?qa3 8ESYjYF9%"))
 
             '-- set connection info
@@ -666,7 +685,7 @@ Public Class Pws
             Dim pResult1 As Collection(Of PSObject)
 
             '-- set credentials      
-            pCredential = DirectCast(Nothing, PSCredential)
+            pCredential = CreerCredentialExchange()
             'pCredential = New PSCredential("IGBMC\userprog", CreateSecurePasswordString("FV,k,~?qa3 8ESYjYF9%"))
 
             '-- set connection info
@@ -725,7 +744,7 @@ Public Class Pws
             Dim pResult As Collection(Of PSObject)
 
             '-- set credentials      
-            pCredential = DirectCast(Nothing, PSCredential) 'New PSCredential("igbmc\steph", CreateSecurePasswordString("aaaaaa"))
+            pCredential = CreerCredentialExchange()
 
             '-- set connection info
             pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & ini.ReadValue("MODIFAUTO", "CasExchangeServer") & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)

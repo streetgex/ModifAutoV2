@@ -176,6 +176,7 @@
     <Compile Include="Creation.vb" />
     <Compile Include="ctrlMS.vb" />
     <Compile Include="GestionMails.vb" />
+    <Compile Include="IdentitePartagePST.vb" />
     <Compile Include="ModEquipeDestinationDepartement.vb" />
     <Compile Include="Gestion.vb" />
     <Compile Include="jsonMS.vb" />

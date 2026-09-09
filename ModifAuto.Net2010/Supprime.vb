@@ -217,40 +217,24 @@ Public Class Supprime
     Shared Sub DeleteOldPST()
         Commun.Journal("Suppression des anciennes archives PST", False)
 
-        ' Spécifiez l'extension des fichiers PST
-        Dim extensionPST As String = ".pst"
+        IdentitePartagePST.Executer(
+            Sub()
+                Dim fichiersPST() As String = Directory.GetFiles(dossierArchivePST, "*.pst")
+                Dim jourSuppressionPST As Integer = ini.ReadValue("MODIFAUTO", "jourSuppressionPST", 21)
+                Dim periodeSuppression As TimeSpan = TimeSpan.FromDays(jourSuppressionPST)
+                Dim dateActuelle As DateTime = DateTime.Now
 
-        ' Obtenez tous les fichiers PST dans le dossier réseau
-        Dim fichiersPST() As String = Directory.GetFiles(dossierArchivePST, "*" & extensionPST)
-
-        ' Définissez la période à partir de laquelle les fichiers doivent être supprimés (3 semaines)
-        Dim jourSuppressionPST As Integer = ini.ReadValue("MODIFAUTO", "jourSuppressionPST", 21)
-        Dim periodeSuppression As TimeSpan = TimeSpan.FromDays(jourSuppressionPST)
-
-        ' Obtenez la date actuelle
-        Dim dateActuelle As DateTime = DateTime.Now
-
-        ' Parcourez tous les fichiers PST
-        For Each fichier As String In fichiersPST
-            ' Obtenez la date de création du fichier
-            Dim dateCreation As DateTime = File.GetCreationTime(fichier)
-
-            ' Calculez la différence de temps entre la date actuelle et la date de création
-            Dim differenceTemps As TimeSpan = dateActuelle - dateCreation
-
-            ' Vérifiez si la différence de temps est supérieure à la période de suppression
-            If differenceTemps > periodeSuppression Then
-                ' Supprimez le fichier PST
-                Try
-                    File.Delete(fichier)
-                    Commun.Journal("DeleteOldPST : Suppression du fichier PST : " & fichier)
-                Catch ex As Exception
-                    Commun.Journal("ERREUR : DeleteOldPST : Suppression du fichier PST : " & fichier & " : " & ex.Message, True)
-                End Try
-            End If
-        Next
-
-
+                For Each fichier As String In fichiersPST
+                    If dateActuelle - File.GetCreationTime(fichier) > periodeSuppression Then
+                        Try
+                            File.Delete(fichier)
+                            Commun.Journal("DeleteOldPST : Suppression du fichier PST : " & fichier)
+                        Catch ex As Exception
+                            Commun.Journal("ERREUR : DeleteOldPST : Suppression du fichier PST : " & fichier & " : " & ex.Message, True)
+                        End Try
+                    End If
+                Next
+            End Sub)
     End Sub
 
     Shared Sub DeleteIncompletePSTFile(ByVal login As String, ByVal userID As String, Optional ByVal archive As Boolean = False)
@@ -262,9 +246,14 @@ Public Class Supprime
         End If
 
         Try
-            If File.Exists(dossierArchivePST & PSTFileName) Then
-                My.Computer.FileSystem.DeleteFile(dossierArchivePST & PSTFileName)
-            End If
+            IdentitePartagePST.Executer(
+                Sub()
+                    Dim cheminPST As String = dossierArchivePST & PSTFileName
+
+                    If File.Exists(cheminPST) Then
+                        File.Delete(cheminPST)
+                    End If
+                End Sub)
         Catch ex As Exception
             Commun.Journal("ERREUR : DeleteIncompletePSTFile : Suppression du fichier PST incomplet : " & PSTFileName & " : " & ex.Message, True)
         End Try
