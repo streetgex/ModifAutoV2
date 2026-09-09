@@ -7,23 +7,14 @@ Imports System.IO
 Public Class Pws
     Private Const PendingMailboxConfigFilePath As String = "c:\temp\ModifAuto_PendingMailboxConfig.txt"
     Private Shared Function CreerCredentialExchange() As PSCredential
-        Dim loginExchange As String = If(ini.ReadValue("MODIFAUTO", "exchangeLogin"), "").Trim()
-        Dim motDePasseChiffre As String = ini.ReadValue("MODIFAUTO", "exchangePassword_encrypted")
 
-        If String.IsNullOrWhiteSpace(loginExchange) OrElse String.IsNullOrWhiteSpace(motDePasseChiffre) Then
+
+        If String.IsNullOrWhiteSpace(loginExchange) OrElse String.IsNullOrWhiteSpace(exchangePassword) Then
             Throw New Exception("Les identifiants Exchange MODIFAUTO/exchangeLogin ou exchangePassword_encrypted ne sont pas renseignes.")
         End If
 
-        If loginExchange.IndexOf("\") = -1 AndAlso loginExchange.IndexOf("@") = -1 Then
-            loginExchange = "IGBMC\" & loginExchange
-        End If
 
-        Dim motDePasse As String = ini.DecryptPassword(motDePasseChiffre)
-        If String.IsNullOrWhiteSpace(motDePasse) Then
-            Throw New Exception("Impossible de dechiffrer MODIFAUTO/exchangePassword_encrypted.")
-        End If
-
-        Return New PSCredential(loginExchange, CreateSecurePasswordString(motDePasse))
+        Return New PSCredential(loginExchange, CreateSecurePasswordString(exchangePassword))
     End Function
     Shared Sub commandePWSMailbox(ByVal login As String, ByVal db As String)
         Dim ctrlDomain As String = Commun.DCName

@@ -22,10 +22,9 @@ Public Class IdentitePartagePST
     End Function
 
     Public Shared Sub Executer(action As Action)
-        Dim login As String = If(Commun.ini.ReadValue("MODIFAUTO", "exchangeLogin"), "").Trim()
-        Dim password As String = Commun.ini.DecryptPassword(
-            Commun.ini.ReadValue("MODIFAUTO", "exchangePassword_encrypted"))
-        Dim domaine As String = "IGBMC"
+        Dim login As String = loginExchange
+        Dim password As String = exchangePassword
+        Dim domaine As String = Nothing
         Dim token As IntPtr = IntPtr.Zero
 
         If String.IsNullOrWhiteSpace(login) OrElse String.IsNullOrWhiteSpace(password) Then
@@ -36,6 +35,8 @@ Public Class IdentitePartagePST
             Dim elements As String() = login.Split("\"c)
             domaine = elements(0)
             login = elements(1)
+        ElseIf Not login.Contains("@") Then
+            Throw New Exception("MODIFAUTO/exchangeLogin doit etre au format compte@domaine ou DOMAINE\compte.")
         End If
 
         If Not LogonUser(login, domaine, password, LogonNewCredentials, LogonProviderWinNT50, token) Then

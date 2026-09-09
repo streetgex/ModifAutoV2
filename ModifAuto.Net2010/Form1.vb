@@ -36,6 +36,9 @@ Module Module1
     Public OUUtilisateursActifs As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursActifs")
     Public OUUtilisateursSortis As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursSortis")
 
+    Public loginExchange As String = If(ini.ReadValue("MODIFAUTO", "exchangeLogin"), "").Trim()
+    Public exchangePassword As String = ini.ReadValue("MODIFAUTO", "exchangePassword_encrypted")
+
     Dim cheminMAJZoneInfo As String = ini.ReadValue("MODIFAUTO", "cheminMAJZoneInfo")
 
     Public directeurLogin As String = ini.ReadValue("MODIFAUTO", "LoginDirecteur")
