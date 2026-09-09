@@ -353,6 +353,7 @@ Public Class Pws
     Shared Function commandePWSMailUser(ByVal aliasMail As String, ByVal externalEmail As String) As Boolean
         Dim result As Boolean = False
         Dim ctrlDomain As String = "serv-ad1"
+        Dim exchangeServer As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
         Try
             Dim pCredential As PSCredential
             Dim pConnectionInfo As WSManConnectionInfo
@@ -367,7 +368,7 @@ Public Class Pws
             pCredential = DirectCast(Nothing, PSCredential) 'New PSCredential("igbmc\steph", CreateSecurePasswordString("aaaaaa"))
 
             '-- set connection info
-            pConnectionInfo = New WSManConnectionInfo(New Uri("http://serv-mbx12.igbmc.u-strasbg.fr/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
+            pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & exchangeServer & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
             pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
             '-- create remote runspace
             pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
@@ -445,7 +446,7 @@ Public Class Pws
             pCommand = New PSCommand
             With pCommand
                 .AddCommand("get-MailboxExportRequest")
-                .AddParameter("Mailbox", login)
+                .AddParameter("Identity", login & "\" & jobName)
             End With
 
             '-- add command to powershell
@@ -735,7 +736,7 @@ Public Class Pws
             pCommand = New PSCommand
             With pCommand
                 .AddCommand("disable-mailbox")
-                .AddParameter("Mailbox", login)
+                .AddParameter("Identity", login)
                 .AddParameter("DomainController", ctrlDomain)
                 .AddParameter("Confirm", False)
             End With

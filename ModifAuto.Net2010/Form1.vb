@@ -60,6 +60,7 @@ Module Module1
         Sleep(3000)
         'Commun.Journal(New String("_"c, Math.Max(1, Console.WindowWidth - 1)), False)
         Commun.Journal("Debut de traitement")
+        Commun.Journal("Version utilisee : " & My.Application.Info.Version.ToString())
 
         'choix du DC
         ADHelper.InitialiserDC()
