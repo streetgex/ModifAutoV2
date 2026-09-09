@@ -454,6 +454,13 @@ Public Class Pws
 
             '-- invoke the powershell
             pResult = pShell.Invoke
+            If pShell.Streams.Error.Count > 0 Then
+                Dim erreursExchange As New List(Of String)
+                For Each erreur As ErrorRecord In pShell.Streams.Error
+                    erreursExchange.Add(erreur.ToString())
+                Next
+                Throw New Exception(String.Join(" ; ", erreursExchange))
+            End If
 
             For Each item As PSObject In pResult
                 If String.Equals(CStr(item.Members("Name").Value), jobName, StringComparison.OrdinalIgnoreCase) Then
@@ -475,6 +482,7 @@ Public Class Pws
 
         Catch e As Exception
             Commun.Journal("ERREUR : Controle de creation de l'archive: " & e.Message & " : " & login, True)
+            Return "ErreurExchange"
         End Try
     End Function
     Shared Sub DeleteExportRequest(ByVal login As String, ByVal userID As String, Optional ByVal archive As Boolean = False)
