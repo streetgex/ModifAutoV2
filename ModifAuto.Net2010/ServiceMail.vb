@@ -1,7 +1,7 @@
 ﻿Imports System.IO
 Imports System.Net.Mail
 Imports System.Text.RegularExpressions
-Imports Newtonsoft.Json
+Imports System.Web.Script.Serialization
 
 Public Class ServiceMail
     Private Shared ReadOnly smtpLogin As String = Commun.ini.ReadValue("MAIL", "userMail")
@@ -154,7 +154,7 @@ Public Class ServiceMail
         End If
 
         Try
-            Dim mails As List(Of MailEnAttente) = JsonConvert.DeserializeObject(Of List(Of MailEnAttente))(File.ReadAllText(QueuePath, QueueEncoding))
+            Dim mails As List(Of MailEnAttente) = New JavaScriptSerializer().Deserialize(Of List(Of MailEnAttente))(File.ReadAllText(QueuePath, QueueEncoding))
             Return If(mails, New List(Of MailEnAttente)())
         Catch ex As Exception
             Commun.Journal("ERREUR : lecture de la file de mails en attente : " & ex.Message)
@@ -171,7 +171,7 @@ Public Class ServiceMail
                 Exit Sub
             End If
 
-            File.WriteAllText(QueuePath, JsonConvert.SerializeObject(mails, Formatting.Indented), QueueEncoding)
+            File.WriteAllText(QueuePath, New JavaScriptSerializer().Serialize(mails), QueueEncoding)
         Catch ex As Exception
             Commun.Journal("ERREUR : ecriture de la file de mails en attente : " & ex.Message)
         End Try
