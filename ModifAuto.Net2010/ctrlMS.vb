@@ -174,7 +174,7 @@ Public Class ctrlMS
             & "Personnes présentes à " & Format(Now, "hh:mm") & " : " & counter
 
         File.Copy("c:\temp\MSrapport.csv", nomFichierRapportMS)
-        Commun.SendEmail("administrateur@igbmc.fr", "officiersorienteurs@igbmc.fr", "Fichier de controle MicroSesame  (" & Now & ")", corpMail, nomFichierRapportMS) 'kolb@igbmc.fr;
+        ServiceMail.SendEmail("administrateur@igbmc.fr", "officiersorienteurs@igbmc.fr", "Fichier de controle MicroSesame  (" & Now & ")", corpMail, nomFichierRapportMS) 'kolb@igbmc.fr;
 
     End Sub
 

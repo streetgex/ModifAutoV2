@@ -175,7 +175,8 @@
     <Compile Include="ADConfig.vb" />
     <Compile Include="Creation.vb" />
     <Compile Include="ctrlMS.vb" />
-    <Compile Include="GestionMails.vb" />
+    <Compile Include="GestionMailsAP.vb" />
+    <Compile Include="ServiceMail.vb" />
     <Compile Include="IdentitePartagePST.vb" />
     <Compile Include="ModEquipeDestinationDepartement.vb" />
     <Compile Include="Gestion.vb" />
@@ -281,7 +282,7 @@ if /I "$(ConfigurationName)"=="Release" (
     if errorlevel 1 exit /b 1
 )</PostBuildEvent>
   </PropertyGroup>
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
   </Target>

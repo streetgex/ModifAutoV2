@@ -18,7 +18,7 @@ Module Module1
     Dim iniFilePath = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2.ini"
 #End If
     Public ini As New IniFile(iniFilePath)
-    Public withJson As String = "json" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
+    Public withJson As String = "debug" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
     'Public tabPersoMonoEquipe As String(,)
     Public listeUtilisateursRH As New List(Of UtilisateurRH)
     Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Integer)
@@ -62,6 +62,7 @@ Module Module1
         'Commun.Journal(New String("_"c, Math.Max(1, Console.WindowWidth - 1)), False)
         Commun.Journal("Debut de traitement")
         Commun.Journal("Version utilisee : " & My.Application.Info.Version.ToString())
+        ServiceMail.TraiterMailsEnAttente()
 
         'choix du DC
         ADHelper.InitialiserDC()
@@ -104,7 +105,7 @@ Module Module1
             End If
         End If
 
-        GestionMails.InitialiserNotificationsAssistantsPrevention()
+        GestionMailsAP.InitialiserNotificationsAssistantsPrevention()
 
         Dim debutCreationFichier As DateTime = Now()
         'creer les comptes des utilisateurs qui sont dans le fichier ForceCreationDeCompte.txt sous la forme <EmployéeID>,<Short_name_destination>
@@ -118,7 +119,7 @@ Module Module1
             Dim dureeTolerable As Integer = Convert.ToInt32(ini.ReadValue("MODIFAUTO", "DureeMaxJson"))
 
             If DateDiff(DateInterval.Minute, debutCreationFichier, finCreationFichier) > dureeTolerable Then
-                Commun.SendEmail("administrateur@igbmc.fr", ini.ReadValue("MODIFAUTO", "mailDureeMaxJson"), "Duree de creation de fichier JSON superieure à " & dureeTolerable.ToString & " minutes", "La durée de creation du fichier JSON a travers IGBMC services a été anormalement longue: " & dureeCF)
+                ServiceMail.SendEmail("administrateur@igbmc.fr", ini.ReadValue("MODIFAUTO", "mailDureeMaxJson"), "Duree de creation de fichier JSON superieure à " & dureeTolerable.ToString & " minutes", "La durée de creation du fichier JSON a travers IGBMC services a été anormalement longue: " & dureeCF)
             End If
 
             Commun.Journal("Création du fichier listepersoJson.txt réussie en : " & dureeCF, False)
@@ -207,7 +208,7 @@ Module Module1
         End Try
 
 
-        GestionMails.EnvoyerNotificationsAssistantsPrevention()
+        GestionMailsAP.EnvoyerNotificationsAssistantsPrevention()
 
         If Commun.controlSendMail = True Then
             sendJournalError()
@@ -236,7 +237,7 @@ Module Module1
         ini.WriteValue("MODIFAUTO", "lastExec", Now.ToString("dd/MM/yyyy HH:mm:ss"))
     End Sub
     Public Sub sendJournalError()
-        Commun.SendEmail("administrateur@igbmc.fr", "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
+        ServiceMail.SendEmail("administrateur@igbmc.fr", "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
     End Sub
 
     Public Sub GestionDesFichiers()
@@ -841,7 +842,7 @@ Module Module1
 
         If sendMailOO = True AndAlso ctrlMailOOrienteurs = True Then
             corpmailOOrienteurs &= vbCrLf & "</body></html>"
-            Commun.SendEmail("administrateur@igbmc.fr", "officiersorienteurs@igbmc.fr", "Changement de Date de fin de contrat", corpmailOOrienteurs)
+            ServiceMail.SendEmail("administrateur@igbmc.fr", "officiersorienteurs@igbmc.fr", "Changement de Date de fin de contrat", corpmailOOrienteurs)
             Commun.Journal(vbTab & "Envoi d'un mail aux Officiers orienteurs pour un changement de fin de contrat")
         End If
 
@@ -2023,7 +2024,7 @@ Module Module1
 
         Catch ex As Exception
             Commun.Journal("ERREUR : Creation des fichiers et des tableaux : " & ex.Message, True)
-            Commun.SendEmail("administrateur@igbmc.fr", "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
+            ServiceMail.SendEmail("administrateur@igbmc.fr", "steph@igbmc.fr", "ModifAuto.NET : Rapport d'erreur", Commun.journalECHECMail)
             Return result
         End Try
 
@@ -3276,7 +3277,7 @@ fermerUsing:
                 Commun.AppliquerChangement(userEntry1)
             End Using
             Dim textMail = "Bonjour," & vbCrLf & vbCrLf & "Les mots de passe pour les prestataires externes ont changés." & vbCrLf & vbCrLf & "Le mot de passe pour le compte ""cs-prestaadm"" est : " & vbTab & vbTab & passwordPrestaImagerieAdm & vbCrLf & "Le mot de passe pour le compte ""cs-prestausr"" est : " & vbTab & vbTab & passwordPrestaImagerieUsr
-            Commun.SendEmail("noreply@igbmc.fr", "groupe-mic-photon@igbmc.fr;Bcc:serviceinfo@igbmc.fr", "Nouveaux mots de passe (" & Now.ToString("MMMM" & " " & Now.ToString("yyyy") & ")"), textMail)
+            ServiceMail.SendEmail("noreply@igbmc.fr", "groupe-mic-photon@igbmc.fr;Bcc:serviceinfo@igbmc.fr", "Nouveaux mots de passe (" & Now.ToString("MMMM" & " " & Now.ToString("yyyy") & ")"), textMail)
 
             Commun.Journal("Changement des mots de passe des comptes prestataires de l'imagerie réussi", False)
 
@@ -3309,7 +3310,7 @@ fermerUsing:
                             Dim dateDefinDeContrat As String = userAD.Properties("extensionAttribute1").Value
                             Dim mail = MailCloture(prenom, dateDeSuppressionPrevueTxt, dateDefinDeContrat)
 
-                            Commun.SendEmail("noreply@igbmc.fr", adresseMail & ";Bcc:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail)
+                            ServiceMail.SendEmail("noreply@igbmc.fr", adresseMail & ";Bcc:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail)
                             Commun.Journal("Mail de fermeture de compte envoyé (-" & j - 1 & ") : " & adresseMail)
                             ctrlMailEnvoye = True
                         End Using

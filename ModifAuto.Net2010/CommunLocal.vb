@@ -1,7 +1,5 @@
 ﻿Imports System.IO
-Imports System.Net.Mail
 Imports System.DirectoryServices
-Imports System.Text.RegularExpressions
 
 Public Class Commun
     Public Shared tabExcepUser As String()
@@ -12,8 +10,6 @@ Public Class Commun
     Public Shared tabLoginAlias As String()
     Public Shared iniFilePath As String = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2.ini"
     Public Shared ini As New IniFile(iniFilePath)
-    Public Shared smtpLogin As String = ini.ReadValue("MAIL", "userMail")
-    Public Shared smtpPassword As String = ini.ReadValue("MAIL", "userMailPassword_encrypted")
     'Public Shared mailSenderAddress As String = ini.ReadValue("GLOBAL", "MailSenderAddress")
     Public Shared auth As AuthenticationTypes = AuthenticationTypes.Secure 'AuthenticationTypes.Secure Or AuthenticationTypes.SecureSocketsLayer
 
@@ -268,133 +264,6 @@ Public Class Commun
             Commun.Journal("Nouvelle Equipe créée : " & description & " (" & samaNewGroup & ")")
         End Using
     End Sub
-    ''' <summary>
-    ''' Envoie un e-mail.
-    ''' </summary>
-    ''' <param name="sender">
-    ''' Adresse e-mail de l'expéditeur.
-    ''' Format possible : expediteur@x.fr ou expediteur@x.fr;ReplyTo:reponse@x.fr.
-    ''' </param>
-    ''' <param name="recipient">
-    ''' Adresse(s) e-mail du ou des destinataires.
-    ''' Plusieurs adresses peuvent être séparées par un point-virgule (;).
-    ''' Préfixes pris en charge :
-    ''' Cc: pour une copie carbone.
-    ''' Bcc: pour une copie cachée.
-    ''' </param>
-    ''' <param name="subject">Sujet du message.</param>
-    ''' <param name="body">Corps du message.</param>
-    ''' <param name="attachmentString">
-    ''' Optionnel. Chemin complet du fichier à joindre.
-    ''' </param>
-    ''' <remarks>
-    ''' Exemples :
-    ''' sender = "expediteur@x.fr"
-    ''' sender = "expediteur@x.fr;ReplyTo:reponse@x.fr"
-    ''' recipient = "dest1@x.fr;Cc:dest2@x.fr;Bcc:dest3@x.fr"
-    ''' </remarks>
-    Shared Sub SendEmail(ByVal sender As String, ByVal recipient As String, ByVal subject As String, ByVal body As String, Optional ByVal attachmentString As String = "")
-
-        Try
-            Using message As New MailMessage()
-                Dim senderAddress As String = Trim(sender)
-                Dim replyToAddress As String = ""
-
-                If InStr(senderAddress, ";") > 0 Then
-                    Dim tabSender As String() = Split(senderAddress, ";")
-                    senderAddress = Trim(tabSender(0))
-
-                    For i = 1 To UBound(tabSender)
-                        Dim senderPart As String = Trim(tabSender(i))
-                        If LCase(Left(senderPart, 8)) = "replyto:" Then
-                            replyToAddress = Trim(Mid(senderPart, 9))
-                        End If
-                    Next
-                End If
-
-                message.From = New MailAddress(senderAddress)
-
-                If replyToAddress <> "" Then
-                    message.ReplyToList.Add(New MailAddress(replyToAddress))
-                End If
-
-                Dim smtpServer As String = ini.ReadValue("GLOBAL", "SMTPServer")
-                Dim sent As Boolean = False
-                Dim lastError As Exception = Nothing
-
-                For Each smtpTry In New Object() {New With {.Port = 587, .Ssl = True}, New With {.Port = 25, .Ssl = False}}
-                    Try
-                        Using mailSender As New SmtpClient(smtpServer, smtpTry.Port)
-                            With mailSender
-                                .UseDefaultCredentials = False
-                                .Credentials = New Net.NetworkCredential(smtpLogin, smtpPassword, "IGBMC")
-                                .EnableSsl = smtpTry.Ssl
-                            End With
-
-                            'Ajouter les destinataires
-                            Dim tabDest As String() = Split(recipient, ";")
-                            For i = 0 To UBound(tabDest)
-                                Dim dest As String = Trim(tabDest(i))
-
-                                If LCase(Left(dest, 3)) = "cc:" Then
-                                    message.CC.Add(Trim(Mid(dest, 4)))
-                                ElseIf LCase(Left(dest, 4)) = "bcc:" Then
-                                    message.Bcc.Add(Trim(Mid(dest, 5)))
-                                Else
-                                    message.To.Add(dest)
-                                End If
-                            Next
-
-                            message.Subject = subject
-
-                            'detecter si le mail est en HTML
-                            If Left(body, 21) = "<!DOCTYPE HTML PUBLIC" Or InStr(LCase(body), "</") > 0 Then
-                                message.IsBodyHtml = True
-                                Dim htmlView As AlternateView = AlternateView.CreateAlternateViewFromString(body, Nothing, "text/html")
-                                Dim bodyPlain As String = RemoveHtml(body)
-                                Dim plainView As AlternateView = AlternateView.CreateAlternateViewFromString(bodyPlain, Nothing, "text/plain")
-                                message.AlternateViews.Add(htmlView)
-                            Else
-                                Dim plainView As AlternateView = AlternateView.CreateAlternateViewFromString(body, Nothing, "text/plain")
-                                message.AlternateViews.Add(plainView)
-                            End If
-
-                            If Not attachmentString = "" Then
-                                Using msgAttach As New Attachment(attachmentString)
-                                    message.Attachments.Add(msgAttach)
-                                    mailSender.Send(message)
-                                End Using
-                            Else
-                                mailSender.Send(message)
-                            End If
-                        End Using
-
-                        sent = True
-                        Exit For
-
-                    Catch ex As Exception
-                        lastError = ex
-                        If smtpTry.Port = 587 Then
-                            Commun.Journal("ERREUR : echec de l'envoi de mail sur le port 587 avec TLS : " & ex.Message & ". Nouvelle tentative sur le port 25 sans TLS.")
-                        Else
-                            Commun.Journal("ERREUR : echec de l'envoi de mail sur le port 25 sans TLS : " & ex.Message)
-                        End If
-                    End Try
-                Next
-
-                If Not sent AndAlso lastError IsNot Nothing Then
-                    Throw lastError
-                End If
-            End Using
-        Catch ex As Exception
-            Commun.Journal("ERREUR : echec de l'envoi de mail : " & ex.Message)
-        End Try
-    End Sub
-    Shared Function RemoveHtml(ByVal html As String) As String
-        ' Remove HTML tags.
-        Return Regex.Replace(html, "<.*?>", "")
-    End Function
-
     Shared Function SansAccent(ByVal Chaine As String) As String
         Dim aOctets() As Byte = System.Text.Encoding.GetEncoding(1251).GetBytes(Chaine) 'converti en byte la chaine avec accents
         Dim sEnleverAccents As String = System.Text.Encoding.ASCII.GetString(aOctets) 'converti en string la chaine sans accents
@@ -491,7 +360,7 @@ Public Class Commun
         End If
     End Sub
 
-    '''' <summary>
+    ''' <summary>
     ''' Définit la valeur d'un attribut LDAP multi-valué sur un <see cref="DirectoryEntry"/>.
     ''' </summary>
     ''' <param name="de">Objet LDAP cible à modifier.</param>

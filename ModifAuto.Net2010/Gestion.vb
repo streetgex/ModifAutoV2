@@ -368,7 +368,7 @@ Public Class Gestion
             Next
         End If
     End Sub
-    
+
     Shared Sub UpdateComptesProvisoires()
 
         Commun.Journal("Mise a jour des utilisateurs provisoires", False)
@@ -734,7 +734,8 @@ Public Class Gestion
                             If grpResult.GetDirectoryEntry.Properties("Member").Count <> 0 Then
                                 If Commun.RecupEquipeinfo(Replace(SAMAccountGroup, " grp", "")) = "" Then
                                     If Hour(Now) = 5 Or Hour(Now) = 6 Then
-                                        Commun.SendEmail(vbTab & "administrateur@igbmc.fr", ini.ReadValue("GLOBAL", "MailEquipeReso"), "Destination non associée a une Equipe Info", "La destination " & descriptionGroup & " (" & SAMAccountGroup & "), dans l'active Directory, n'est actuellement pas associé à une Equipe info." & vbCrLf & "Cette destination contient un ou des utilisateurs." & vbCrLf & "Tant que cette association ne sera pas faite, les utilisateurs n'auront pas d'acces a leur Zone Labo")
+                                        Dim mailEquipeReso As String = ini.ReadValue("GLOBAL", "MailEquipeReso")
+                                        ServiceMail.SendEmail(vbTab & "administrateur@igbmc.fr", mailEquipeReso, "Destination non associée a une Equipe Info", "La destination " & descriptionGroup & " (" & SAMAccountGroup & "), dans l'active Directory, n'est actuellement pas associé à une Equipe info." & vbCrLf & "Cette destination contient un ou des utilisateurs." & vbCrLf & "Tant que cette association ne sera pas faite, les utilisateurs n'auront pas d'acces a leur Zone Labo")
                                     End If
                                 End If
                             End If
@@ -1032,7 +1033,7 @@ Public Class Gestion
 
                     Try
                         Dim mail As String = MailCloture(prenom, dateDeSuppressionPrevue, dateDefinDeContrat)
-                        'Commun.SendEmail("noreply@igbmc.fr", adresseMail & ";Cc:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail)
+                        'ServiceMail.SendEmail("noreply@igbmc.fr", adresseMail & ";Cc:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail)
                         Commun.Journal(vbTab & "Mail de fermeture de compte envoyé : " & adresseMail)
                     Catch ex As Exception
                         Commun.Journal(vbTab & "ERREUR : Mail de fermeture de compte envoyé : " & adresseMail & " : " & ex.Message, True)

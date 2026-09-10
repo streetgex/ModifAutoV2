@@ -1,4 +1,4 @@
-﻿Module GestionMails
+﻿Module GestionMailsAP
     Private ReadOnly blocsMailAssistantsPrevention As New System.Collections.Generic.List(Of String)()
 
     Public Sub InitialiserNotificationsAssistantsPrevention()
@@ -65,7 +65,7 @@
             corpsMail &= vbCrLf & vbCrLf & "(Exterieur : personnes dependantes d'une autre unite, mais affectees a l'IGBMC)"
 
             Dim sujet As String = "[Mail automatique] Nouveaux Entrants (" & blocsMailAssistantsPrevention.Count & ")"
-            Commun.SendEmail("administrateur@igbmc.fr", "assistants-de-prevention@igbmc.fr;Bcc:steph@igbmc.fr", sujet, corpsMail)
+            ServiceMail.SendEmail("administrateur@igbmc.fr", "assistants-de-prevention@igbmc.fr;Bcc:steph@igbmc.fr", sujet, corpsMail)
         Catch ex As Exception
             Commun.Journal("ERREUR : Envoi du mail recapitulatif Assistants de prevention : " & ex.Message, True)
         Finally

@@ -199,12 +199,7 @@ Public Class Pws
             Return False
         End Try
     End Function
-    Private Shared Function InvokeExchangeCommand(
-    ByVal runspace As Runspace,
-    ByVal pCommand As PSCommand,
-    ByVal commandName As String,
-    Optional ByVal ctrlDomain As String = Nothing
-) As Collection(Of PSObject)
+    Private Shared Function InvokeExchangeCommand(ByVal runspace As Runspace, ByVal pCommand As PSCommand, ByVal commandName As String, Optional ByVal ctrlDomain As String = Nothing) As Collection(Of PSObject)
 
         Using pShell As PowerShell = PowerShell.Create()
             pShell.Runspace = runspace
