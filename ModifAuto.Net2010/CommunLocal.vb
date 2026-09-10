@@ -12,8 +12,6 @@ Public Class Commun
     Public Shared tabLoginAlias As String()
     Public Shared iniFilePath As String = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2.ini"
     Public Shared ini As New IniFile(iniFilePath)
-    Public Shared admin As String = ini.ReadValue("GLOBAL", "AdminScriptLogin")
-    Public Shared passwd As String = ini.ReadValue("GLOBAL", "AdminScriptPassword_encrypted")
     Public Shared smtpLogin As String = ini.ReadValue("MAIL", "userMail")
     Public Shared smtpPassword As String = ini.ReadValue("MAIL", "userMailPassword_encrypted")
     'Public Shared mailSenderAddress As String = ini.ReadValue("GLOBAL", "MailSenderAddress")

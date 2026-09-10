@@ -16,9 +16,34 @@ Public Class Pws
 
         Return New PSCredential(loginExchange, CreateSecurePasswordString(exchangePassword))
     End Function
-    Shared Sub commandePWSMailbox(ByVal login As String, ByVal db As String)
-        Dim ctrlDomain As String = Commun.DCName
+    Private Shared Function CreerRunspaceExchange() As Runspace
         Dim exchangeServer As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
+        If String.IsNullOrWhiteSpace(exchangeServer) Then
+            Throw New Exception("Le serveur Exchange n'est pas renseigne dans MODIFAUTO/CasExchangeServer.")
+        End If
+
+        Dim connectionInfo As New WSManConnectionInfo(
+            New Uri("http://" & exchangeServer & "/powershell"),
+            "http://schemas.microsoft.com/powershell/Microsoft.Exchange",
+            CreerCredentialExchange()
+        )
+        connectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
+
+        Dim runspace As Runspace = RunspaceFactory.CreateRunspace(connectionInfo)
+        Try
+            runspace.Open()
+            Return runspace
+        Catch
+            runspace.Dispose()
+            Throw
+        End Try
+    End Function
+
+    Private Shared Function ConstruireNomDemandeExportPST(ByVal login As String, ByVal userID As String, ByVal archive As Boolean) As String
+        Return login & If(archive, "(Archive)", "") & "-" & userID & "-IGBMC"
+    End Function
+    Shared Sub ActiverBoiteMailExchange(ByVal login As String, ByVal db As String)
+        Dim ctrlDomain As String = Commun.DCName
 
         Try
             If String.IsNullOrWhiteSpace(login) Then
@@ -29,22 +54,7 @@ Public Class Pws
                 Throw New ArgumentException("La base mailbox est vide.", "db")
             End If
 
-            If String.IsNullOrWhiteSpace(exchangeServer) Then
-                Throw New Exception("Le serveur Exchange n'est pas renseigne dans MODIFAUTO/CasExchangeServer.")
-            End If
-
-            Dim pCredential As PSCredential = CreerCredentialExchange()
-
-            Dim connectionUri As New Uri("http://" & exchangeServer & "/powershell")
-            Dim pConnectionInfo As New WSManConnectionInfo(
-            connectionUri,
-            "http://schemas.microsoft.com/powershell/Microsoft.Exchange",
-            pCredential
-        )
-        pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
-
-            Using pRunspace As Runspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
-                pRunspace.Open()
+            Using pRunspace As Runspace = CreerRunspaceExchange()
 
                 Dim pCommand As New PSCommand()
                 With pCommand
@@ -264,26 +274,12 @@ Public Class Pws
         If pendingLogins.Count = 0 Then Exit Sub
 
         Dim ctrlDomain As String = Commun.DCName
-        Dim exchangeServer As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
 
         Try
-            If String.IsNullOrWhiteSpace(exchangeServer) Then
-                Throw New Exception("Le serveur Exchange n'est pas renseigne dans MODIFAUTO/CasExchangeServer.")
-            End If
-
-            Dim pCredential As PSCredential = CreerCredentialExchange()
-            Dim connectionUri As New Uri("http://" & exchangeServer & "/powershell")
-            Dim pConnectionInfo As New WSManConnectionInfo(
-                connectionUri,
-                "http://schemas.microsoft.com/powershell/Microsoft.Exchange",
-                pCredential
-            )
-            pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
 
             Dim remainingLogins As New List(Of String)()
 
-            Using pRunspace As Runspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
-                pRunspace.Open()
+            Using pRunspace As Runspace = CreerRunspaceExchange()
 
                 For Each pendingLogin As String In pendingLogins
                     If TryConfigurerMailboxCalendrierEtRegion(pRunspace, pendingLogin, ctrlDomain, False) Then
@@ -360,13 +356,10 @@ Public Class Pws
         File.WriteAllLines(PendingMailboxConfigFilePath, lignes.ToArray())
     End Sub
 
-    Shared Function commandePWSMailUser(ByVal aliasMail As String, ByVal externalEmail As String) As Boolean
+    Shared Function ActiverUtilisateurMessagerieExchange(ByVal aliasMail As String, ByVal externalEmail As String) As Boolean
         Dim result As Boolean = False
         Dim ctrlDomain As String = "serv-ad1"
-        Dim exchangeServer As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
         Try
-            Dim pCredential As PSCredential
-            Dim pConnectionInfo As WSManConnectionInfo
             Dim pRunspace As Runspace
             Dim pShell As PowerShell
             Dim pCommand As PSCommand
@@ -374,15 +367,7 @@ Public Class Pws
             Dim pResult As Collection(Of PSObject)
             Dim pResult1 As Collection(Of PSObject)
 
-            '-- set credentials      
-            pCredential = CreerCredentialExchange()
-
-            '-- set connection info
-            pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & exchangeServer & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
-            pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
-            '-- create remote runspace
-            pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
-            pRunspace.Open()
+            pRunspace = CreerRunspaceExchange()
 
             '-- create powershell
             pShell = PowerShell.Create
@@ -414,12 +399,10 @@ Public Class Pws
     End Function
 
 
-    Shared Function ControleArchiveCreee(ByVal login As String, ByVal userID As String, Optional ByVal archive As Boolean = False) As String
+    Shared Function ControlerEtNettoyerExportPST(ByVal login As String, ByVal userID As String, Optional ByVal archive As Boolean = False) As String
         Dim result As String = Nothing
         Dim ctrlDomain As String = "serv-ad1"
         Try
-            Dim pCredential As PSCredential
-            Dim pConnectionInfo As WSManConnectionInfo
             Dim pRunspace As Runspace
             Dim pShell As PowerShell
             Dim pCommand As PSCommand
@@ -427,30 +410,13 @@ Public Class Pws
             Dim pResult As Collection(Of PSObject)
             Dim pResult1 As Collection(Of PSObject)
 
-            '-- set credentials      
-            pCredential = CreerCredentialExchange()
-            'pCredential = New PSCredential("IGBMC\userprog", CreateSecurePasswordString("FV,k,~?qa3 8ESYjYF9%"))
-
-            '-- set connection info
-            Dim server As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
-            pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & server & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
-            pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
-
-            '-- create remote runspace
-            pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
-            'pRunspace.InitialSessionState.LanguageMode = PSLanguageMode.FullLanguage
-            pRunspace.Open()
+            pRunspace = CreerRunspaceExchange()
 
             '-- create powershell
             pShell = PowerShell.Create
             pShell.Runspace = pRunspace
 
-            Dim jobName As String
-            If archive = False Then
-                jobName = login & "-" & userID & "-IGBMC"
-            Else
-                jobName = login & "(Archive)-" & userID & "-IGBMC"
-            End If
+            Dim jobName As String = ConstruireNomDemandeExportPST(login, userID, archive)
 
             '-- create command
             pCommand = New PSCommand
@@ -496,12 +462,7 @@ Public Class Pws
         End Try
     End Function
     Shared Sub DeleteExportRequest(ByVal login As String, ByVal userID As String, Optional ByVal archive As Boolean = False)
-        Dim jobName As String
-        If archive = False Then
-            jobName = login & "-" & userID & "-IGBMC"
-        Else
-            jobName = login & "(Archive)-" & userID & "-IGBMC"
-        End If
+        Dim jobName As String = ConstruireNomDemandeExportPST(login, userID, archive)
         Dim PwsClass As New Pws
         PwsClass.DeleteExportRequestCommun(jobName)
     End Sub
@@ -520,8 +481,6 @@ Public Class Pws
         Dim result = False
         Dim ctrlDomain As String = "serv-ad1"
         Try
-            Dim pCredential As PSCredential
-            Dim pConnectionInfo As WSManConnectionInfo
             Dim pRunspace As Runspace
             Dim pShell As PowerShell
             Dim pCommand As PSCommand
@@ -529,18 +488,7 @@ Public Class Pws
             Dim pResult As Collection(Of PSObject)
             Dim pResult1 As Collection(Of PSObject)
 
-            '-- set credentials      
-            pCredential = CreerCredentialExchange()
-            'pCredential = New PSCredential("IGBMC\userprog", CreateSecurePasswordString("FV,k,~?qa3 8ESYjYF9%"))
-
-            '-- set connection info
-            Dim server As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
-            pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & server & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
-            pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
-
-            '-- create remote runspace
-            pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
-            pRunspace.Open()
+            pRunspace = CreerRunspaceExchange()
 
             '-- create powershell
             pShell = PowerShell.Create
@@ -663,11 +611,9 @@ Public Class Pws
         Return secureStr
     End Function
 
-    Shared Sub CommandePWSCreatePSTMailbox(ByVal login As String, ByVal userID As String, Optional ByVal archive As Boolean = False)
+    Shared Sub CreerDemandeExportPST(ByVal login As String, ByVal userID As String, Optional ByVal archive As Boolean = False)
         Dim ctrlDomain As String = "serv-ad1"
         Try
-            Dim pCredential As PSCredential
-            Dim pConnectionInfo As WSManConnectionInfo
             Dim pRunspace As Runspace
             Dim pShell As PowerShell
             Dim pCommand As PSCommand
@@ -675,28 +621,13 @@ Public Class Pws
             Dim pResult As Collection(Of PSObject)
             Dim pResult1 As Collection(Of PSObject)
 
-            '-- set credentials      
-            pCredential = CreerCredentialExchange()
-            'pCredential = New PSCredential("IGBMC\userprog", CreateSecurePasswordString("FV,k,~?qa3 8ESYjYF9%"))
-
-            '-- set connection info
-            Dim server As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
-            pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & server & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
-            pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
-
-            '-- create remote runspace
-            pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
-            'pRunspace.InitialSessionState.LanguageMode = PSLanguageMode.FullLanguage
-            pRunspace.Open()
+            pRunspace = CreerRunspaceExchange()
 
             '-- create powershell
             pShell = PowerShell.Create
             pShell.Runspace = pRunspace
 
-            Dim pstName As String = login & "-" & userID & "-IGBMC"
-            If archive = True Then
-                pstName = login & "(Archive)-" & userID & "-IGBMC"
-            End If
+            Dim pstName As String = ConstruireNomDemandeExportPST(login, userID, archive)
 
             '-- create command
             pCommand = New PSCommand
@@ -724,27 +655,15 @@ Public Class Pws
         End Try
     End Sub
 
-    Shared Sub commandePWSDisableMailbox(ByVal login As String)
+    Shared Sub DesactiverBoiteMailExchange(ByVal login As String)
         Dim ctrlDomain As String = "serv-ad1"
         Try
-            Dim pCredential As PSCredential
-            Dim pConnectionInfo As WSManConnectionInfo
             Dim pRunspace As Runspace
             Dim pShell As PowerShell
             Dim pCommand As PSCommand
             Dim pResult As Collection(Of PSObject)
 
-            '-- set credentials      
-            pCredential = CreerCredentialExchange()
-
-            '-- set connection info
-            pConnectionInfo = New WSManConnectionInfo(New Uri("http://" & ini.ReadValue("MODIFAUTO", "CasExchangeServer") & "/powershell"), "http://schemas.microsoft.com/powershell/Microsoft.Exchange", pCredential)
-            pConnectionInfo.AuthenticationMechanism = AuthenticationMechanism.Kerberos
-
-            '-- create remote runspace
-            pRunspace = RunspaceFactory.CreateRunspace(pConnectionInfo)
-            'pRunspace.InitialSessionState.LanguageMode = PSLanguageMode.FullLanguage
-            pRunspace.Open()
+            pRunspace = CreerRunspaceExchange()
 
             '-- create powershell
             pShell = PowerShell.Create

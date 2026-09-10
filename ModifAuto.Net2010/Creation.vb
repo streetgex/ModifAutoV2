@@ -256,7 +256,7 @@ Public Class Creation
         NbUserDatabaseExchange()
         Try
             Dim petiteDB As String = TrouverPetiteDatabase()
-            Pws.commandePWSMailbox(usrLogin, petiteDB)
+            Pws.ActiverBoiteMailExchange(usrLogin, petiteDB)
         Catch e As Exception
             Commun.Journal("ERREUR : Creation de compte : Creation du compte mail : " & e.Message & " : " & usrLogin, True)
         End Try

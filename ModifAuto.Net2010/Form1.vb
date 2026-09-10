@@ -43,9 +43,7 @@ Module Module1
 
     Public directeurLogin As String = ini.ReadValue("MODIFAUTO", "LoginDirecteur")
 
-    Public AdminScriptLogin As String = ini.ReadValue("GLOBAL", "AdminScriptLogin")
     'Public MailSenderAddress As String = ini.ReadValue("GLOBAL", "MailSenderAddress")
-    Public AdminScriptPassword As String = ini.ReadValue("GLOBAL", "AdminScriptPassword_encrypted")
     Public mailOuvertureDeCompte As String = ini.ReadValue("MODIFAUTO", "MailOuvertureDeCompte")
 
     Public nomFichierRapportMS As String = "c:\temp\MSrapport(" & Replace(Now.ToString("dd-MM-yyyy HH.mm"), "/", "-") & ").csv"
@@ -145,7 +143,7 @@ Module Module1
             ModifDonneesAD(usersRH, adUsersByEmployeeId, badgesRecuperes)
 
             If Environment.MachineName = "SERV-AD1" Then
-                Gestion.GestionReactiveDesactiveComptesInterne(adUsersByEmployeeId)
+                Gestion.GererActivationDesactivationComptesInternes(adUsersByEmployeeId)
             End If
 
         End If
@@ -155,8 +153,8 @@ Module Module1
 
         Gestion.CompleterDatesContratManquantesComptesDesactivesEtSortis()
 
-        'La gestion des AttributsDT doit imperativement intervenir apres GestionReactiveDesactiveComptesInterne
-        Gestion.GestionAttributsDT()
+        'La gestion des AttributsDT doit imperativement intervenir apres GererActivationDesactivationComptesInternes
+        Gestion.TraiterEcheancesComptesParAttributsDT()
 
         Gestion.GestionSuppressionProfilsItinerantsEtDossiersRedirigés()
 
@@ -166,9 +164,7 @@ Module Module1
         Gestion.ControleOUUtilisateurs()
 
 
-        If Hour(Now) <> 1 And Hour(Now) <> 2 Then
-            Supprime.RelancerDemandesPSTEnEchec()
-        End If
+        Supprime.GererArchivesPSTEtMailboxesSorties()
 
         If Hour(Now) = 1 Or Hour(Now) = 2 Then
             'Gestion de l'expiration des mot de passe des comptes adm
@@ -191,7 +187,6 @@ Module Module1
             End If
 
             UpdateFichierHistoAlias()
-            Supprime.SupprimeMailbox()
             Supprime.DeleteOldPST()
         End If
 
@@ -901,7 +896,7 @@ Module Module1
 
         dateBase = dateContrat
 
-        Dim finException As String = Gestion.exceptionUser(userRH.login_samAccountName)
+        Dim finException As String = Gestion.EndDateExceptionUsers(userRH.login_samAccountName)
         If finException <> "False" Then
             If Date.TryParseExact(finException,
                               "dd/MM/yyyy",
@@ -2486,7 +2481,7 @@ Module Module1
                             If userExt.Properties.Contains("mail") Then
                                 Dim mail As String = userExt.Properties("mail").Value
                                 If Strings.InStr(mail, "@igbmc.fr") = 0 Then
-                                    If Pws.commandePWSMailUser(userExt.Properties("samAccountName").Value, mail) = True Then
+                                    If Pws.ActiverUtilisateurMessagerieExchange(userExt.Properties("samAccountName").Value, mail) = True Then
                                         userExt.Properties("description").Clear()
                                         Commun.AppliquerChangement(userExt)
                                         Commun.ReactiveDesactiveCompte(userExt, "active")

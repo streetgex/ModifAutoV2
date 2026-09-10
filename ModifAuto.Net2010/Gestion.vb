@@ -135,7 +135,7 @@ Public Class Gestion
 
         Return accountDeletionDate OrElse accountDeactivationDT OrElse accountDeletionDT
     End Function
-    Shared Sub GestionAttributsDT()
+    Shared Sub TraiterEcheancesComptesParAttributsDT()
 
         Commun.Journal("Activation/desactivation des comptes par accountDeletionDT et accountDeactivationDT", False)
 
@@ -159,7 +159,7 @@ Public Class Gestion
                         Try
                             'Cas des utilisateurs "Interne"
                             If userAD.Parent.Path = "LDAP://" & Commun.LdapPath(OUUtilisateursDesactives) Then
-                                Supprime.SupprimCompte(userAD)
+                                Supprime.TraiterSortieCompte(userAD)
                                 Commun.Journal("Suppression du compte interne : " & userAD.Properties("sAMAccountName").Value)
 
                                 'Cas des utilisateurs "Externes", "Provisoires" et "Invité"
@@ -176,7 +176,7 @@ Public Class Gestion
                                 End If
                             End If
                         Catch ex As Exception
-                            Commun.Journal("ERREUR : GestionAttributsDT : Suppression du compte : " & userAD.Properties("sAMAccountName").Value)
+                            Commun.Journal("ERREUR : TraiterEcheancesComptesParAttributsDT : Suppression du compte : " & userAD.Properties("sAMAccountName").Value)
                         End Try
                     End Using
                 Next user
@@ -210,7 +210,7 @@ Public Class Gestion
                                 End If
                             End If
                         Catch ex As Exception
-                            Commun.Journal("ERREUR : GestionAttributsDT : Désactivation du compte : " & userAD.Properties("sAMAccountName").Value)
+                            Commun.Journal("ERREUR : TraiterEcheancesComptesParAttributsDT : Désactivation du compte : " & userAD.Properties("sAMAccountName").Value)
                         End Try
                     End Using
 
@@ -240,7 +240,7 @@ Public Class Gestion
                                 End If
                             End If
                         Catch ex As Exception
-                            Commun.Journal("ERREUR : GestionAttributsDT : Activation du compte : " & userAD.Properties("sAMAccountName").Value)
+                            Commun.Journal("ERREUR : TraiterEcheancesComptesParAttributsDT : Activation du compte : " & userAD.Properties("sAMAccountName").Value)
                         End Try
                     End Using
 
@@ -723,7 +723,7 @@ Public Class Gestion
                                     Else
                                         'controle si l'utilisateur est en exception valide avant de dire que le repertoire n'est pas vide
                                         Dim dernierMembre As String = Commun.TransformeSAMACCOUNTenCN(grpResult.GetDirectoryEntry.Properties("Member")(0))
-                                        If exceptionUser(dernierMembre) = "False" Then
+                                        If EndDateExceptionUsers(dernierMembre) = "False" Then
                                             Throw New Exception("Nettoyage : Le groupe n'est pas vide")
                                         End If
                                     End If
@@ -783,7 +783,7 @@ Public Class Gestion
     End Sub
 
 
-    Shared Sub GestionReactiveDesactiveComptesInterne(adUsersByEmployeeId As Dictionary(Of String, UtilisateurADIndex))
+    Shared Sub GererActivationDesactivationComptesInternes(adUsersByEmployeeId As Dictionary(Of String, UtilisateurADIndex))
         Dim i As Integer = -1
         Commun.Journal("Gestion des activation/desactivation des comptes interne")
 
@@ -799,7 +799,7 @@ Public Class Gestion
             Dim employeeID As String = kvp.Key
             If String.IsNullOrWhiteSpace(employeeID) Then employeeID = userAD.employeeID
 
-            Dim dateTxtFinException As String = exceptionUser(login)
+            Dim dateTxtFinException As String = EndDateExceptionUsers(login)
             Dim estEnException As Boolean = LCase(Trim(dateTxtFinException)) <> "false"
             Dim estPresentRH As Boolean = PresenceBDP(employeeID)
             Dim dateFinException As Date = Date.MinValue
@@ -1142,7 +1142,7 @@ Public Class Gestion
                     " -> " & userAD.distinguishedName, False)
     End Sub
 
-    Shared Function exceptionUser(ByVal login As String) As String
+    Shared Function EndDateExceptionUsers(ByVal login As String) As String
         'controle si l'utilisateur fait partie des exceptions (toujours valide) en retournant la date limite de l'exception
         'sinon retourne False
         Dim resultat As String = "False"
@@ -1159,7 +1159,7 @@ Public Class Gestion
 
                         Dim tabLigneExceptUser As String() = Split(ligne, ","c)
                         If tabLigneExceptUser.Length < 2 Then
-                            Commun.Journal("ERREUR : exceptionUser : ligne invalide dans UsersExceptions.txt : " & ligne, True)
+                            Commun.Journal("ERREUR : EndDateExceptionUsers : ligne invalide dans UsersExceptions.txt : " & ligne, True)
                             Continue Do
                         End If
 
@@ -1171,7 +1171,7 @@ Public Class Gestion
                   System.Globalization.DateTimeStyles.None,
                   dateExpire
               ) Then
-                            Commun.Journal("ERREUR : exceptionUser : date invalide dans UsersExceptions.txt : " & ligne, True)
+                            Commun.Journal("ERREUR : EndDateExceptionUsers : date invalide dans UsersExceptions.txt : " & ligne, True)
                             Continue Do
                         End If
 
@@ -1195,7 +1195,7 @@ Public Class Gestion
             End If
 
         Catch ex As Exception
-            Commun.Journal("ERREUR : exceptionUser : login : " & login & " : " & ex.Message, True)
+            Commun.Journal("ERREUR : EndDateExceptionUsers : login : " & login & " : " & ex.Message, True)
         End Try
 
         Return resultat
