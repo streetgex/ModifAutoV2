@@ -181,13 +181,7 @@ Public Class Pws
         Dim textValue As String = value.ToString()
         Return "'" & textValue.Replace("'", "''") & "'"
     End Function
-    Private Shared Function TryInvokeExchangeCommand(
-    ByVal runspace As Runspace,
-    ByVal pCommand As PSCommand,
-    ByVal commandName As String,
-    Optional ByVal ctrlDomain As String = Nothing,
-    Optional ByVal journalFailure As Boolean = True
-) As Boolean
+    Private Shared Function TryInvokeExchangeCommand(ByVal runspace As Runspace, ByVal pCommand As PSCommand, ByVal commandName As String, Optional ByVal ctrlDomain As String = Nothing, Optional ByVal journalFailure As Boolean = True) As Boolean
 
         Try
             InvokeExchangeCommand(runspace, pCommand, commandName, ctrlDomain)
@@ -199,12 +193,20 @@ Public Class Pws
             Return False
         End Try
     End Function
+
+    Private Shared Function HasParameter(ByVal pCommand As PSCommand, ByVal name As String) As Boolean
+        For Each p As CommandParameter In pCommand.Commands(0).Parameters
+            If String.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase) Then Return True
+        Next
+        Return False
+    End Function
+
     Private Shared Function InvokeExchangeCommand(ByVal runspace As Runspace, ByVal pCommand As PSCommand, ByVal commandName As String, Optional ByVal ctrlDomain As String = Nothing) As Collection(Of PSObject)
 
         Using pShell As PowerShell = PowerShell.Create()
             pShell.Runspace = runspace
 
-            If Not String.IsNullOrWhiteSpace(ctrlDomain) Then
+            If Not String.IsNullOrWhiteSpace(ctrlDomain) AndAlso Not HasParameter(pCommand, "DomainController") Then
                 pCommand.AddParameter("DomainController", ctrlDomain)
             End If
 
@@ -213,6 +215,7 @@ Public Class Pws
 
             Dim result As Collection(Of PSObject)
             Try
+
                 result = pShell.Invoke()
             Catch ex As Exception
                 Throw New Exception("Erreur PowerShell pendant " & commandName & " : " & commandText & " : " & ex.Message, ex)
@@ -232,12 +235,7 @@ Public Class Pws
         End Using
     End Function
 
-    Private Shared Function TryConfigurerMailboxCalendrierEtRegion(
-    ByVal pRunspace As Runspace,
-    ByVal login As String,
-    ByVal ctrlDomain As String,
-    Optional ByVal journalFailure As Boolean = True
-) As Boolean
+    Private Shared Function TryConfigurerMailboxCalendrierEtRegion(ByVal pRunspace As Runspace, ByVal login As String, ByVal ctrlDomain As String, Optional ByVal journalFailure As Boolean = True) As Boolean
 
         If Not TryWaitMailboxCalendarReady(pRunspace, login, ctrlDomain, journalFailure) Then
             Return False
