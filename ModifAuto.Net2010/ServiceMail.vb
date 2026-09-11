@@ -6,6 +6,7 @@ Imports System.Web.Script.Serialization
 Public Class ServiceMail
     Private Shared ReadOnly smtpLogin As String = Commun.ini.ReadValue("MAIL", "userMail")
     Private Shared ReadOnly smtpPassword As String = Commun.ini.ReadValue("MAIL", "userMailPassword_encrypted")
+    Private Shared ReadOnly smtpServer As String = Commun.ini.ReadValue("MAIL", "SMTPServer")
     Private Shared ReadOnly QueuePath As String = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MailQueue.json")
     Private Shared ReadOnly QueueLock As New Object()
     Private Shared ReadOnly QueueEncoding As New System.Text.UTF8Encoding(True)
@@ -117,7 +118,7 @@ Public Class ServiceMail
                     message.Attachments.Add(New Attachment(mail.AttachmentPath))
                 End If
 
-                Dim smtpServer As String = Commun.ini.ReadValue("MAIL", "SMTPServer")
+
                 Using mailSender As New SmtpClient(smtpServer, 587)
                     With mailSender
                         .UseDefaultCredentials = False
