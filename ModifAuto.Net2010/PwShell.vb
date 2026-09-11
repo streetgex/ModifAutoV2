@@ -6,6 +6,7 @@ Imports System.IO
 
 Public Class Pws
     Private Const PendingMailboxConfigFilePath As String = "c:\temp\ModifAuto_PendingMailboxConfig.txt"
+    Private Shared ReadOnly casExchangeServer As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
     Private Shared Function CreerCredentialExchange() As PSCredential
 
 
@@ -17,13 +18,13 @@ Public Class Pws
         Return New PSCredential(loginExchange, CreateSecurePasswordString(exchangePassword))
     End Function
     Private Shared Function CreerRunspaceExchange() As Runspace
-        Dim exchangeServer As String = ini.ReadValue("MODIFAUTO", "CasExchangeServer")
-        If String.IsNullOrWhiteSpace(exchangeServer) Then
+
+        If String.IsNullOrWhiteSpace(casExchangeServer) Then
             Throw New Exception("Le serveur Exchange n'est pas renseigne dans MODIFAUTO/CasExchangeServer.")
         End If
 
         Dim connectionInfo As New WSManConnectionInfo(
-            New Uri("http://" & exchangeServer & "/powershell"),
+            New Uri("http://" & casExchangeServer & "/powershell"),
             "http://schemas.microsoft.com/powershell/Microsoft.Exchange",
             CreerCredentialExchange()
         )

@@ -163,12 +163,12 @@ Public Class Gestion
                                 Commun.Journal("Suppression du compte interne : " & userAD.Properties("sAMAccountName").Value)
 
                                 'Cas des utilisateurs "Externes", "Provisoires" et "Invité"
-                            ElseIf userAD.Parent.Path = "LDAP://" & Commun.LdapPath(OUUtilisateursExternes) Or userAD.Parent.Path = "LDAP://" & Commun.LdapPath(ini.ReadValue("MODIFAUTO", "OUUtilisateursProvisoires")) Or userAD.Parent.Path = "LDAP://" & Commun.LdapPath(ini.ReadValue("MODIFAUTO", "OUUtilisateursInvites")) Then
+                            ElseIf userAD.Parent.Path = "LDAP://" & Commun.LdapPath(OUUtilisateursExternes) Or userAD.Parent.Path = "LDAP://" & Commun.LdapPath(OUUtilisateursProvisoires) Or userAD.Parent.Path = "LDAP://" & Commun.LdapPath(OUUtilisateursInvites) Then
 
                                 'suppression des comptes en fonction de "accountDeletionDT"
                                 If userAD.Properties.Contains("accountDeletionDT") Then
                                     Dim interval As Integer = DateDiff("d", userAD.Properties("accountDeletionDT").Value, Now.ToUniversalTime)
-                                    If interval >= 1 Or userAD.Parent.Path = "LDAP://" & Commun.LdapPath(ini.ReadValue("MODIFAUTO", "OUUtilisateursInvites")) Then
+                                    If interval >= 1 Or userAD.Parent.Path = "LDAP://" & Commun.LdapPath(OUUtilisateursInvites) Then
                                         userAD.DeleteTree()
                                         Commun.Journal("Suppression du compte : " & userAD.Properties("sAMAccountName").Value)
                                         'GoTo fermerUsing
@@ -374,7 +374,7 @@ Public Class Gestion
         Commun.Journal("Mise a jour des utilisateurs provisoires", False)
 
         'Mise a jour des utilisateurs provisoires
-        Using OUProvisoire As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(ini.ReadValue("MODIFAUTO", "OUUtilisateursProvisoires")), Nothing, Nothing, auth)
+        Using OUProvisoire As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursProvisoires), Nothing, Nothing, auth)
             Dim searcher As DirectorySearcher = New DirectorySearcher(OUProvisoire)
             searcher.Filter = "(&(objectClass=user))"
 
@@ -734,7 +734,7 @@ Public Class Gestion
                             If grpResult.GetDirectoryEntry.Properties("Member").Count <> 0 Then
                                 If Commun.RecupEquipeinfo(Replace(SAMAccountGroup, " grp", "")) = "" Then
                                     If Hour(Now) = 5 Or Hour(Now) = 6 Then
-                                        Dim mailEquipeReso As String = ini.ReadValue("GLOBAL", "MailEquipeReso")
+
                                         ServiceMail.SendEmail(vbTab & "administrateur@igbmc.fr", mailEquipeReso, "Destination non associée a une Equipe Info", "La destination " & descriptionGroup & " (" & SAMAccountGroup & "), dans l'active Directory, n'est actuellement pas associé à une Equipe info." & vbCrLf & "Cette destination contient un ou des utilisateurs." & vbCrLf & "Tant que cette association ne sera pas faite, les utilisateurs n'auront pas d'acces a leur Zone Labo")
                                     End If
                                 End If

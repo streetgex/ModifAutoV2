@@ -26,6 +26,10 @@ Module Module1
     'Shared organismContractName As String
     Public dossierArchivePST As String = ini.ReadValue("MODIFAUTO", "dossierArchivePST", "\\Space2\archives-pst\") '"\\Space2\archives-pst\"
     Public dossierPhotos As String = ini.ReadValue("MODIFAUTO", "dossierPhotos", "\\Space2\photos-RH\") '"\\Space2\photos-RH\"
+    Public cheminPartage As String = ini.ReadValue("MODIFAUTO", "CheminPartage")
+    Public dureeMaxJson As Integer = Convert.ToInt32(ini.ReadValue("MODIFAUTO", "DureeMaxJson"))
+    Public mailDureeMaxJson As String = ini.ReadValue("MODIFAUTO", "mailDureeMaxJson")
+    Public mailEquipeReso As String = ini.ReadValue("GLOBAL", "MailEquipeReso")
     Public sendMSreport As Boolean = ini.ReadValue("MODIFAUTO", "sendMSreport", False)
     Public sendMailOO As Boolean = ini.ReadValue("MODIFAUTO", "sendMailOO", False)
 
@@ -35,6 +39,8 @@ Module Module1
     Public OUUtilisateursExceptions As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursExceptions")
     Public OUUtilisateursActifs As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursActifs")
     Public OUUtilisateursSortis As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursSortis")
+    Public OUUtilisateursProvisoires As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursProvisoires")
+    Public OUUtilisateursInvites As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursInvites")
 
     Public loginExchange As String = If(ini.ReadValue("MODIFAUTO", "exchangeLogin"), "").Trim()
     Public exchangePassword As String = ini.ReadValue("MODIFAUTO", "exchangePassword_encrypted")
@@ -116,10 +122,10 @@ Module Module1
         If ctrlCreationFichier = True Then
             Dim durationCF As TimeSpan = finCreationFichier - debutCreationFichier
             Dim dureeCF As String = String.Format("{0:00}h {1:00}m {2:00}s", durationCF.Hours, durationCF.Minutes, durationCF.Seconds)
-            Dim dureeTolerable As Integer = Convert.ToInt32(ini.ReadValue("MODIFAUTO", "DureeMaxJson"))
+            Dim dureeTolerable As Integer = dureeMaxJson
 
             If DateDiff(DateInterval.Minute, debutCreationFichier, finCreationFichier) > dureeTolerable Then
-                ServiceMail.SendEmail("administrateur@igbmc.fr", ini.ReadValue("MODIFAUTO", "mailDureeMaxJson"), "Duree de creation de fichier JSON superieure à " & dureeTolerable.ToString & " minutes", "La durée de creation du fichier JSON a travers IGBMC services a été anormalement longue: " & dureeCF)
+                ServiceMail.SendEmail("administrateur@igbmc.fr", mailDureeMaxJson, "Duree de creation de fichier JSON superieure à " & dureeTolerable.ToString & " minutes", "La durée de creation du fichier JSON a travers IGBMC services a été anormalement longue: " & dureeCF)
             End If
 
             Commun.Journal("Création du fichier listepersoJson.txt réussie en : " & dureeCF, False)
@@ -241,7 +247,7 @@ Module Module1
     End Sub
 
     Public Sub GestionDesFichiers()
-        Dim cheminPartage As String = ini.ReadValue("MODIFAUTO", "CheminPartage")
+
         ' COPIE DES FICHIERS 
         Try
 
@@ -752,7 +758,7 @@ Module Module1
                 Try
                     Dim prop As String = "manager"
                     If changementsSet.Contains(prop) Then
-                        If userRH.login_samAccountName = ini.ReadValue("MODIFAUTO", "LoginDirecteur") Then
+                        If userRH.login_samAccountName = directeurLogin Then
                             Commun.SetADLDAPProperty(objuser, prop, "")
                             Commun.AppliquerChangement(objuser)
                             userAD.manager = ""
@@ -1976,8 +1982,8 @@ Module Module1
             Commun.Journal("Mode DEBUG : recuperation des fichiers de données. Aucune requete ne sera faite à IGBMCServices")
 
             ' En mode debug, on recopie simplement des fichiers de référence dans c:\temp.
-            File.Copy(ini.ReadValue("MODIFAUTO", "CheminPartage") & "\todo\eq.txt", "c:\temp\eq.txt", True)
-            File.Copy(ini.ReadValue("MODIFAUTO", "CheminPartage") & "\todo\listepersoJson.txt", "c:\temp\listepersoJson.txt", True)
+            File.Copy(cheminPartage & "\todo\eq.txt", "c:\temp\eq.txt", True)
+            File.Copy(cheminPartage & "\todo\listepersoJson.txt", "c:\temp\listepersoJson.txt", True)
 
         ElseIf withJson = "temp" Then
             ' Rien à faire ici pour l'instant.
@@ -3021,7 +3027,7 @@ fermerUsing:
 
                     'ecriture du fichier de creation de compte
                     Dim newUser As String = lastname & "," & firstname & "," & login & ",," & Dest_short_name & ",,,," & ld & "," & IDuser & "," & aliasMail & "," & genre
-                    Dim sw As New StreamWriter(ini.ReadValue("MODIFAUTO", "CheminPartage") & "\todo\c" & Now.ToString("dd") & "-" & Now.ToString("MM") & "-" & Now.ToString("yy") & "-" & Now.ToString("HH") & "h.txt", True)
+                    Dim sw As New StreamWriter(cheminPartage & "\todo\c" & Now.ToString("dd") & "-" & Now.ToString("MM") & "-" & Now.ToString("yy") & "-" & Now.ToString("HH") & "h.txt", True)
                     sw.WriteLine(newUser)
                     sw.Close()
                     sw.Dispose()

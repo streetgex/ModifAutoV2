@@ -12,6 +12,7 @@ Public Class Commun
     Public Shared ini As New IniFile(iniFilePath)
     'Public Shared mailSenderAddress As String = ini.ReadValue("GLOBAL", "MailSenderAddress")
     Public Shared auth As AuthenticationTypes = AuthenticationTypes.Secure 'AuthenticationTypes.Secure Or AuthenticationTypes.SecureSocketsLayer
+    Private Shared ReadOnly equipesAdministratives As String() = Split(ini.ReadValue("MODIFAUTO", "EquipesAdministratives"), ",")
 
     Private Shared _barreEnCours As Boolean = False
     Private Shared _longueurDerniereBarre As Integer = 0
@@ -584,14 +585,14 @@ sortie:
         End Try
     End Function
     Shared Function IsMembreEquipeAdministratif(ByVal user As DirectoryEntry) As Boolean
-        Dim tabEquipeADM As String() = Split(ini.ReadValue("MODIFAUTO", "EquipesAdministratives"), ",")
+
         Try
             Dim control As Boolean = False
             For i As Integer = 0 To user.Properties("MemberOf").Count - 1
                 'Récupère la chaine LDAP.
                 Dim sProp As String = user.Properties("MemberOf")(i)
                 Dim nomEquipe As String = sProp.Substring(3, sProp.IndexOf(",") - 3)
-                If Array.IndexOf(tabEquipeADM, nomEquipe) <> -1 Then
+                If Array.IndexOf(equipesAdministratives, nomEquipe) <> -1 Then
                     Return True
                     Exit Function
                 End If

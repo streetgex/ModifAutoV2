@@ -4,6 +4,7 @@ Imports System.IO
 
 
 Public Class Supprime
+    Private Shared ReadOnly jourSuppressionPST As Integer = ini.ReadValue("MODIFAUTO", "jourSuppressionPST", 21)
 
     Shared Sub TraiterSortieCompte(ByVal userAD As DirectoryEntry)
         Dim login As String = userAD.Properties("sAMAccountName").Value
@@ -111,7 +112,7 @@ Public Class Supprime
         IdentitePartagePST.Executer(
             Sub()
                 Dim fichiersPST() As String = Directory.GetFiles(dossierArchivePST, "*.pst")
-                Dim jourSuppressionPST As Integer = ini.ReadValue("MODIFAUTO", "jourSuppressionPST", 21)
+
                 Dim periodeSuppression As TimeSpan = TimeSpan.FromDays(jourSuppressionPST)
                 Dim dateActuelle As DateTime = DateTime.Now
 
