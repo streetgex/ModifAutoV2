@@ -24,33 +24,31 @@ Module Module1
     Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Integer)
     Public tabExcepUser(,) As String
     'Shared organismContractName As String
+
+    Public mailEquipeReso As String = ini.ReadValue("GLOBAL", "MailEquipeReso")
+
     Public dossierArchivePST As String = ini.ReadValue("MODIFAUTO", "dossierArchivePST", "\\Space2\archives-pst\") '"\\Space2\archives-pst\"
     Public dossierPhotos As String = ini.ReadValue("MODIFAUTO", "dossierPhotos", "\\Space2\photos-RH\") '"\\Space2\photos-RH\"
     Public cheminPartage As String = ini.ReadValue("MODIFAUTO", "CheminPartage")
     Public dureeMaxJson As Integer = Convert.ToInt32(ini.ReadValue("MODIFAUTO", "DureeMaxJson"))
     Public mailDureeMaxJson As String = ini.ReadValue("MODIFAUTO", "mailDureeMaxJson")
-    Public mailEquipeReso As String = ini.ReadValue("GLOBAL", "MailEquipeReso")
     Public sendMSreport As Boolean = ini.ReadValue("MODIFAUTO", "sendMSreport", False)
     Public sendMailOO As Boolean = ini.ReadValue("MODIFAUTO", "sendMailOO", False)
-
-    Public OUUtilisateursExternes As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursExternes")
-    Public OUUtilisateurs As String = ini.ReadValue("MODIFAUTO", "OUUtilisateurs")
-    Public OUUtilisateursDesactives As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursDesactives")
-    Public OUUtilisateursExceptions As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursExceptions")
-    Public OUUtilisateursActifs As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursActifs")
-    Public OUUtilisateursSortis As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursSortis")
-    Public OUUtilisateursProvisoires As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursProvisoires")
-    Public OUUtilisateursInvites As String = ini.ReadValue("MODIFAUTO", "OUUtilisateursInvites")
-
     Public loginExchange As String = If(ini.ReadValue("MODIFAUTO", "exchangeLogin"), "").Trim()
     Public exchangePassword As String = ini.ReadValue("MODIFAUTO", "exchangePassword_encrypted")
-
     Dim cheminMAJZoneInfo As String = ini.ReadValue("MODIFAUTO", "cheminMAJZoneInfo")
-
     Public directeurLogin As String = ini.ReadValue("MODIFAUTO", "LoginDirecteur")
-
-    'Public MailSenderAddress As String = ini.ReadValue("GLOBAL", "MailSenderAddress")
     Public mailOuvertureDeCompte As String = ini.ReadValue("MODIFAUTO", "MailOuvertureDeCompte")
+
+    Public OUUtilisateursExternes As String = ini.ReadValue("AD", "OUUtilisateursExternes")
+    Public OUUtilisateurs As String = ini.ReadValue("AD", "OUUtilisateurs")
+    Public OUUtilisateursDesactives As String = ini.ReadValue("AD", "OUUtilisateursDesactives")
+    Public OUUtilisateursExceptions As String = ini.ReadValue("AD", "OUUtilisateursExceptions")
+    Public OUUtilisateursActifs As String = ini.ReadValue("AD", "OUUtilisateursActifs")
+    Public OUUtilisateursSortis As String = ini.ReadValue("AD", "OUUtilisateursSortis")
+    Public OUUtilisateursProvisoires As String = ini.ReadValue("AD", "OUUtilisateursProvisoires")
+    Public OUUtilisateursInvites As String = ini.ReadValue("AD", "OUUtilisateursInvites")
+
 
     Public nomFichierRapportMS As String = "c:\temp\MSrapport(" & Replace(Now.ToString("dd-MM-yyyy HH.mm"), "/", "-") & ").csv"
     Public auth As AuthenticationTypes = AuthenticationTypes.Secure 'SocketsLayer or AuthenticationTypes.Secure ' 'AuthenticationTypes.Secure
