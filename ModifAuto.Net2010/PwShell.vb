@@ -416,7 +416,7 @@ Public Class Pws
             pCommand = New PSCommand
             With pCommand
                 .AddCommand("get-MailboxExportRequest")
-                .AddParameter("Identity", login & "\" & jobName)
+                .AddParameter("Mailbox", login)
             End With
 
             '-- add command to powershell
@@ -509,7 +509,7 @@ Public Class Pws
             pRunspace.Close()
             pRunspace.Dispose()
 
-            Commun.Journal("Suppression de la requete de création du PST: " & jobName, True)
+            Commun.Journal("Suppression de la requete de création du PST: " & jobName, False)
         Catch e As Exception
             Commun.Journal("ERREUR : Suppression de la requete de création du PST: " & e.Message & " : " & jobName, True)
         End Try
@@ -640,6 +640,17 @@ Public Class Pws
 
             '-- invoke the powershell
             pResult = pShell.Invoke
+
+            If pShell.Streams.Error.Count > 0 Then
+                Dim erreursExchange As New List(Of String)
+                For Each erreur As ErrorRecord In pShell.Streams.Error
+                    erreursExchange.Add(erreur.ToString())
+                Next
+
+                pRunspace.Close()
+                pRunspace.Dispose()
+                Throw New Exception(String.Join(" ; ", erreursExchange))
+            End If
 
             pRunspace.Close()
             pRunspace.Dispose()
