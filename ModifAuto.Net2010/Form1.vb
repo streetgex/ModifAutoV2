@@ -12,12 +12,15 @@ Imports Newtonsoft.Json
 Imports Newtonsoft.Json.Linq
 
 Module Module1
+
+
 #If DEBUG Then
-    Dim iniFilePath = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2test.ini"
+    Public iniFilePath As String = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2test.ini"
 #Else
-    Dim iniFilePath = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2.ini"
+    Public iniFilePath As String = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2.ini"
 #End If
     Public ini As New IniFile(iniFilePath)
+
     Public withJson As String = "debug" 'Valeur possible : json debug temp(fichiers dans le dossier c:\temp)
     'Public tabPersoMonoEquipe As String(,)
     Public listeUtilisateursRH As New List(Of UtilisateurRH)

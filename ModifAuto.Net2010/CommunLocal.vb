@@ -8,8 +8,8 @@ Public Class Commun
     Public Shared fichierLog As String = "c:\temp\Log" & application.productname & ".log"
     Public Shared tabLoginAliasID As String()
     Public Shared tabLoginAlias As String()
-    Public Shared iniFilePath As String = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2.ini"
-    Public Shared ini As New IniFile(iniFilePath)
+    'Public Shared iniFilePath As String = "\\igbmc.u-strasbg.fr\SYSVOL\igbmc.u-strasbg.fr\Scripts\ScriptStephV2.ini"
+    'Public Shared ini As New IniFile(iniFilePath)
     'Public Shared mailSenderAddress As String = ini.ReadValue("GLOBAL", "MailSenderAddress")
     Public Shared auth As AuthenticationTypes = AuthenticationTypes.Secure 'AuthenticationTypes.Secure Or AuthenticationTypes.SecureSocketsLayer
     Private Shared ReadOnly equipesAdministratives As String() = Split(ini.ReadValue("MODIFAUTO", "EquipesAdministratives"), ",")
