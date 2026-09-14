@@ -1,3 +1,22 @@
+<#Pré-Build
+if /I "$(ConfigurationName)"=="Release" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(ProjectDir)IncrementVersion.ps1" -Mode Prepare -AssemblyInfo "$(ProjectDir)My Project\AssemblyInfo.vb" -Configuration "$(ConfigurationName)"
+if /I "$(ConfigurationName)"=="onServer" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(ProjectDir)IncrementVersion.ps1" -Mode Prepare -AssemblyInfo "$(ProjectDir)My Project\AssemblyInfo.vb" -Configuration "$(ConfigurationName)"
+Post-Build
+if /I "$(ConfigurationName)"=="onServer" (
+    if exist "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName)" copy /Y "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName)" "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName).%date:~6,4%%date:~3,2%%date:~0,2%_%time:~0,2%%time:~3,2%%time:~6,2%.bak"
+    copy /Y "$(TargetPath)" "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName)"
+)
+set "IncrementVersion="
+if /I "$(ConfigurationName)"=="Release" set "IncrementVersion=1"
+if /I "$(ConfigurationName)"=="onServer" set "IncrementVersion=1"
+if defined IncrementVersion (
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(ProjectDir)IncrementVersion.ps1" -Mode Commit -AssemblyInfo "$(ProjectDir)My Project\AssemblyInfo.vb" -Configuration "$(ConfigurationName)"
+    if errorlevel 1 exit /b 1
+)
+
+exit /b 0
+#>
+
 param (
     [Parameter(Mandatory = $true)]
     [ValidateSet("Prepare", "Commit")]
@@ -11,8 +30,8 @@ param (
 
 $ErrorActionPreference = "Stop"
 
-# Uniquement en Release
-if ($Configuration -ne "Release") {
+# Uniquement en Release ou onServer
+if ($Configuration -ne "Release" -and $Configuration -ne "onServer") {
     Write-Host "IncrementVersion : configuration $Configuration, aucune action."
     exit 0
 }

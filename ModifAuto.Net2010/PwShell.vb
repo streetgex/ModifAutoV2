@@ -103,7 +103,7 @@ Public Class Pws
         End Try
     End Sub
     Private Shared Function TryWaitMailboxCalendarReady(pRunspace As Runspace, login As String, ctrlDomain As String, Optional ByVal journalFailure As Boolean = True) As Boolean
-        For tentative As Integer = 1 To 24
+        For tentative As Integer = 1 To 4
             Try
                 Dim pTest As New PSCommand()
                 With pTest

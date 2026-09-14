@@ -266,18 +266,14 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <PropertyGroup>
-    <PostBuildEvent>if "$(ConfigurationName)"=="onServer" (
-
-    if exist "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName)" (
-
-        copy /Y "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName)" "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName).%25date:~6,4%25%25date:~3,2%25%25date:~0,2%25_%25time:~0,2%25%25time:~3,2%25%25time:~6,2%25.bak"
-
-    )
-
+    <PostBuildEvent>if /I "$(ConfigurationName)"=="onServer" (
+    if exist "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName)" copy /Y "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName)" "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName).%25date:~6,4%25%25date:~3,2%25%25date:~0,2%25_%25time:~0,2%25%25time:~3,2%25%25time:~6,2%25.bak"
     copy /Y "$(TargetPath)" "\\serv-ad1.igbmc.u-strasbg.fr\c$\Program Files\Script Steph\ModifAuto\$(TargetFileName)"
 )
-
-if /I "$(ConfigurationName)"=="Release" (
+set "IncrementVersion="
+if /I "$(ConfigurationName)"=="Release" set "IncrementVersion=1"
+if /I "$(ConfigurationName)"=="onServer" set "IncrementVersion=1"
+if defined IncrementVersion (
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(ProjectDir)IncrementVersion.ps1" -Mode Commit -AssemblyInfo "$(ProjectDir)My Project\AssemblyInfo.vb" -Configuration "$(ConfigurationName)"
     if errorlevel 1 exit /b 1
 )</PostBuildEvent>
@@ -290,6 +286,8 @@ if /I "$(ConfigurationName)"=="Release" (
   </Target>
   -->
   <PropertyGroup>
-    <PreBuildEvent>if /I "$(ConfigurationName)"=="Release" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(ProjectDir)IncrementVersion.ps1" -Mode Prepare -AssemblyInfo "$(ProjectDir)My Project\AssemblyInfo.vb" -Configuration "$(ConfigurationName)"</PreBuildEvent>
+    <PreBuildEvent>echo PREBUILD Configuration=$(ConfigurationName)
+if /I "$(ConfigurationName)"=="Release" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(ProjectDir)IncrementVersion.ps1" -Mode Prepare -AssemblyInfo "$(ProjectDir)My Project\AssemblyInfo.vb" -Configuration "$(ConfigurationName)"
+if /I "$(ConfigurationName)"=="onServer" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(ProjectDir)IncrementVersion.ps1" -Mode Prepare -AssemblyInfo "$(ProjectDir)My Project\AssemblyInfo.vb" -Configuration "$(ConfigurationName)"</PreBuildEvent>
   </PropertyGroup>
 </Project>
