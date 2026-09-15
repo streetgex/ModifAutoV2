@@ -1326,4 +1326,128 @@ Public Class Gestion
         Next
 
     End Sub
+    Private Const GroupeUtilisateursMdpNonModifie3Ans As String = "G_Utilisateurs_MDP_NonModifie_3Ans"
+    Private Const GroupeUtilisateursMdpNonModifie6Ans As String = "G_Utilisateurs_MDP_NonModifie_6Ans"
+    Private Const GroupeUtilisateursMdpNonModifie9Ans As String = "G_Utilisateurs_MDP_NonModifie_9Ans"
+
+    Public Shared Sub SynchroniserGroupesUtilisateursMdpNonModifie()
+        Dim seuil3Ans As Long = DateTime.Now.AddYears(-3).ToFileTimeUtc()
+        Dim seuil6Ans As Long = DateTime.Now.AddYears(-6).ToFileTimeUtc()
+        Dim seuil9Ans As Long = DateTime.Now.AddYears(-9).ToFileTimeUtc()
+        Dim seuil6AnsExclusif As Long = seuil6Ans + 1
+        Dim seuil9AnsExclusif As Long = seuil9Ans + 1
+        Dim ousCibles As String() = {OUUtilisateursActifs, OUUtilisateursExceptions, OUUtilisateursDesactives}
+        Dim baseFiltre As String = "(&(objectCategory=person)(objectClass=user)"
+
+        SynchroniserGroupeMdp(
+            GroupeUtilisateursMdpNonModifie3Ans,
+            baseFiltre & "(pwdLastSet<=" & seuil3Ans.ToString(System.Globalization.CultureInfo.InvariantCulture) &
+            ")(pwdLastSet>=" & seuil6AnsExclusif.ToString(System.Globalization.CultureInfo.InvariantCulture) & "))",
+            ousCibles
+        )
+
+        SynchroniserGroupeMdp(
+            GroupeUtilisateursMdpNonModifie6Ans,
+            baseFiltre & "(pwdLastSet<=" & seuil6Ans.ToString(System.Globalization.CultureInfo.InvariantCulture) &
+            ")(pwdLastSet>=" & seuil9AnsExclusif.ToString(System.Globalization.CultureInfo.InvariantCulture) & "))",
+            ousCibles
+        )
+
+        SynchroniserGroupeMdp(
+            GroupeUtilisateursMdpNonModifie9Ans,
+            baseFiltre & "(|(pwdLastSet=0)(pwdLastSet<=" &
+            seuil9Ans.ToString(System.Globalization.CultureInfo.InvariantCulture) & ")))",
+            ousCibles
+        )
+        Commun.Journal("Traitement des groupe de mot de passe terminé", False)
+    End Sub
+
+    Private Shared Sub SynchroniserGroupeMdp(
+        ByVal nomGroupe As String,
+        ByVal filtreUtilisateursEligibles As String,
+        ByVal ousCibles As String()
+    )
+        Dim utilisateursEligibles As New System.Collections.Generic.Dictionary(Of String, String)(StringComparer.OrdinalIgnoreCase)
+
+        Try
+
+            Dim groupeDn As String = Commun.TransformeSAMACCOUNTenCN(nomGroupe)
+            If String.IsNullOrWhiteSpace(groupeDn) Then
+                Commun.Journal("ERREUR : groupe AD introuvable : " & nomGroupe, True)
+                Exit Sub
+            End If
+
+            For Each ouCible As String In ousCibles
+                If String.IsNullOrWhiteSpace(ouCible) Then Continue For
+
+                Using ouEntry As New DirectoryEntry("LDAP://" & Commun.LdapPath(ouCible), Nothing, Nothing, auth)
+                    Using searcher As New DirectorySearcher(ouEntry)
+                        searcher.Filter = filtreUtilisateursEligibles
+                        searcher.SearchScope = SearchScope.OneLevel
+                        searcher.PageSize = 5000
+                        searcher.PropertiesToLoad.Add("distinguishedName")
+                        searcher.PropertiesToLoad.Add("sAMAccountName")
+
+                        Using results As SearchResultCollection = searcher.FindAll()
+                            For Each result As SearchResult In results
+                                If result.Properties("distinguishedName").Count = 0 OrElse
+                                   result.Properties("sAMAccountName").Count = 0 Then Continue For
+
+                                Dim dn As String = result.Properties("distinguishedName")(0).ToString()
+                                Dim login As String = result.Properties("sAMAccountName")(0).ToString()
+                                If dn <> "" AndAlso login <> "" Then utilisateursEligibles(dn) = login
+                            Next
+                        End Using
+                    End Using
+                End Using
+            Next
+
+            Dim ajouts As Integer = 0
+            Dim retraits As Integer = 0
+
+            Using groupe As New DirectoryEntry("LDAP://" & Commun.LdapPath(groupeDn), Nothing, Nothing, auth)
+                Dim membres As New System.Collections.Generic.List(Of String)
+                For Each valeur As Object In groupe.Properties("member")
+                    If valeur IsNot Nothing AndAlso valeur.ToString().Trim() <> "" Then membres.Add(valeur.ToString())
+                Next
+
+                Dim membresIndex As New System.Collections.Generic.HashSet(Of String)(membres, StringComparer.OrdinalIgnoreCase)
+
+                For Each utilisateur As System.Collections.Generic.KeyValuePair(Of String, String) In utilisateursEligibles
+                    If Not membresIndex.Contains(utilisateur.Key) Then
+                        groupe.Properties("member").Add(utilisateur.Key)
+                        ajouts += 1
+                    End If
+                Next
+
+                For Each membreDn As String In membres
+                    If utilisateursEligibles.ContainsKey(membreDn) Then Continue For
+
+                    Dim estUtilisateur As Boolean = False
+                    Try
+                        Using membre As New DirectoryEntry("LDAP://" & Commun.LdapPath(membreDn), Nothing, Nothing, auth)
+                            For Each classe As Object In membre.Properties("objectClass")
+                                If String.Equals(classe.ToString(), "user", StringComparison.OrdinalIgnoreCase) Then
+                                    estUtilisateur = True
+                                    Exit For
+                                End If
+                            Next
+                        End Using
+                    Catch exMembre As Exception
+                        Commun.Journal("ERREUR : controle du membre " & membreDn & " du groupe " & nomGroupe & " : " & exMembre.Message, True)
+                    End Try
+
+                    If estUtilisateur Then
+                        groupe.Properties("member").Remove(membreDn)
+                        retraits += 1
+                    End If
+                Next
+
+                If ajouts > 0 OrElse retraits > 0 Then Commun.AppliquerChangement(groupe)
+            End Using
+
+        Catch ex As Exception
+            Commun.Journal("ERREUR : gestion du groupe " & nomGroupe & " : " & ex.Message, True)
+        End Try
+    End Sub
 End Class

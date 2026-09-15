@@ -170,7 +170,7 @@ Module Module1
         'Gestion.CtrlGroupAdmins()
         Gestion.UpdateComptesProvisoires()
         Gestion.ControleOUUtilisateurs()
-
+        Gestion.SynchroniserGroupesUtilisateursMdpNonModifie()
 
         Supprime.GererArchivesPSTEtMailboxesSorties()
 
