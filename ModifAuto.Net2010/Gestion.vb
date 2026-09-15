@@ -993,19 +993,20 @@ Public Class Gestion
 
                         Commun.SetADLDAPProperty(dirEntry, "description", descriptionDesactivation)
                         Commun.SetADLDAPProperty(dirEntry, "Comment", commentaireDesactivation, True)
-                        Commun.SetADLDAPProperty(dirEntry, "accountDeletionDate", dateSortiePrevue.ToString("dd/MM/yyyy"))
-                        dirEntry.Properties("accountDeactivationDT").Value = dateReferenceDesactivationUtc.ToString("yyyyMMddHHmmss") & ".0Z"
-                        dirEntry.Properties("accountDeletionDT").Value = dateSortiePrevueUtc.ToString("yyyyMMddHHmmss") & ".0Z"
 
-                        userAD.description = descriptionDesactivation
-                        userAD.comment = commentaireDesactivation
-                        userAD.accountDeactivationDT = dateReferenceDesactivationUtc
-                        userAD.accountDeletionDT = dateSortiePrevueUtc
-                        userAD.accountDeletionDate = dateSortiePrevue.ToString("dd/MM/yyyy")
+                        If Not userAD.isInOUExceptions Then
+                            Commun.SetADLDAPProperty(dirEntry, "accountDeletionDate", dateSortiePrevue.ToString("dd/MM/yyyy"))
+                            dirEntry.Properties("accountDeactivationDT").Value = dateReferenceDesactivationUtc.ToString("yyyyMMddHHmmss") & ".0Z"
+                            dirEntry.Properties("accountDeletionDT").Value = dateSortiePrevueUtc.ToString("yyyyMMddHHmmss") & ".0Z"
 
-                        If dateFinContratValide Then
-                            Commun.SetADLDAPProperty(dirEntry, "extensionAttribute1", dateDefinDeContrat)
-                            userAD.extensionAttribute1 = dateDefinDeContrat
+                            userAD.accountDeactivationDT = dateReferenceDesactivationUtc
+                            userAD.accountDeletionDT = dateSortiePrevueUtc
+                            userAD.accountDeletionDate = dateSortiePrevue.ToString("dd/MM/yyyy")
+
+                            If dateFinContratValide Then
+                                Commun.SetADLDAPProperty(dirEntry, "extensionAttribute1", dateDefinDeContrat)
+                                userAD.extensionAttribute1 = dateDefinDeContrat
+                            End If
                         End If
 
                         Commun.SetADLDAPProperty(dirEntry, "serialNumber", Nothing)
@@ -1033,8 +1034,11 @@ Public Class Gestion
 
                     Try
                         Dim mail As String = MailCloture(prenom, dateDeSuppressionPrevue, dateDefinDeContrat)
-                        'ServiceMail.SendEmail("noreply@igbmc.fr", adresseMail & ";Cc:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail)
-                        Commun.Journal(vbTab & "Mail de fermeture de compte envoyé : " & adresseMail)
+                        If ServiceMail.SendEmail("noreply@igbmc.fr", adresseMail & ";Bcc:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail) Then
+                            Commun.Journal(vbTab & "Mail de fermeture de compte envoyé : " & adresseMail)
+                        Else
+                            Commun.Journal(vbTab & "Mail de fermeture de compte placé en attente : " & adresseMail, False)
+                        End If
                     Catch ex As Exception
                         Commun.Journal(vbTab & "ERREUR : Mail de fermeture de compte envoyé : " & adresseMail & " : " & ex.Message, True)
                     End Try
@@ -1062,10 +1066,32 @@ Public Class Gestion
         dateFinException
     )
     End Function
+    Private Shared Function CalculerDateSuppressionException(ByVal userAD As UtilisateurADIndex, ByVal dateFinException As Date) As Date
+        Dim dateSuppression As Date = dateFinException.Date.AddMonths(3)
+        Dim dateFinContrat As Date
+
+        If userAD Is Nothing OrElse Not Date.TryParseExact(
+            userAD.extensionAttribute1,
+            "dd/MM/yyyy",
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None,
+            dateFinContrat
+        ) Then
+            Return dateSuppression
+        End If
+
+        dateSuppression = dateFinContrat.Date.AddMonths(3)
+        If dateFinException.Date > dateSuppression Then
+            dateSuppression = dateFinException.Date
+        End If
+
+        Return dateSuppression
+    End Function
+
     Private Shared Function DatesTechniquesExceptionDifferentes(ByVal userAD As UtilisateurADIndex, ByVal dateFinException As Date) As Boolean
         If userAD Is Nothing Then Return True
 
-        Dim dateSuppressionException As Date = dateFinException.Date.AddMonths(3)
+        Dim dateSuppressionException As Date = CalculerDateSuppressionException(userAD, dateFinException)
         Dim dateFinExceptionUtc As Date = dateFinException.Date.ToUniversalTime()
         Dim dateSuppressionExceptionUtc As Date = dateSuppressionException.ToUniversalTime()
         Dim accountDeletionDateAttendue As String = dateSuppressionException.ToString("dd/MM/yyyy")
@@ -1076,8 +1102,9 @@ Public Class Gestion
         userAD.accountDeletionDT.Value.Date <> dateSuppressionExceptionUtc.Date OrElse
         userAD.accountDeletionDate <> accountDeletionDateAttendue
     End Function
+
     Private Shared Sub AppliquerDatesException(ByVal dirEntry As DirectoryEntry, ByVal userAD As UtilisateurADIndex, ByVal dateFinException As Date)
-        Dim dateSuppressionException As Date = dateFinException.Date.AddMonths(3)
+        Dim dateSuppressionException As Date = CalculerDateSuppressionException(userAD, dateFinException)
         Dim dateFinExceptionUtc As Date = dateFinException.Date.ToUniversalTime()
         Dim dateSuppressionExceptionUtc As Date = dateSuppressionException.ToUniversalTime()
         Dim accountDeletionDate As String = dateSuppressionException.ToString("dd/MM/yyyy")

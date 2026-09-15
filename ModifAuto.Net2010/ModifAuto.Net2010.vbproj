@@ -286,8 +286,7 @@ if defined IncrementVersion (
   </Target>
   -->
   <PropertyGroup>
-    <PreBuildEvent>echo PREBUILD Configuration=$(ConfigurationName)
-if /I "$(ConfigurationName)"=="Release" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(ProjectDir)IncrementVersion.ps1" -Mode Prepare -AssemblyInfo "$(ProjectDir)My Project\AssemblyInfo.vb" -Configuration "$(ConfigurationName)"
+    <PreBuildEvent>if /I "$(ConfigurationName)"=="Release" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(ProjectDir)IncrementVersion.ps1" -Mode Prepare -AssemblyInfo "$(ProjectDir)My Project\AssemblyInfo.vb" -Configuration "$(ConfigurationName)"
 if /I "$(ConfigurationName)"=="onServer" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(ProjectDir)IncrementVersion.ps1" -Mode Prepare -AssemblyInfo "$(ProjectDir)My Project\AssemblyInfo.vb" -Configuration "$(ConfigurationName)"</PreBuildEvent>
   </PropertyGroup>
 </Project>

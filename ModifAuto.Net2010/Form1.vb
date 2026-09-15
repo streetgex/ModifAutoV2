@@ -886,7 +886,6 @@ Module Module1
 
         Dim dateContrat As Date
         Dim dateException As Date
-        Dim dateBase As Date
 
         Dim contratValide As Boolean =
         Date.TryParseExact(userRH.extensionAttribute1_finDeContrat,
@@ -902,7 +901,8 @@ Module Module1
             Exit Sub
         End If
 
-        dateBase = dateContrat
+        Dim dateDesactivation As Date = dateContrat.Date
+        Dim dateSuppression As Date = dateContrat.Date.AddMonths(3)
 
         Dim finException As String = Gestion.EndDateExceptionUsers(userRH.login_samAccountName)
         If finException <> "False" Then
@@ -911,15 +911,18 @@ Module Module1
                               culture,
                               style,
                               dateException) Then
-                If dateException > dateContrat Then
-                    dateBase = dateException
+                If dateException.Date > dateDesactivation Then
+                    dateDesactivation = dateException.Date
+                End If
+                If dateException.Date > dateSuppression Then
+                    dateSuppression = dateException.Date
                 End If
             End If
         End If
 
-        userRH.accountDeactivationDT_finDeContrat = dateBase.Date
-        userRH.accountDeletionDate_finDeContratPlus3Mois = dateBase.AddMonths(3).ToString("dd/MM/yyyy")
-        userRH.accountDeletionDT_finDeContratPlus3Mois = dateBase.AddMonths(3).Date
+        userRH.accountDeactivationDT_finDeContrat = dateDesactivation
+        userRH.accountDeletionDate_finDeContratPlus3Mois = dateSuppression.ToString("dd/MM/yyyy")
+        userRH.accountDeletionDT_finDeContratPlus3Mois = dateSuppression
     End Sub
 
     Private Function TrouverDestinationsPourUtilisateur(userRH As UtilisateurRH) As List(Of DestinationInfo)
@@ -2637,6 +2640,31 @@ fermerUsing:
 
     End Function
 
+    Public Function MailClotureException(ByVal prenom As String, ByVal dateFinException As String, ByVal dateSuppressionPrevue As String) As String
+        Return "<!DOCTYPE html PUBLIC ""-//W3C//DTD XHTML 1.0 Transitional//EN"" ""http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"">" &
+        "<html>" &
+        "<head>" &
+        "<meta http-equiv=""Content-Type"" content=""text/html; charset=utf-8"">" &
+        "<title>FIN D'EXCEPTION DU COMPTE</title>" &
+        "</head>" &
+        "<body>" &
+        vbCrLf & "English version below...<BR><BR>" &
+        vbCrLf & vbCrLf & "Bonjour " & prenom & ", <BR><BR>" &
+        vbCrLf & vbCrLf & "L'exception permettant le maintien de votre compte informatique à l'IGBMC prendra fin le " & dateFinException & ".<BR><BR>" &
+        vbCrLf & "Sans mise à jour de votre situation par les ressources humaines avant cette date, dans le cadre d'un nouveau contrat, votre compte sera automatiquement désactivé. Vos accès aux ressources informatiques de l'IGBMC ne seront alors plus disponibles.<BR><BR>" &
+        vbCrLf & "Votre compte et votre boîte mail seront définitivement détruits le " & dateSuppressionPrevue & ".<BR><BR>" &
+        vbCrLf & "Si cette échéance vous semble anormale, merci de faire un ticket à <a href=""mailto:helpdesk@igbmc.fr"">helpdesk@igbmc.fr</a>.<BR><BR>" &
+        vbCrLf & vbCrLf & "Le service Informatique.<BR><BR><BR>" &
+        "<hr>" &
+        vbCrLf & vbCrLf & vbCrLf & "Dear " & prenom & ", <BR><BR>" &
+        vbCrLf & vbCrLf & "The exception allowing your IGBMC IT account to remain active will end on " & dateFinException & ".<BR><BR>" &
+        vbCrLf & "Unless Human Resources update your situation before that date as part of a new contract, your account will be automatically disabled. You will then no longer have access to IGBMC IT resources.<BR><BR>" &
+        vbCrLf & "Your account and mailbox will be permanently deleted on " & dateSuppressionPrevue & ".<BR><BR>" &
+        vbCrLf & "If this deadline appears incorrect, please submit a ticket to <a href=""mailto:helpdesk@igbmc.fr"">helpdesk@igbmc.fr</a>.<BR><BR>" &
+        vbCrLf & vbCrLf & "The IT department.<BR>" &
+        vbCrLf & "</body>" &
+        "</html>"
+    End Function
     Public Function UserMembreDeDestination(ByVal username As String) As String()
         Dim appartientA As String()
         Dim Entry As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath("DC=igbmc,DC=u-strasbg,DC=fr"), Nothing, Nothing, auth)
@@ -3301,11 +3329,12 @@ fermerUsing:
         Dim dateNowU As String = Now.Date.ToString("yyyyMMddHHmmss.sZ")
 
         Try
-            Dim dateDeSuppressionPrevueUniversal As String = Now.Date.AddDays(j).ToString("yyyyMMddHHmmss.sZ")
-            Dim dateDeSuppressionPrevueTxt As String = Now.Date.AddDays(j).ToString("dd/MM/yyyy")
+            Dim dateEcheanceUniversal As String = Now.Date.AddDays(j).ToString("yyyyMMddHHmmss.sZ")
+            Dim dateEcheanceTxt As String = Now.Date.AddDays(j).ToString("dd/MM/yyyy")
+
             Using objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursDesactives), Nothing, Nothing, auth)
                 Using searcher As DirectorySearcher = New DirectorySearcher(objAD)
-                    searcher.Filter = "(&(objectClass=person)(objectClass=user)(accountDeletionDT=" & dateDeSuppressionPrevueUniversal & "))"
+                    searcher.Filter = "(&(objectClass=person)(objectClass=user)(accountDeletionDT=" & dateEcheanceUniversal & "))"
 
                     Dim results As SearchResultCollection = searcher.FindAll
                     For Each result As SearchResult In results
@@ -3315,7 +3344,7 @@ fermerUsing:
                             adresseMail = userAD.Properties("mail")(0)
                             Dim prenom As String = userAD.Properties("givenName")(0)
                             Dim dateDefinDeContrat As String = userAD.Properties("extensionAttribute1").Value
-                            Dim mail = MailCloture(prenom, dateDeSuppressionPrevueTxt, dateDefinDeContrat)
+                            Dim mail = MailCloture(prenom, dateEcheanceTxt, dateDefinDeContrat)
 
                             ServiceMail.SendEmail("noreply@igbmc.fr", adresseMail & ";Bcc:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail)
                             Commun.Journal("Mail de fermeture de compte envoyé (-" & j - 1 & ") : " & adresseMail)
@@ -3325,11 +3354,32 @@ fermerUsing:
                 End Using
             End Using
 
+            Using objAD As DirectoryEntry = New DirectoryEntry("LDAP://" & Commun.LdapPath(OUUtilisateursExceptions), Nothing, Nothing, auth)
+                Using searcher As DirectorySearcher = New DirectorySearcher(objAD)
+                    searcher.Filter = "(&(objectClass=person)(objectClass=user)(accountDeactivationDT=" & dateEcheanceUniversal & "))"
+
+                    Dim results As SearchResultCollection = searcher.FindAll
+                    For Each result As SearchResult In results
+                        Using userAD As DirectoryEntry = result.GetDirectoryEntry
+                            adresseMail = userAD.Properties("mail")(0)
+                            Dim prenom As String = userAD.Properties("givenName")(0)
+                            Dim dateFinException As String = CDate(userAD.Properties("accountDeactivationDT").Value).ToString("dd/MM/yyyy")
+                            Dim dateSuppressionPrevue As String = CDate(userAD.Properties("accountDeletionDT").Value).ToString("dd/MM/yyyy")
+                            Dim mail = MailClotureException(prenom, dateFinException, dateSuppressionPrevue)
+
+                            ServiceMail.SendEmail("noreply@igbmc.fr", adresseMail & ";Bcc:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail)
+                            Commun.Journal("Mail de fin d'exception envoyé (-" & (j - 1) & ") : " & adresseMail)
+                            ctrlMailEnvoye = True
+                        End Using
+                    Next
+                End Using
+            End Using
+
             If ctrlMailEnvoye = True Then
-                Commun.Journal("Envoi des mails de cloture de compte (j-" & j & ") terminé avec succes", False)
+                Commun.Journal("Envoi des mails de cloture de compte et de fin d'exception (j-" & j & ") terminé avec succes", False)
             End If
         Catch ex As Exception
-            Commun.Journal("ERREUR : EnvoiMailCompteExpireXjour : Mail de fermeture de compte (-" & j & ") : " & adresseMail & " : " & ex.Message, True)
+            Commun.Journal("ERREUR : EnvoiMailCompteExpireXjour : Mail de fermeture de compte ou de fin d'exception (-" & j & ") : " & adresseMail & " : " & ex.Message, True)
         End Try
     End Sub
     Public Function ChercherNPlus1deDestination(ByVal idUser As String, ByVal idDest As String) As String

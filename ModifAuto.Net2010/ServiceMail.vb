@@ -21,7 +21,7 @@ Public Class ServiceMail
         Public Property DernierEchec As DateTime
     End Class
 
-    Public Shared Sub SendEmail(ByVal sender As String, ByVal recipient As String, ByVal subject As String, ByVal body As String, Optional ByVal attachmentString As String = "")
+    Public Shared Function SendEmail(ByVal sender As String, ByVal recipient As String, ByVal subject As String, ByVal body As String, Optional ByVal attachmentString As String = "") As Boolean
         Dim mail As New MailEnAttente With {
             .Sender = sender,
             .Recipient = recipient,
@@ -32,14 +32,15 @@ Public Class ServiceMail
 
         Dim erreur As String = Nothing
         If EssayerEnvoyerMail(mail, erreur) Then
-            Exit Sub
+            Return True
         End If
 
         mail.NombreEchecs = 1
         mail.DernierEchec = Now
         AjouterMailEnAttente(mail)
         Commun.Journal("ERREUR : echec de l'envoi de mail sur le port 587 avec TLS : " & erreur & ". Mail place en attente.")
-    End Sub
+        Return False
+    End Function
 
     Public Shared Sub TraiterMailsEnAttente()
         SyncLock QueueLock
