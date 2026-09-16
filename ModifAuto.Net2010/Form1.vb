@@ -36,6 +36,7 @@ Module Module1
     Public dureeMaxJson As Integer = Convert.ToInt32(ini.ReadValue("MODIFAUTO", "DureeMaxJson"))
     Public dureeGraceSuppressionCompteInterneMois As Integer = ini.ReadValue("MODIFAUTO", "dureeGraceSuppressionCompteInterneMois", 3)
     Public dureeGraceSuppressionCompteExceptionMois As Integer = ini.ReadValue("MODIFAUTO", "dureeGraceSuppressionCompteExceptionMois", 3)
+    Public mailClotureCompteEnvoyéJmoins As String = ini.ReadValue("MODIFAUTO", "mailClotureCompteEnvoyéJmoins")
     Public mailDureeMaxJson As String = ini.ReadValue("MODIFAUTO", "mailDureeMaxJson")
     Public sendMSreport As Boolean = ini.ReadValue("MODIFAUTO", "sendMSreport", False)
     Public sendMailOO As Boolean = ini.ReadValue("MODIFAUTO", "sendMailOO", False)
@@ -182,13 +183,7 @@ Module Module1
             'Commun.Journal("Gestion de l'expiration des comptes/ mots de passe", False)
             'ExpirationMDP()
 
-            Commun.Journal("Debut de la gestion de l'envoi des mails de cloture de compte", False)
-            EnvoiMailCompteExpireXjour(30)
-            EnvoiMailCompteExpireXjour(15)
-            EnvoiMailCompteExpireXjour(7)
-            EnvoiMailCompteExpireXjour(2)
-            EnvoiMailCompteExpireXjour(1)
-            Commun.Journal("Fin de la gestion de l'envoi des mails de cloture de compte", False)
+            GestionMailCompteExpire()
 
 
             'Changement tous les mois pair, le premier du mois, des mots de passe des comptes prestataires de l'imagerie
@@ -3322,6 +3317,19 @@ fermerUsing:
         Catch ex As Exception
             Commun.Journal("ERREUR : ChangePasswordAccountPrestaImagerie : " & ex.Message, True)
         End Try
+    End Sub
+
+    Public Sub GestionMailCompteExpire()
+        Commun.Journal("Debut de la gestion de l'envoi des mails de cloture de compte", False)
+
+        'Array.ConvertAll parcourt chaque valeur obtenue par Split et la convertit de String en Integer avec CInt.
+        Dim tabDays As Integer() = Array.ConvertAll(Split(mailClotureCompteEnvoyéJmoins, ","), Function(s) CInt(s))
+
+        For Each day In tabDays
+            EnvoiMailCompteExpireXjour(Day)
+        Next day
+        Commun.Journal("Fin de la gestion de l'envoi des mails de cloture de compte", False)
+
     End Sub
 
     Public Sub EnvoiMailCompteExpireXjour(ByVal j As Integer)
