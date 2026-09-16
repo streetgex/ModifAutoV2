@@ -65,8 +65,8 @@ Public Class UtilisateurRH
                               System.Globalization.DateTimeStyles.None,
                               dateFin) Then
                 accountDeactivationDT_finDeContrat = dateFin.Date
-                accountDeletionDate_finDeContratPlus3Mois = dateFin.AddMonths(3).ToString("dd/MM/yyyy")
-                accountDeletionDT_finDeContratPlus3Mois = dateFin.AddMonths(3).Date
+                accountDeletionDate_finDeContratPlus3Mois = dateFin.AddMonths(dureeGraceSuppressionCompteInterneMois).ToString("dd/MM/yyyy")
+                accountDeletionDT_finDeContratPlus3Mois = dateFin.AddMonths(dureeGraceSuppressionCompteInterneMois).Date
             Else
                 accountDeactivationDT_finDeContrat = Nothing
                 accountDeletionDate_finDeContratPlus3Mois = ""

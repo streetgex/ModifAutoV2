@@ -106,7 +106,7 @@ Public Class Gestion
     End Sub
 
     Private Shared Sub AppliquerDateFinContratRetrouvee(ByVal userAD As DirectoryEntry, ByVal dateFinContratTxt As String, ByVal dateFinContrat As Date, Optional ByVal renseignerDateOfficielle As Boolean = True)
-        Dim dateSuppression As Date = dateFinContrat.Date.AddMonths(3)
+        Dim dateSuppression As Date = dateFinContrat.Date.AddMonths(dureeGraceSuppressionCompteInterneMois)
         Dim dateFinContratUtc As Date = dateFinContrat.Date.ToUniversalTime()
         Dim dateSuppressionUtc As Date = dateSuppression.ToUniversalTime()
 
@@ -978,7 +978,7 @@ Public Class Gestion
                             Commun.Journal(vbTab & "ATTENTION : GestionReactiveDesactiveCompte : date de fin de contrat absente, utilisation de la date du jour pour les attributs techniques : " & dirEntry.Name & " : employeeID : " & id, True)
                         End If
 
-                        Dim dateSortiePrevue As Date = dateReferenceDesactivation.AddMonths(3)
+                        Dim dateSortiePrevue As Date = dateReferenceDesactivation.AddMonths(dureeGraceSuppressionCompteInterneMois)
                         Dim dateReferenceDesactivationUtc As Date = dateReferenceDesactivation.ToUniversalTime()
                         Dim dateSortiePrevueUtc As Date = dateSortiePrevue.ToUniversalTime()
 
@@ -1032,15 +1032,28 @@ Public Class Gestion
 
                     Dim dateDeSuppressionPrevue As String = userAD.accountDeletionDate
 
+                    Dim libelleMail As String = "Mail de fermeture de compte"
+
                     Try
-                        Dim mail As String = MailCloture(prenom, dateDeSuppressionPrevue, dateDefinDeContrat)
-                        If ServiceMail.SendEmail("noreply@igbmc.fr", adresseMail & ";Bcc:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail) Then
-                            Commun.Journal(vbTab & "Mail de fermeture de compte envoyé : " & adresseMail)
+                        Dim mail As String
+
+                        If userAD.isInOUExceptions AndAlso
+                           dureeGraceSuppressionCompteExceptionMois = 0 AndAlso
+                           userAD.accountDeactivationDT.HasValue Then
+                            Dim dateFinExceptionMail As String = userAD.accountDeactivationDT.Value.ToLocalTime().ToString("dd/MM/yyyy")
+                            mail = MailClotureException(prenom, dateFinExceptionMail, dateDeSuppressionPrevue)
+                            libelleMail = "Mail de fin d'exception"
                         Else
-                            Commun.Journal(vbTab & "Mail de fermeture de compte placé en attente : " & adresseMail, False)
+                            mail = MailCloture(prenom, dateDeSuppressionPrevue, dateDefinDeContrat)
+                        End If
+
+                        If ServiceMail.SendEmail("noreply@igbmc.fr", adresseMail & ";Bcc:serviceinfo@igbmc.fr", "ARRET DU COMPTE", mail) Then
+                            Commun.Journal(vbTab & libelleMail & " envoyé : " & adresseMail)
+                        Else
+                            Commun.Journal(vbTab & libelleMail & " placé en attente : " & adresseMail, False)
                         End If
                     Catch ex As Exception
-                        Commun.Journal(vbTab & "ERREUR : Mail de fermeture de compte envoyé : " & adresseMail & " : " & ex.Message, True)
+                        Commun.Journal(vbTab & "ERREUR : Échec de l'envoi : " & libelleMail & " : " & adresseMail & " : " & ex.Message, True)
                     End Try
 
                     'Deplacement final du compte vers l'OU des comptes desactives.
@@ -1067,7 +1080,7 @@ Public Class Gestion
     )
     End Function
     Private Shared Function CalculerDateSuppressionException(ByVal userAD As UtilisateurADIndex, ByVal dateFinException As Date) As Date
-        Dim dateSuppression As Date = dateFinException.Date.AddMonths(3)
+        Dim dateSuppression As Date = dateFinException.Date.AddMonths(dureeGraceSuppressionCompteExceptionMois)
         Dim dateFinContrat As Date
 
         If userAD Is Nothing OrElse Not Date.TryParseExact(
@@ -1080,7 +1093,7 @@ Public Class Gestion
             Return dateSuppression
         End If
 
-        dateSuppression = dateFinContrat.Date.AddMonths(3)
+        dateSuppression = dateFinContrat.Date.AddMonths(dureeGraceSuppressionCompteInterneMois)
         If dateFinException.Date > dateSuppression Then
             dateSuppression = dateFinException.Date
         End If

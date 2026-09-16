@@ -34,6 +34,8 @@ Module Module1
     Public dossierPhotos As String = ini.ReadValue("MODIFAUTO", "dossierPhotos", "\\Space2\photos-RH\") '"\\Space2\photos-RH\"
     Public cheminPartage As String = ini.ReadValue("MODIFAUTO", "CheminPartage")
     Public dureeMaxJson As Integer = Convert.ToInt32(ini.ReadValue("MODIFAUTO", "DureeMaxJson"))
+    Public dureeGraceSuppressionCompteInterneMois As Integer = ini.ReadValue("MODIFAUTO", "dureeGraceSuppressionCompteInterneMois", 3)
+    Public dureeGraceSuppressionCompteExceptionMois As Integer = ini.ReadValue("MODIFAUTO", "dureeGraceSuppressionCompteExceptionMois", 3)
     Public mailDureeMaxJson As String = ini.ReadValue("MODIFAUTO", "mailDureeMaxJson")
     Public sendMSreport As Boolean = ini.ReadValue("MODIFAUTO", "sendMSreport", False)
     Public sendMailOO As Boolean = ini.ReadValue("MODIFAUTO", "sendMailOO", False)
@@ -902,7 +904,7 @@ Module Module1
         End If
 
         Dim dateDesactivation As Date = dateContrat.Date
-        Dim dateSuppression As Date = dateContrat.Date.AddMonths(3)
+        Dim dateSuppression As Date = dateContrat.Date.AddMonths(dureeGraceSuppressionCompteInterneMois)
 
         Dim finException As String = Gestion.EndDateExceptionUsers(userRH.login_samAccountName)
         If finException <> "False" Then
@@ -914,8 +916,9 @@ Module Module1
                 If dateException.Date > dateDesactivation Then
                     dateDesactivation = dateException.Date
                 End If
-                If dateException.Date > dateSuppression Then
-                    dateSuppression = dateException.Date
+                Dim dateSuppressionException As Date = dateException.Date.AddMonths(dureeGraceSuppressionCompteExceptionMois)
+                If dateSuppressionException > dateSuppression Then
+                    dateSuppression = dateSuppressionException
                 End If
             End If
         End If
